@@ -1,0 +1,52 @@
+services:
+  canton-data-app-frontend:
+    image: canton-translate-ui
+    container_name: canton-data-app-frontend
+    # ports:
+    #   - "8011:3000"
+    environment:
+      PORT: "3000"
+      CANTON_TRANSLATE_BASE_URL: "http://canton-data-app-backend:8010" # canton-data-app-backend endpoint
+      VITE_AUTH0_DOMAIN: "dev-x0t1ezjvdnjqpy3l.us.auth0.com" # auth0 domain
+      VITE_AUTH0_CLIENT_ID: "7nWfgk2UKmzBLPXfY2UagfMH0R7RaDIo" # auth0 validator client id
+      VITE_AUTH0_REDIRECT_URI: "https://canton-translate-ui-devnet.dev.noves.fi/callback" # ui endpoint through existing nginx
+      VITE_AUTH0_LOGOUT_URL: "https://canton-translate-ui-devnet.dev.noves.fi" # ui endpoint through existing nginx
+    volumes:
+      - data:/app/data
+      - exports:/app/exports
+    networks:
+      - splice-validator_splice_validator
+    depends_on:
+      - canton-data-app-backend
+    restart: unless-stopped
+
+  canton-data-app-backend:
+    image: canton-translate
+    container_name: canton-data-app-backend
+    # ports:
+    #   - "8010:8080"
+    environment:
+      LOGGING_LEVEL: "INFO"
+      DB_PATH: "./index.db"
+      DB_WRITE_BATCH_SIZE: "500"
+      DB_WRITE_PERIOD: "5"
+      CANTON_NODE_ADDR: "canton-devnet-grpc.noves.fi:8443"
+      CANTON_NODE_CERT_FILE_PATH: "/code/mainnet_certificate.crt"
+      INDEX_MONITOR_PERIOD: "15"
+
+    volumes:
+      - data:/app/data
+      - exports:/app/exports
+    networks:
+      - splice-validator_splice_validator
+    restart: unless-stopped
+
+  # nginx service removed - using existing splice-validator nginx
+
+networks:
+  splice-validator_splice_validator:
+    external: true
+
+volumes:
+  data:
+  exports:
