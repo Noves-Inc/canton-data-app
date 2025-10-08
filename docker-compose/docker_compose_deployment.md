@@ -250,20 +250,6 @@ http {
 }
 ```
 
-### Reload Nginx
-
-```bash
-# For system nginx
-sudo nginx -t && sudo nginx -s reload
-
-# For Docker nginx
-docker exec <nginx_container> nginx -t
-docker exec <nginx_container> nginx -s reload
-
-# Or restart the container
-docker restart <nginx_container>
-```
-
 ---
 
 ## Deployment
@@ -287,7 +273,21 @@ docker compose up -d
 docker compose -p canton-data-app up -d
 ```
 
-### Step 3: Monitor Startup
+### Step 3: Reload Nginx
+
+```bash
+# For system nginx
+sudo nginx -t && sudo nginx -s reload
+
+# For Docker nginx
+docker exec <nginx_container> nginx -t
+docker exec <nginx_container> nginx -s reload
+
+# Or restart the container
+docker restart <nginx_container>
+```
+
+### Step 4: Monitor Startup
 
 Watch logs for successful startup:
 

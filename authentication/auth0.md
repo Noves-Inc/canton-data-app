@@ -181,6 +181,11 @@ docker run --rm --network $DOCKER_NETWORK fullstorydev/grpcurl -plaintext \
 - Users need `can_read_as` rights to view data in the Data App
 - Common Auth0 `sub` formats: `auth0|<id>`, `google-oauth2|<id>`, etc.
 
+
+At this point, Auth0 should be setup.
+The docs below includes information on how to verify and test the Auth0 setup. This requires the application to be deployed first. You can return to it after completing the deployment.
+Next Installation Steps at: https://github.com/Noves-Inc/canton-data-app/blob/master/docker-compose/docker_compose_deployment.md.
+
 ---
 
 ## Verification & Testing

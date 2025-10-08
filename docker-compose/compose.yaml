@@ -29,7 +29,7 @@ services:
       - "8090:8090"
     environment:
     # Local database path
-      DB_PATH: "./index.db"
+      INDEX_DB_PATH: "./index.db"
 
       # Canton Ledger API connection
       # OR if using external participant:
