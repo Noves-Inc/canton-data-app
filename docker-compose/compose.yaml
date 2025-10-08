@@ -5,12 +5,14 @@ services:
     ports:
       - "8091:8091"
     environment:
-      PORT: "8091"
-      CANTON_TRANSLATE_BASE_URL: "http://canton-data-app-backend:8090" # Backend endpoint
-      VITE_AUTH0_DOMAIN: "" # Auth0 domain
-      VITE_AUTH0_CLIENT_ID: "" # Auth0 SPA client id
-      VITE_AUTH0_REDIRECT_URI: "https://canton-translate-ui-devnet.dev.noves.fi/callback"
-      VITE_AUTH0_LOGOUT_URL: "https://canton-translate-ui-devnet.dev.noves.fi"
+      # Backend endpoint (internal Docker DNS)
+      CANTON_TRANSLATE_BASE_URL: "http://canton-data-app-backend:8090"
+      
+      # Auth0 configuration (SPA app from Auth0 Setup section)
+      VITE_AUTH0_DOMAIN: "your-tenant.us.auth0.com"
+      VITE_AUTH0_CLIENT_ID: "<SPA_CLIENT_ID>"  # From SPA app, NOT M2M app
+      VITE_AUTH0_REDIRECT_URI: "https://canton-translate-ui.yourdomain.com/callback"
+      VITE_AUTH0_LOGOUT_URL: "https://canton-translate-ui.yourdomain.com"
     volumes:
       - data:/app/data
       - exports:/app/exports
@@ -26,19 +28,30 @@ services:
     ports:
       - "8090:8090"
     environment:
-      INDEX_DB_PATH: "./index.db" # Database storage location (points to persistent volume)
-      CANTON_NODE_ADDR: "splice-validator-participant-1:5001" # Canton Ledger API endpoint
-      CANTON_NODE_CERT_FILE_PATH: "" # TLS certificate path (empty string = no TLS)
+    # Local database path
+      DB_PATH: "./index.db"
+
+      # Canton Ledger API connection
+      # OR if using external participant:
+      # CANTON_NODE_ADDR: "canton-validator.yourdomain.com:8443"
+      CANTON_NODE_ADDR: "participant:5001"  # Internal Docker DNS
+      
+      # CANTON_NODE_CERT_FILE_PATH: "/code/validator_certificate.crt"
+      CANTON_NODE_CERT_FILE_PATH: ""
     volumes:
       - data:/app/data
       - exports:/app/exports
-      # - ./grpc_certificate.crt:/code/grpc_certificate.crt -> set this if you're using TLS and need to mount the certificate
+      # set this if you're using TLS and need to mount the certificate
+      # - ./certs/validator_certificate.crt:/code/validator_certificate.crt:ro
+      
     networks:
       - splice-validator_splice_validator
     restart: unless-stopped
+
 networks:
   splice-validator_splice_validator:
     external: true
+    # Change to your actual network name
 
 volumes:
   data: # Persistent storage for backend database
