@@ -1,4 +1,4 @@
-# Canton Data App
+# Data App
 
 ## Table of Contents
 
@@ -22,7 +22,7 @@
 
 ## Overview
 
-Welcome to the Canton Data App, by Noves.
+Welcome to the Noves Data App for Canton.
 
 This is a self-hosted application that takes care of sourcing, indexing, processing and visualizing your Canton data for a variety of reporting scenarios and use cases.
 
@@ -32,7 +32,7 @@ Because it runs in your infrastructure and uses your existing authentication sys
 
 ## Components
 
-The Canton Data App consists of two primary components:
+The Data App consists of two primary components:
 
 ### Backend Indexer/Processor
 
@@ -82,14 +82,14 @@ The backend will always work with any authentication system that is compatible w
 
 #### Auth0 Setup
 
-The Canton Data App requires Auth0 for end user authentication. You will need to:
+The Data App requires Auth0 for end user authentication. You will need to:
 
 1. Create an Auth0 Single Page Application (SPA) for user authentication
 2. Configure Canton users with appropriate read permissions for each user (this is already done if you're using Auth0 as your primary authentication provider in the validator)
 
 **Note:** The backend does not authenticate with Auth0 directly. It receives JWT tokens from the frontend and passes them through to Canton's Ledger API.
 
-📄 **For detailed Auth0 setup instructions, see: [authentication/auth0_setup.md](authentication/auth0_setup.md)**
+📄 **For detailed Auth0 setup instructions, see: [authentication/auth0.md](authentication/auth0.md)**
 
 #### Authentication Flow
 
@@ -162,9 +162,9 @@ Both containers are configured via environment variables. Below is a comprehensi
 | `PORT` | `8091` | The port the frontend server listens on |
 | `CANTON_TRANSLATE_BASE_URL` | `http://canton-data-app-backend:8090` | Internal URL to reach the backend service. For Docker Compose, this is the backend container name and port. For Kubernetes, this is the backend service name. |
 | `VITE_AUTH0_DOMAIN` | `dev-xxx.us.auth0.com` | Your Auth0 tenant domain |
-| `VITE_AUTH0_CLIENT_ID` | `abc123...` | The Client ID of your Auth0 SPA application (see [Auth0 Setup](authentication/auth0_setup.md)) |
-| `VITE_AUTH0_REDIRECT_URI` | `https://canton-translate-ui.yourdomain.com/callback` | The callback URL where Auth0 redirects after login. Must match the **Allowed Callback URLs** configured in your Auth0 SPA application. |
-| `VITE_AUTH0_LOGOUT_URL` | `https://canton-translate-ui.yourdomain.com` | The URL where users are redirected after logout. Must match the **Allowed Logout URLs** configured in your Auth0 SPA application. |
+| `VITE_AUTH0_CLIENT_ID` | `abc123...` | The Client ID of your Auth0 SPA application (see [Auth0 Setup](authentication/auth0.md)) |
+| `VITE_AUTH0_REDIRECT_URI` | `https://canton-data-ui.yourdomain.com/callback` | The callback URL where Auth0 redirects after login. Must match the **Allowed Callback URLs** configured in your Auth0 SPA application. |
+| `VITE_AUTH0_LOGOUT_URL` | `https://canton-data-ui.yourdomain.com` | The URL where users are redirected after logout. Must match the **Allowed Logout URLs** configured in your Auth0 SPA application. |
 
 ---
 
@@ -186,7 +186,7 @@ The backend has the following user-configurable environment variables:
 
 ### Before You Begin
 
-**Complete Auth0 setup first:** [authentication/auth0_setup.md](authentication/auth0_setup.md)
+**Complete Auth0 setup first:** [authentication/auth0.md](authentication/auth0.md)
 
 You'll need Auth0 credentials before proceeding with deployment.
 

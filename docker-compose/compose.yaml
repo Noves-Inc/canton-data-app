@@ -1,6 +1,6 @@
 services:
   canton-data-app-frontend:
-    image: canton-translate-ui
+    image: noves-canton-data-frontend
     container_name: canton-data-app-frontend
     ports:
       - "8091:8091"
@@ -9,8 +9,8 @@ services:
       CANTON_TRANSLATE_BASE_URL: "http://canton-data-app-backend:8090" # Backend endpoint
       VITE_AUTH0_DOMAIN: "" # Auth0 domain
       VITE_AUTH0_CLIENT_ID: "" # Auth0 SPA client id
-      VITE_AUTH0_REDIRECT_URI: "https://canton-translate-ui-devnet.dev.noves.fi/callback"
-      VITE_AUTH0_LOGOUT_URL: "https://canton-translate-ui-devnet.dev.noves.fi"
+      VITE_AUTH0_REDIRECT_URI: "https://canton-data-ui-devnet.dev.noves.fi/callback"
+      VITE_AUTH0_LOGOUT_URL: "https://canton-data-ui-devnet.dev.noves.fi"
     volumes:
       - data:/app/data
       - exports:/app/exports
@@ -21,7 +21,7 @@ services:
     restart: unless-stopped
 
   canton-data-app-backend:
-    image: canton-translate
+    image: noves-canton-data-backend
     container_name: canton-data-app-backend
     ports:
       - "8090:8090"

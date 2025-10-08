@@ -1,6 +1,6 @@
-# Auth0 Setup for Canton Data App
+# Auth0 Setup for Data App
 
-This guide explains how to configure Auth0 authentication for the Canton Data App. Auth0 is used to authenticate end users via the frontend UI, and the backend simply passes through the user's JWT token to the Ledger API.
+This guide explains how to configure Auth0 authentication for the Data App. Auth0 is used to authenticate end users via the frontend UI, and the backend simply passes through the user's JWT token to the Ledger API.
 
 ---
 
@@ -18,7 +18,7 @@ This guide explains how to configure Auth0 authentication for the Canton Data Ap
 
 ## Overview
 
-The Canton Data App requires **one Auth0 application**:
+The Data App requires **one Auth0 application**:
 
 **Single Page Application (SPA)** - For user authentication
 - Allows end users to log into the dashboard
@@ -51,7 +51,7 @@ The Canton Data App requires **one Auth0 application**:
 #### Create SPA Application
 
 1. In Auth0 Dashboard → **Applications → Applications → Create Application**
-2. Name: `Canton Data App UI` (or similar)
+2. Name: `Data App UI` (or similar)
 3. Type: **Single Page Applications**
 4. Click **Create**
 
@@ -62,19 +62,19 @@ In the application's **Settings** tab:
 **Application URIs:**
 - **Allowed Callback URLs**: 
   ```
-  https://canton-translate-ui.yourdomain.com/callback
+  https://canton-data-ui.yourdomain.com/callback
   ```
 - **Allowed Logout URLs**: 
   ```
-  https://canton-translate-ui.yourdomain.com
+  https://canton-data-ui.yourdomain.com
   ```
 - **Allowed Web Origins**: 
   ```
-  https://canton-translate-ui.yourdomain.com
+  https://canton-data-ui.yourdomain.com
   ```
 - **Allowed Origins (CORS)**: 
   ```
-  https://canton-translate-ui.yourdomain.com
+  https://canton-data-ui.yourdomain.com
   ```
 
 **Note:** Replace `yourdomain.com` with your actual domain.
@@ -118,7 +118,7 @@ Auth0 uses "audiences" to identify which API a token is intended for. Your Canto
 
 ## Canton User & Party Setup
 
-For users to view data in the Canton Data App, they must have Canton users with `can_read_as` rights for the relevant parties. This is the same setup used by Canton's native wallet.
+For users to view data in the Data App, they must have Canton users with `can_read_as` rights for the relevant parties. This is the same setup used by Canton's native wallet.
 
 > **Important:** If you're already using Auth0 with your Canton validator (e.g., for the Canton wallet), your users are likely already configured. **You can skip to [Verification & Testing](#verification--testing).**
 
@@ -128,7 +128,7 @@ Only if you're:
 - Setting up Auth0 authentication for the first time, OR  
 - Granting additional users access to specific parties
 
-If your users can already log into the Canton wallet with Auth0, they can use the Canton Data App with the same credentials—no additional setup needed.
+If your users can already log into the Canton wallet with Auth0, they can use the Data App with the same credentials—no additional setup needed.
 
 ### Vocabulary
 
@@ -178,7 +178,7 @@ docker run --rm --network $DOCKER_NETWORK fullstorydev/grpcurl -plaintext \
 
 **Key Requirements:**
 - The Canton `USER_ID` must exactly match the `sub` claim from the user's Auth0 JWT
-- Users need `can_read_as` rights to view data in the Canton Data App
+- Users need `can_read_as` rights to view data in the Data App
 - Common Auth0 `sub` formats: `auth0|<id>`, `google-oauth2|<id>`, etc.
 
 ---
@@ -246,7 +246,7 @@ If successful, you'll see a stream of transactions (or an empty stream if no tra
 
 ### Test Frontend Login
 
-1. Navigate to your frontend URL (e.g., `https://canton-translate-ui.yourdomain.com`)
+1. Navigate to your frontend URL (e.g., `https://canton-data-ui.yourdomain.com`)
 2. Click "Log in"
 3. You should be redirected to Auth0's login page
 4. After successful authentication, you should be redirected back to the dashboard
