@@ -25,8 +25,6 @@ services:
     container_name: canton-data-app-backend
     ports:
       - "8090:8090"
-    ports:
-      - "8090:8090"
     environment:
       INDEX_DB_PATH: "./index.db" # Database storage location (points to persistent volume)
       CANTON_NODE_ADDR: "splice-validator-participant-1:5001" # Canton Ledger API endpoint
@@ -34,7 +32,7 @@ services:
     volumes:
       - data:/app/data
       - exports:/app/exports
-      - ./grpc_certificate.crt:/code/grpc_certificate.crt
+      # - ./grpc_certificate.crt:/code/grpc_certificate.crt -> set this if you're using TLS and need to mount the certificate
     networks:
       - splice-validator_splice_validator
     restart: unless-stopped

@@ -49,7 +49,7 @@ Both containers run in the same Docker network as your Canton validator node (`s
 
 **Before proceeding with deployment, complete the Auth0 setup:**
 
-📄 **[Auth0 Setup Guide](auth0_setup.md)**
+📄 **[Auth0 Setup Guide](../authentication/auth0_setup.md)**
 
 ---
 
@@ -376,7 +376,7 @@ docker run --rm --network $DOCKER_NETWORK alpine nslookup canton-data-app-backen
 
 ### Auth0 Token Inspection
 
-For Auth0 token debugging and inspection commands, see [Auth0 Setup Guide - Token Inspection](auth0_setup.md#token-inspection).
+For Auth0 token debugging and inspection commands, see [Auth0 Setup Guide - Token Inspection](../authentication/auth0_setup.md#token-inspection).
 
 ---
 
@@ -398,7 +398,7 @@ For Auth0 token debugging and inspection commands, see [Auth0 Setup Guide - Toke
 
 **Solutions**:
 
-See the [Auth0 Setup Guide - Troubleshooting](auth0_setup.md#troubleshooting-auth0-issues) for detailed Auth0-specific debugging.
+See the [Auth0 Setup Guide - Troubleshooting](../authentication/auth0_setup.md#troubleshooting-auth0-issues) for detailed Auth0-specific debugging.
 
 
 ### No Data Showing in Dashboard
