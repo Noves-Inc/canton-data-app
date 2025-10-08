@@ -61,24 +61,16 @@ Edit `compose.yaml` and configure the `canton-data-app-backend` service:
 
 ```yaml
 environment:
-  # Logging
-  LOGGING_LEVEL: "INFO"  # Options: DEBUG, INFO, WARN, ERROR
-  
-  # Database (local SQLite)
+# Local database path
   DB_PATH: "./index.db"
-  DB_WRITE_BATCH_SIZE: "500"
-  DB_WRITE_PERIOD: "5"  # seconds
   
   # Canton Ledger API connection
   CANTON_NODE_ADDR: "participant:5001"  # Internal Docker DNS
   # OR if using external participant:
-  # CANTON_NODE_ADDR: "canton-validator.yourdomain.com:443"
+  # CANTON_NODE_ADDR: "canton-validator.yourdomain.com:8443"
   
   # TLS/Certificate (see next section)
-  # CANTON_NODE_CERT_FILE_PATH: "/code/validator_certificate.crt"
-  
-  # Indexing behavior
-  INDEX_MONITOR_PERIOD: "15"  # seconds between index updates
+  CANTON_NODE_CERT_FILE_PATH: ""
 ```
 
 ### Frontend Configuration

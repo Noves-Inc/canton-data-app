@@ -112,18 +112,18 @@ Both containers are configured via environment variables. Below is a comprehensi
 
 ### Backend Environment Variables
 
+The backend has the following user-configurable environment variables:
+
 | Variable | Example Value | Description |
 |----------|---------------|-------------|
-| `LOGGING_LEVEL` | `INFO` | Controls logging verbosity. Options: `DEBUG`, `INFO`, `WARN`, `ERROR` |
-| `DB_PATH` | `./index.db` | Path to the database file that stores indexed transaction data |
-| `DB_WRITE_BATCH_SIZE` | `500` | Number of transactions to batch together before writing to the database. Higher values improve performance but use more memory. |
-| `DB_WRITE_PERIOD` | `5` | How often (in seconds) to write batched data to the database |
-| `CANTON_NODE_ADDR` | `splice-validator-participant-1:5001` | Address of the Canton participant's Ledger API. For Docker Compose deployments on the same network, use the participant container name. For external connections, use the fully qualified domain name and port. |
-| `CANTON_NODE_CERT_FILE_PATH` | `""` or `/code/cert.crt` | Path to TLS certificate for secure gRPC communication with the Canton Node. **Must be an empty string (`""`)** if the Ledger API does not require TLS (common for Docker Compose deployments). If TLS is required, mount the certificate file and provide its path. |
-| `INDEX_MONITOR_PERIOD` | `15` | How often (in seconds) the indexer checks for new transactions from the Canton Network |
-| `MAX_WORKER_RETRIES` | `20` | Number of times the backend indexing worker will attempt to connect to the Ledger API before permanently failing. |
+| `INDEX_DB_PATH` | `.` | Path to the directory where the database file will be stored. This should point to persistent storage (a Docker volume or Kubernetes PVC). The backend will create `index.db` in this directory. |
+| `CANTON_NODE_ADDR` | `splice-validator-participant-1:5001` | Address of the Canton participant's Ledger API. For Docker Compose deployments on the same network, use the participant container name and port. For external connections, use the fully qualified domain name and port. |
+| `CANTON_NODE_CERT_FILE_PATH` | `""` or `/code/cert.crt` | Path to TLS certificate for secure gRPC communication with Canton. **Must be an empty string (`""`)** if the Ledger API does not require TLS (common for Docker Compose deployments). If TLS is required, mount the certificate file and provide its path. |
 
-**Important:** The backend does not require Auth0 credentials. It receives JWT tokens from the frontend and passes them through to Canton's Ledger API for validation. You can also call the backend's API directly if you generate a valid JWT token on your own.
+**Note:** The backend does not require Auth0 credentials. It receives JWT 
+tokens from the frontend and passes them through to Canton's Ledger API for 
+validation. You can also call the backend's API directly if you generate a 
+valid JWT token on your own.
 
 
 ## Installation steps

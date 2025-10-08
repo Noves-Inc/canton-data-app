@@ -2,15 +2,15 @@ services:
   canton-data-app-frontend:
     image: canton-translate-ui
     container_name: canton-data-app-frontend
-    # ports:
-    #   - "8091:8091"
+    ports:
+      - "8091:8091"
     environment:
       PORT: "8091"
-      CANTON_TRANSLATE_BASE_URL: "http://canton-data-app-backend:8090" # canton-data-app-backend endpoint
-      VITE_AUTH0_DOMAIN: "dev-x0t1ezjvdnjqpy3l.us.auth0.com" # auth0 domain
-      VITE_AUTH0_CLIENT_ID: "7nWfgk2UKmzBLPXfY2UagfMH0R7RaDIo" # auth0 SPA client id
-      VITE_AUTH0_REDIRECT_URI: "https://canton-translate-ui-devnet.dev.noves.fi/callback" # ui endpoint through existing nginx
-      VITE_AUTH0_LOGOUT_URL: "https://canton-translate-ui-devnet.dev.noves.fi" # ui endpoint through existing nginx
+      CANTON_TRANSLATE_BASE_URL: "http://canton-data-app-backend:8090" # Backend endpoint
+      VITE_AUTH0_DOMAIN: "dev-x0t1ezjvdnjqpy3l.us.auth0.com" # Auth0 domain
+      VITE_AUTH0_CLIENT_ID: "7nWfgk2UKmzBLPXfY2UagfMH0R7RaDIo" # Auth0 SPA client id
+      VITE_AUTH0_REDIRECT_URI: "https://canton-translate-ui-devnet.dev.noves.fi/callback"
+      VITE_AUTH0_LOGOUT_URL: "https://canton-translate-ui-devnet.dev.noves.fi"
     volumes:
       - data:/app/data
       - exports:/app/exports
@@ -26,38 +26,19 @@ services:
     ports:
       - "8090:8090"
     environment:
-      # Logging
-      LOGGING_LEVEL: "INFO"
-
-      # Database
-      DB_PATH: "./index.db"
-      DB_WRITE_BATCH_SIZE: "500"
-      DB_WRITE_PERIOD: "5"
-
-      # Canton Ledger API connection
-      CANTON_NODE_ADDR: "splice-validator-participant-1:5001"
-      CANTON_NODE_CERT_FILE_PATH: "" # Empty string = no TLS (common for local Docker Compose)
-
-      # Indexing
-      INDEX_MONITOR_PERIOD: "15"
-      MAX_WORKER_RETRIES: "20"
-
-      # NOTE: Backend does NOT need Auth0 credentials
-      # It receives JWT tokens from the frontend and passes them through to Canton
-
+      INDEX_DB_PATH: "./index.db" # Database storage location (points to persistent volume)
+      CANTON_NODE_ADDR: "splice-validator-participant-1:5001" # Canton Ledger API endpoint
+      CANTON_NODE_CERT_FILE_PATH: "" # TLS certificate path (empty string = no TLS)
     volumes:
-      - data:/app/data
-      - exports:/app/exports
+      - data:/app/data # Persistent storage for INDEX_DB_PATH
+      - exports:/app/exports # Persistent storage for exported data
     networks:
       - splice-validator_splice_validator
     restart: unless-stopped
-
-  # nginx service removed - using existing splice-validator nginx
-
 networks:
   splice-validator_splice_validator:
     external: true
 
 volumes:
-  data:
-  exports:
+  data: # Persistent storage for backend database
+  exports: # Persistent storage for exported files
