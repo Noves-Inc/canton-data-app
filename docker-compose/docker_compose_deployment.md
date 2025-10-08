@@ -1,4 +1,4 @@
-# Canton Data App - Docker Compose Deployment
+# Data App - Docker Compose Deployment
 
 ## Prerequisites
 - Docker & Docker Compose installed
@@ -26,7 +26,7 @@
 
 ## Architecture Overview
 
-The Canton Data App consists of two Docker containers:
+The Data App consists of two Docker containers:
 
 - **Backend (`canton-data-app-backend`)**: Indexes Canton ledger data via gRPC Ledger API, enriches it, and exposes a REST API
 - **Frontend (`canton-data-app-frontend`)**: UI that authenticates users via Auth0 and displays data from the backend
@@ -49,7 +49,7 @@ Both containers run in the same Docker network as your Canton validator node (`s
 
 **Before proceeding with deployment, complete the Auth0 setup:**
 
-📄 **[Auth0 Setup Guide](../authentication/auth0_setup.md)**
+📄 **[Auth0 Setup Guide](../authentication/auth0.md)**
 
 ---
 
@@ -87,8 +87,8 @@ environment:
   # Auth0 configuration (SPA app from Auth0 Setup section)
   VITE_AUTH0_DOMAIN: "your-tenant.us.auth0.com"
   VITE_AUTH0_CLIENT_ID: "<SPA_CLIENT_ID>"  # From SPA app, NOT M2M app
-  VITE_AUTH0_REDIRECT_URI: "https://canton-translate-ui.yourdomain.com/callback"
-  VITE_AUTH0_LOGOUT_URL: "https://canton-translate-ui.yourdomain.com"
+  VITE_AUTH0_REDIRECT_URI: "https://canton-data-ui.yourdomain.com/callback"
+  VITE_AUTH0_LOGOUT_URL: "https://canton-data-ui.yourdomain.com"
 ```
 
 ### Port Configuration
@@ -174,8 +174,8 @@ CANTON_NODE_ADDR: "canton-validator.yourdomain.com:8443"  # For TLS (external)
 ### DNS Setup
 
 Create DNS A records pointing to your server IP:
-- `canton-translate-ui.yourdomain.com` → Server IP
-- `canton-translate.yourdomain.com` → Server IP (optional, for direct backend access)
+- `canton-data-ui.yourdomain.com` → Server IP
+- `canton-data-api.yourdomain.com` → Server IP (optional, for direct backend access)
 
 ### SSL Certificate
 
@@ -192,7 +192,7 @@ Update `nginx/canton-data-app.conf` (included in this repository):
 server {
     listen 80;
     listen 443 ssl;
-    server_name canton-translate-ui.yourdomain.com;  # UPDATE THIS
+    server_name canton-data-ui.yourdomain.com;  # UPDATE THIS
     
     # API requests go to backend (MUST come before / location)
     location /canton/ {
@@ -217,7 +217,7 @@ server {
 server {
     listen 80;
     listen 443 ssl;
-    server_name canton-translate.yourdomain.com;  # UPDATE THIS
+    server_name canton-data-api.yourdomain.com;  # UPDATE THIS
     
     location / {
         proxy_pass http://canton-data-app-backend:8090;
@@ -308,7 +308,7 @@ docker compose logs -f canton-data-app-frontend
 
 ### Test Frontend Access
 
-1. Navigate to `https://canton-translate-ui.yourdomain.com`
+1. Navigate to `https://canton-data-ui.yourdomain.com`
 2. Click "Log in"
 3. Authenticate with Auth0
 4. Should see dashboard with your data
@@ -376,7 +376,7 @@ docker run --rm --network $DOCKER_NETWORK alpine nslookup canton-data-app-backen
 
 ### Auth0 Token Inspection
 
-For Auth0 token debugging and inspection commands, see [Auth0 Setup Guide - Token Inspection](../authentication/auth0_setup.md#token-inspection).
+For Auth0 token debugging and inspection commands, see [Auth0 Setup Guide - Token Inspection](../authentication/auth0.md#token-inspection).
 
 ---
 
@@ -398,7 +398,7 @@ For Auth0 token debugging and inspection commands, see [Auth0 Setup Guide - Toke
 
 **Solutions**:
 
-See the [Auth0 Setup Guide - Troubleshooting](../authentication/auth0_setup.md#troubleshooting-auth0-issues) for detailed Auth0-specific debugging.
+See the [Auth0 Setup Guide - Troubleshooting](../authentication/auth0.md#troubleshooting-auth0-issues) for detailed Auth0-specific debugging.
 
 
 ### No Data Showing in Dashboard
@@ -433,7 +433,7 @@ See the [Auth0 Setup Guide - Troubleshooting](../authentication/auth0_setup.md#t
    ```
 4. Check nginx logs:
    ```bash
-   docker logs <nginx_container> | grep canton-translate
+   docker logs <nginx_container> | grep canton-data-api
    ```
 5. Ensure nginx is on the same Docker network
 
