@@ -1,6 +1,6 @@
 services:
   canton-data-app-frontend:
-    image: canton-translate-ui-dist
+    image: ghcr.io/noves-inc/canton-translate-ui:dist
     container_name: canton-data-app-frontend
     ports:
       - "8091:8091"
@@ -23,7 +23,7 @@ services:
     restart: unless-stopped
 
   canton-data-app-backend:
-    image: canton-translate-dist
+    image: ghcr.io/noves-inc/canton-translate:dist
     container_name: canton-data-app-backend
     ports:
       - "8090:8090"
