@@ -25,13 +25,16 @@ services:
     container_name: canton-data-app-backend
     ports:
       - "8090:8090"
+    ports:
+      - "8090:8090"
     environment:
       INDEX_DB_PATH: "./index.db" # Database storage location (points to persistent volume)
       CANTON_NODE_ADDR: "splice-validator-participant-1:5001" # Canton Ledger API endpoint
       CANTON_NODE_CERT_FILE_PATH: "" # TLS certificate path (empty string = no TLS)
     volumes:
-      - data:/app/data # Persistent storage for INDEX_DB_PATH
-      - exports:/app/exports # Persistent storage for exported data
+      - data:/app/data
+      - exports:/app/exports
+      - ./grpc_certificate.crt:/code/grpc_certificate.crt
     networks:
       - splice-validator_splice_validator
     restart: unless-stopped
