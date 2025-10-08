@@ -113,7 +113,7 @@ You'll find sample manifests / config files for nginx in the instructions, but y
 
 ### Port Numbers & Networking
 
-By default, the backend runs on port 8090 and the frontend runs on port 8091. These are both customizable via environment variables. If you change the default port, make sure to update your docker-compose config or Kubernetes manifest to target the correct port in each container.
+By default, the backend runs on port `8090` and the frontend runs on port `8091`. These are both customizable via environment variables. If you change the default port, make sure to update your docker-compose config or Kubernetes manifest to target the correct port in each container.
 
 Regardless of your deployment topology, it is highly advised that both containers run in the same network, for optimal service-to-service communicationn.
 
