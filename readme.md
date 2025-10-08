@@ -1,4 +1,5 @@
 # Data App
+<img width="1328" height="878" alt="image" src="https://github.com/user-attachments/assets/286a3ea1-637f-4970-9330-3aaf42fe6268" />
 
 ## Table of Contents
 
@@ -27,6 +28,7 @@ Welcome to the Noves Data App for Canton.
 This is a self-hosted application that takes care of sourcing, indexing, processing and visualizing your Canton data for a variety of reporting scenarios and use cases.
 
 Because it runs in your infrastructure and uses your existing authentication system, it allows you to maintain full security and privacy, as intended in the Canton Network's design philosophy, while still enabling a superior data UX.
+<img width="1240" height="656" alt="image" src="https://github.com/user-attachments/assets/9c3b6d49-2557-4a83-9bc7-ec6f103c7304" />
 
 ---
 
