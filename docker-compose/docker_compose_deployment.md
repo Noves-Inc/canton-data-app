@@ -9,7 +9,7 @@
 ## Quick Setup
 
 ### 1. DNS Setup
-Create DNS records:
+Create DNS A records:
 - `canton-translate.yourdomain.com` → Your server IP
 - `canton-translate-ui.yourdomain.com` → Your server IP
 
@@ -52,5 +52,3 @@ include /etc/nginx/conf.d/nginx/canton-data-app.conf;
 
 ### Useful commands
 
-### Networking setup
-Canton-translate port is hardcoded to 8080

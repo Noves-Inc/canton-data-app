@@ -20,7 +20,7 @@ It consists of two primary components:
 
 ### Initial considerations
 
-The delivery of the app is through two Docker containers, that are assumed to be running in the same network (as part of a docker-compose deployment if you're deploying in a VM, or as two separate Kubernetes deployments in the same namespace, if you're deploying in k8s).
+The delivery of the app is through two Docker containers, which are assumed to be running in the same network (as part of a docker-compose deployment if you're deploying in a VM, or as two separate Kubernetes deployments in the same namespace, if you're deploying in k8s).
 
 Both containers are stateful, meaning that they have local storage that needs to persist across restarts. We include the exact paths on which a volume or PVC needs to be mounted in the sample manifests.
 
@@ -52,6 +52,36 @@ If you're using the frontend to query the data, you'll sign in with essentially 
 
 For larger organizations, this means that users can only access data for parties that they have previously been granted access to.
 
+### Ingress
+
+We have planned for both the frontend and backend to exposed via a DNS record and https, should you desire to. For example: `canton-data-app-frontend.yourcompany.com`
+
+You'll find sample manifests / config files for nginx in the instructions, but you can use any reverse proxy of your choice. We advise you to leverage your existing reverse proxy (aka your existing nginx instance, if you have one), instead of installing a separate one.
+
+### Port numbers & networking
+
+By default, the backend runs on port 8090 and the frontend runs on port 8091. These are both customizable via environment variables. If you change the default port, make sure to update your docker-compose config or Kubernetes manifest to target the correct port in each container.
+
+Regardless of your deployment topology, it is highly advised that both containers run in the same network, for optimal service-to-service communicationn.
+
+In practice, this means running them inside a docker-compose when deploying in a VM, or running them in the same namespace of a Kubernetes cluster.
+
+For service-to-service communication, there are environment variables that you can set to define the exact URL that the frontend will use to talk to the backend. This will typically be the Kubernetes service name or the name of the container in the docker-compose.
+
+For docker-compose, we assume that you'll be deploying using the same network as the validator node (`splice-validator_splice_validator` network). This is the default setting in our compose file and it allows this app to reference the validator node via a friendly internal DNS name, and vice versa.
+
+### Docker images
+
+Regardless of your chosen deployment topology, you'll be pulling our Docker images hosted from Docker Hub.
+
+The images will launch with the default deployment manifests included in this repository, and upon launch they will authorize your participant ID against our active subscriptions.
+
+### Authorization
+
+To use the app, you must have purchased a license that covers the participant ID you're trying to fetch data for.
+
+For example,  if you purchase a license for your main validator party `validator-party::1220dd5cc6e969cd7d7c11e339fbd07fab5f6fa1f999dc09339228d17299d9d68941`, then you'll be able to pull data for any parties that end in `1220dd5cc6e969cd7d7c11e339fbd07fab5f6fa1f999dc09339228d17299d9d68941`.
+
 ## Installation steps
 
 - If you're running your node on a docker-compose environment, refer to the `docker_compose_deployment.md` file for step-by-step instructions
@@ -59,6 +89,6 @@ For larger organizations, this means that users can only access data for parties
 
 ## Support
 
-This is an early-stage product in a nascent ecosystem. It's likely that issues will arise, and we're looking forward to helping in any way we can.
+This is an early-stage product. It's possible that issues will arise, and we're here to help in any way we can.
 
-If you spot any issues or run into a snag during deployment, contact us through our shared Slack channel (if you don't have a channel with us yet, just ask).
+If you spot any issues or run into a snag during deployment, contact us through our shared Slack channel `#canton-data-app` (ask us for an invite link if you're not a member already).
