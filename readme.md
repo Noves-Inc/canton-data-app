@@ -131,7 +131,17 @@ For docker-compose, we assume that you'll be deploying using the same network as
 
 ### Docker Images
 
-Regardless of your chosen deployment topology, you'll be pulling our Docker images hosted from Docker Hub.
+Regardless of your chosen deployment topology, you'll be pulling our Docker images from GitHub Container Registry.
+
+**Required Images:**
+- **Frontend**: `ghcr.io/noves-inc/canton-translate-ui:dist`
+- **Backend**: `ghcr.io/noves-inc/canton-translate:dist`
+
+**Pull the images:**
+```bash
+docker pull ghcr.io/noves-inc/canton-translate-ui:dist
+docker pull ghcr.io/noves-inc/canton-translate:dist
+```
 
 The images will launch with the default deployment manifests included in this repository, and upon launch they will authorize your participant ID against our active subscriptions.
 

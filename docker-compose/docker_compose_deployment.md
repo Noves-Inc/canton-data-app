@@ -261,7 +261,16 @@ Double-check all environment variables in `compose.yaml`:
 - Canton node address
 - Nginx server names match DNS records
 
-### Step 2: Start Services
+### Step 2: Pull Docker Images
+
+Pull the required images from GitHub Container Registry:
+
+```bash
+docker pull ghcr.io/noves-inc/canton-translate-ui:dist
+docker pull ghcr.io/noves-inc/canton-translate:dist
+```
+
+### Step 3: Start Services
 
 ```bash
 cd docker-compose
@@ -273,7 +282,7 @@ docker compose up -d
 docker compose -p canton-data-app up -d
 ```
 
-### Step 3: Reload Nginx
+### Step 4: Reload Nginx
 
 ```bash
 # For system nginx
@@ -287,7 +296,7 @@ docker exec <nginx_container> nginx -s reload
 docker restart <nginx_container>
 ```
 
-### Step 4: Monitor Startup
+### Step 5: Monitor Startup
 
 Watch logs for successful startup:
 
@@ -470,8 +479,12 @@ docker compose restart canton-data-app-backend
 ### Update Images
 
 ```bash
-# Pull latest images
+# Pull latest images (using compose file)
 docker compose pull
+
+# Or pull manually
+docker pull ghcr.io/noves-inc/canton-translate-ui:dist
+docker pull ghcr.io/noves-inc/canton-translate:dist
 
 # Recreate containers with new images
 docker compose up -d --force-recreate
