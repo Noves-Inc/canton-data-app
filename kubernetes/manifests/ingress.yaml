@@ -1,0 +1,67 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: data-app-frontend
+  namespace: validator  # UPDATE with your namespace
+  annotations:
+    # TLS configuration
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"  # UPDATE if using different cert manager
+    # nginx specific annotations
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - data.validator.yourdomain.com  # UPDATE with your hostname
+    secretName: data-app-frontend-tls  # TLS certificate secret
+  rules:
+  - host: data.validator.yourdomain.com  # UPDATE with your hostname
+    http:
+      paths:
+      # Backend API routes
+      - path: /canton
+        pathType: Prefix
+        backend:
+          service:
+            name: data-app-backend
+            port:
+              number: 8090
+      # Frontend routes (must come after /canton)
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: data-app-frontend
+            port:
+              number: 8091
+
+---
+# Optional: Separate backend access
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: data-app-backend
+  namespace: validator  # UPDATE with your namespace
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"  # UPDATE if using different cert manager
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - data-api.validator.yourdomain.com  # UPDATE with your hostname
+    secretName: data-app-backend-tls  # TLS certificate secret
+  rules:
+  - host: data-api.validator.yourdomain.com  # UPDATE with your hostname
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: data-app-backend
+            port:
+              number: 8090
+

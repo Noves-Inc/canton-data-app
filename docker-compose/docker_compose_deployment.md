@@ -86,7 +86,7 @@ environment:
   
   # Auth0 configuration (SPA app from Auth0 Setup section)
   VITE_AUTH0_DOMAIN: "your-tenant.us.auth0.com"
-  VITE_AUTH0_CLIENT_ID: "<SPA_CLIENT_ID>"  # From SPA app, NOT M2M app
+  VITE_AUTH0_CLIENT_ID: "<SPA_CLIENT_ID>"  # From SPA app
   VITE_AUTH0_REDIRECT_URI: "https://canton-data-ui.yourdomain.com/callback"
   VITE_AUTH0_LOGOUT_URL: "https://canton-data-ui.yourdomain.com"
 ```
@@ -436,15 +436,11 @@ See the [Auth0 Setup Guide - Troubleshooting](../authentication/auth0.md#trouble
 **Solutions**:
 1. Check nginx config syntax: `docker exec <nginx_container> nginx -t`
 2. Verify server_name matches DNS: check `canton-data-app.conf`
-3. Test backend directly:
-   ```bash
-   curl -v http://localhost:<exposed_port>/health
-   ```
-4. Check nginx logs:
+3. Check nginx logs:
    ```bash
    docker logs <nginx_container> | grep canton-data-api
    ```
-5. Ensure nginx is on the same Docker network
+4. Ensure nginx is on the same Docker network
 
 ---
 

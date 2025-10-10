@@ -1,0 +1,106 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: data-app-backend
+  namespace: validator  # UPDATE with your namespace
+  labels:
+    app: data-app-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: data-app-backend
+  template:
+    metadata:
+      labels:
+        app: data-app-backend
+    spec:
+      containers:
+      - name: backend
+        image: ghcr.io/noves-inc/canton-translate:dist
+        ports:
+        - containerPort: 8090
+          name: http
+        envFrom:
+        - configMapRef:
+            name: data-app-backend-config
+        
+        volumeMounts:
+        - name: backend-data
+          mountPath: /app/data
+        # Uncomment if using TLS:
+        # - name: participant-cert
+        #   mountPath: /app/certs
+        #   readOnly: true
+        
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+      
+      volumes:
+      - name: backend-data
+        persistentVolumeClaim:
+          claimName: data-app-backend-pvc
+      # Uncomment if using TLS:
+      # - name: participant-cert
+      #   secret:
+      #     secretName: participant-tls-cert
+      
+      restartPolicy: Always
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: data-app-frontend
+  namespace: validator  # UPDATE with your namespace
+  labels:
+    app: data-app-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: data-app-frontend
+  template:
+    metadata:
+      labels:
+        app: data-app-frontend
+    spec:
+      containers:
+      - name: frontend
+        image: ghcr.io/noves-inc/canton-translate-ui:dist
+        ports:
+        - containerPort: 8091
+          name: http
+        envFrom:
+        - configMapRef:
+            name: data-app-frontend-config
+        
+        volumeMounts:
+        - name: frontend-data
+          mountPath: /app/data
+        - name: frontend-exports
+          mountPath: /app/exports
+        
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "1024Mi"
+            cpu: "500m"
+      
+      volumes:
+      - name: frontend-data
+        persistentVolumeClaim:
+          claimName: data-app-frontend-pvc
+      - name: frontend-exports
+        persistentVolumeClaim:
+          claimName: data-app-frontend-exports-pvc
+      
+      restartPolicy: Always
+

@@ -207,7 +207,7 @@ You'll need Auth0 credentials before proceeding with deployment.
 **Choose your deployment method:**
 
 - **Docker Compose**: See [docker-compose/docker_compose_deployment.md](docker-compose/docker_compose_deployment.md) for step-by-step instructions
-- **Kubernetes**: See `kubernetes_deployment.md` (coming soon)
+- **Kubernetes**: See [kubernetes/kubernetes_deployment.md](kubernetes/kubernetes_deployment.md) for step-by-step instructions
 
 **Note**: the app will take approximately 2-3 minutes to index the first batch of data after being installed. Once the dashboard is up & running, wait for a few minutes.
 

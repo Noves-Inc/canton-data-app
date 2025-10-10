@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: data-app-backend-config
+  namespace: validator  # UPDATE with your namespace
+data:
+  # Local database path
+  INDEX_DB_PATH: "./index.db"
+  
+  # Canton Ledger API connection
+  # OR if using external participant:
+  # CANTON_NODE_ADDR: "canton-validator.yourdomain.com:8443"
+  CANTON_NODE_ADDR: "participant.validator.svc.cluster.local:5001"  # UPDATE namespace if different
+  
+  # CANTON_NODE_CERT_FILE_PATH: "/code/validator_certificate.crt"
+  CANTON_NODE_CERT_FILE_PATH: "" # Leave empty if not expecting TLS from inside the participant (default behavior)
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: data-app-frontend-config
+  namespace: validator  # UPDATE with your namespace
+data:
+  PORT: "8091"
+  
+  # Backend endpoint (internal Kubernetes DNS)
+  CANTON_TRANSLATE_BASE_URL: "http://data-app-backend:8090"
+  
+  # Auth0 configuration (SPA app from Auth0 Setup section)
+  VITE_AUTH0_DOMAIN: "your-tenant.us.auth0.com"
+  VITE_AUTH0_CLIENT_ID: "<SPA_CLIENT_ID>"  # From SPA app
+  VITE_AUTH0_REDIRECT_URI: "https://canton-data-ui.yourdomain.com/callback"
+  VITE_AUTH0_LOGOUT_URL: "https://canton-data-ui.yourdomain.com"
+

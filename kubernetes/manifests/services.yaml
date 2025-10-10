@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: data-app-backend
+  namespace: validator  # UPDATE with your namespace
+  labels:
+    app: data-app-backend
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8090
+      targetPort: 8090
+      protocol: TCP
+      name: http
+  selector:
+    app: data-app-backend
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: data-app-frontend
+  namespace: validator  # UPDATE with your namespace
+  labels:
+    app: data-app-frontend
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8091
+      targetPort: 8091
+      protocol: TCP
+      name: http
+  selector:
+    app: data-app-frontend
+
