@@ -177,6 +177,7 @@ Both containers are configured via environment variables. Below is a comprehensi
 | `VITE_AUTH0_CLIENT_ID` | `abc123...` | The Client ID of your Auth0 SPA application (see [Auth0 Setup](authentication/auth0.md)) |
 | `VITE_AUTH0_REDIRECT_URI` | `https://canton-data-ui.yourdomain.com/callback` | The callback URL where Auth0 redirects after login. Must match the **Allowed Callback URLs** configured in your Auth0 SPA application. |
 | `VITE_AUTH0_LOGOUT_URL` | `https://canton-data-ui.yourdomain.com` | The URL where users are redirected after logout. Must match the **Allowed Logout URLs** configured in your Auth0 SPA application. |
+| `VITE_AUTH0_AUDIENCE` | `https://your-audience.com` | (Optional) The Auth0 API identifier if you're using JWT audience validation. |
 
 ---
 
