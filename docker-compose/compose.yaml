@@ -11,6 +11,7 @@ services:
       # Auth0 configuration (SPA app from Auth0 Setup section)
       VITE_AUTH0_DOMAIN: "your-tenant.us.auth0.com"
       VITE_AUTH0_CLIENT_ID: "<SPA_CLIENT_ID>" # From SPA app
+      VITE_AUTH0_AUDIENCE: "https://canton.network.global" # Custom API identifier - REQUIRED for JWT tokens
       VITE_AUTH0_REDIRECT_URI: "https://canton-data-ui.yourdomain.com/callback"
       VITE_AUTH0_LOGOUT_URL: "https://canton-data-ui.yourdomain.com"
     volumes:
