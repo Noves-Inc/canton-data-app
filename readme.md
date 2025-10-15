@@ -173,6 +173,7 @@ Both containers are configured via environment variables. Below is a comprehensi
 |----------|---------------|-------------|
 | `PORT` | `8091` | The port the frontend server listens on |
 | `CANTON_TRANSLATE_BASE_URL` | `http://canton-data-app-backend:8090` | Internal URL to reach the backend service. For Docker Compose, this is the backend container name and port. For Kubernetes, this is the backend service name. |
+| `CANTON_INDEXER_PAGE_SIZE` | `1000` | Indexer page size. |
 | `VITE_AUTH0_DOMAIN` | `dev-xxx.us.auth0.com` | Your Auth0 tenant domain |
 | `VITE_AUTH0_CLIENT_ID` | `abc123...` | The Client ID of your Auth0 SPA application (see [Auth0 Setup](authentication/auth0.md)) |
 | `VITE_AUTH0_REDIRECT_URI` | `https://canton-data-ui.yourdomain.com/callback` | The callback URL where Auth0 redirects after login. Must match the **Allowed Callback URLs** configured in your Auth0 SPA application. |

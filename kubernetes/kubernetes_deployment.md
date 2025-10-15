@@ -190,6 +190,7 @@ See [`manifests/configmaps.yaml`](manifests/configmaps.yaml) for the complete co
 **What to update in the ConfigMaps:**
 - **Namespace**: Update in both ConfigMaps
 - **CANTON_NODE_ADDR**: Update namespace if different from `validator`
+- **CANTON_INDEXER_PAGE_SIZE**: Indexer page size
 - **VITE_AUTH0_DOMAIN**: Your Auth0 tenant domain
 - **VITE_AUTH0_CLIENT_ID**: Replace `<SPA_CLIENT_ID>` with your actual Auth0 SPA Client ID
 - **VITE_AUTH0_AUDIENCE**: Auth0 API identifier - required for JWT tokens

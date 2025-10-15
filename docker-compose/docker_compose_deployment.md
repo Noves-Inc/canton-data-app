@@ -83,7 +83,8 @@ environment:
   
   # Backend endpoint (internal Docker DNS)
   CANTON_TRANSLATE_BASE_URL: "http://canton-data-app-backend:8090"
-  
+
+  CANTON_INDEXER_PAGE_SIZE: "1000"
   # Auth0 configuration (SPA app from Auth0 Setup section)
   VITE_AUTH0_DOMAIN: "your-tenant.us.auth0.com"
   VITE_AUTH0_CLIENT_ID: "<SPA_CLIENT_ID>"  # From SPA app
