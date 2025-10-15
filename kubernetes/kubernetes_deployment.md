@@ -192,6 +192,7 @@ See [`manifests/configmaps.yaml`](manifests/configmaps.yaml) for the complete co
 - **CANTON_NODE_ADDR**: Update namespace if different from `validator`
 - **VITE_AUTH0_DOMAIN**: Your Auth0 tenant domain
 - **VITE_AUTH0_CLIENT_ID**: Replace `<SPA_CLIENT_ID>` with your actual Auth0 SPA Client ID
+- **VITE_AUTH0_AUDIENCE**: Auth0 API identifier - required for JWT tokens
 - **VITE_AUTH0_REDIRECT_URI**: Replace `canton-data-ui.yourdomain.com` with your actual frontend hostname
 - **VITE_AUTH0_LOGOUT_URL**: Replace `canton-data-ui.yourdomain.com` with your actual frontend hostname
 
