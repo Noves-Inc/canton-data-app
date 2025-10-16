@@ -9,7 +9,7 @@ services:
       # Backend endpoint (internal Docker DNS)
       CANTON_TRANSLATE_BASE_URL: "http://canton-data-app-backend:8090"
       CANTON_INDEXER_PAGE_SIZE: "1000"
-      
+
       # ===== Auth0 Configuration (Option 1) =====
       # Uncomment these to use Auth0 for authentication
       VITE_AUTH0_DOMAIN: "your-tenant.us.auth0.com"
@@ -17,7 +17,7 @@ services:
       VITE_AUTH0_AUDIENCE: "https://canton.network.global" # Custom API identifier - REQUIRED for JWT tokens
       VITE_AUTH0_REDIRECT_URI: "https://canton-data-ui.yourdomain.com/callback"
       VITE_AUTH0_LOGOUT_URL: "https://canton-data-ui.yourdomain.com"
-      
+
       # ===== Keycloak Configuration (Option 2) =====
       # Uncomment these to use Keycloak for authentication (alternative to Auth0)
       # NOTE: Presence of VITE_KEYCLOAK_URL triggers Keycloak authentication
@@ -33,7 +33,10 @@ services:
     networks:
       - splice-validator_splice_validator
     depends_on:
-      - canton-data-app-backend
+      frontend-permission-init:
+        condition: service_completed_successfully
+      canton-data-app-backend:
+        condition: service_started
     restart: unless-stopped
 
   canton-data-app-backend:
@@ -60,7 +63,32 @@ services:
     networks:
       - splice-validator_splice_validator
     restart: unless-stopped
-
+  # Permission migration for distroless frontend (nonroot user 65532)
+  frontend-permission-init:
+    image: busybox:latest
+    container_name: frontend-permission-init
+    command: |
+      sh -c '
+        echo "Setting up permissions for distroless deployment..."
+        echo "Creating directories if they don't exist..."
+        mkdir -p /app/data /app/exports
+        
+        echo "Current ownership before migration:"
+        ls -la /app/ 2>/dev/null || echo "No existing files"
+        
+        echo "Changing ownership to nonroot user (65532:65532)..."
+        chown -R 65532:65532 /app/data /app/exports 2>/dev/null || true
+        chmod -R u+rwX /app/data /app/exports 2>/dev/null || true
+        
+        echo "New ownership after migration:"
+        ls -la /app/
+        echo "Permission setup complete for distroless deployment!"
+      '
+    volumes:
+      - frontend-data:/app/data
+      - frontend-exports:/app/exports
+    restart: "no" # Only run once per startup
+    
 networks:
   splice-validator_splice_validator:
     external: true
