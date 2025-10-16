@@ -78,13 +78,13 @@ On your validator node, if not done already, you will need to expose a port for 
 
 This app leverages your existing authentication system, instead of requiring a new one.
 
-In the current version, the frontend ships native support for **Auth0 authentication** (Keycloak support coming soon).
+The frontend ships native support for **Auth0** and **Keycloak** authentication providers via OIDC. The system automatically detects which provider to use based on environment variables.
 
 The backend will always work with any authentication system that is compatible with Canton's JWT standard.
 
 #### Auth0 Setup
 
-The Data App requires Auth0 for end user authentication. You will need to:
+For Auth0 authentication, you will need to:
 
 1. Create an Auth0 Single Page Application (SPA) for user authentication
 2. Configure Canton users with appropriate read permissions for each user (this is already done if you're using Auth0 as your primary authentication provider in the validator)
@@ -92,6 +92,18 @@ The Data App requires Auth0 for end user authentication. You will need to:
 **Note:** The backend does not authenticate with Auth0 directly. It receives JWT tokens from the frontend and passes them through to Canton's Ledger API.
 
 📄 **For detailed Auth0 setup instructions, see: [authentication/auth0.md](authentication/auth0.md)**
+
+#### Keycloak Setup
+
+For Keycloak authentication, you will need to:
+
+1. Create a Keycloak Public Client for user authentication
+2. Configure the `daml_ledger_api` scope as a default scope for Canton Network compatibility
+3. Configure Canton users with appropriate read permissions for each user (this is already done if you're using Keycloak as your primary authentication provider in the validator)
+
+**Note:** The backend does not authenticate with Keycloak directly. It receives JWT tokens from the frontend and passes them through to Canton's Ledger API.
+
+📄 **For detailed Keycloak setup instructions, see: [authentication/keycloak.md](authentication/keycloak.md)**
 
 #### Authentication Flow
 
@@ -174,11 +186,24 @@ Both containers are configured via environment variables. Below is a comprehensi
 | `PORT` | `8091` | The port the frontend server listens on |
 | `CANTON_TRANSLATE_BASE_URL` | `http://canton-data-app-backend:8090` | Internal URL to reach the backend service. For Docker Compose, this is the backend container name and port. For Kubernetes, this is the backend service name. |
 | `CANTON_INDEXER_PAGE_SIZE` | `1000` | Indexer page size. |
+| **Auth0 Configuration** | | **Use these variables for Auth0 authentication** |
 | `VITE_AUTH0_DOMAIN` | `dev-xxx.us.auth0.com` | Your Auth0 tenant domain |
 | `VITE_AUTH0_CLIENT_ID` | `abc123...` | The Client ID of your Auth0 SPA application (see [Auth0 Setup](authentication/auth0.md)) |
 | `VITE_AUTH0_REDIRECT_URI` | `https://canton-data-ui.yourdomain.com/callback` | The callback URL where Auth0 redirects after login. Must match the **Allowed Callback URLs** configured in your Auth0 SPA application. |
 | `VITE_AUTH0_LOGOUT_URL` | `https://canton-data-ui.yourdomain.com` | The URL where users are redirected after logout. Must match the **Allowed Logout URLs** configured in your Auth0 SPA application. |
 | `VITE_AUTH0_AUDIENCE` | `https://your-audience.com` | (Optional) The Auth0 API identifier if you're using JWT audience validation. |
+| **Keycloak Configuration** | | **Use these variables for Keycloak authentication (alternative to Auth0)** |
+| `VITE_KEYCLOAK_URL` | `https://keycloak.yourdomain.com` | Base URL of your Keycloak server. When this variable is present, the app will use Keycloak instead of Auth0. |
+| `VITE_KEYCLOAK_REALM` | `your-realm-name` | Keycloak realm name where your client is configured |
+| `VITE_KEYCLOAK_CLIENT_ID` | `data-app-ui` | The Client ID of your Keycloak Public Client (see [Keycloak Setup](authentication/keycloak.md)) |
+| `VITE_KEYCLOAK_REDIRECT_URI` | `https://canton-data-ui.yourdomain.com/callback` | The callback URL where Keycloak redirects after login. Must match the **Valid redirect URIs** configured in your Keycloak client. |
+| `VITE_KEYCLOAK_LOGOUT_URL` | `https://canton-data-ui.yourdomain.com` | The URL where users are redirected after logout. Must match the **Valid post logout redirect URIs** configured in your Keycloak client. |
+
+**Authentication Provider Selection:**
+- The app automatically detects which authentication provider to use based on environment variables
+- If `VITE_KEYCLOAK_URL` is set, Keycloak will be used
+- If `VITE_KEYCLOAK_URL` is not set, Auth0 will be used (legacy behavior)
+- Configure **either** Auth0 **or** Keycloak variables, not both
 
 ---
 
@@ -200,9 +225,13 @@ The backend has the following user-configurable environment variables:
 
 ### Before You Begin
 
-**Complete Auth0 setup first:** [authentication/auth0.md](authentication/auth0.md)
+**Complete authentication setup first:**
 
-You'll need Auth0 credentials before proceeding with deployment.
+Choose your authentication provider and complete its setup:
+- **Auth0**: [authentication/auth0.md](authentication/auth0.md)
+- **Keycloak**: [authentication/keycloak.md](authentication/keycloak.md)
+
+You'll need credentials from your chosen authentication provider before proceeding with deployment.
 
 ### Deployment Instructions
 

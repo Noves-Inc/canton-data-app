@@ -5,7 +5,7 @@
 - `kubectl` installed and configured with access to your validator cluster
 - Access to the namespace where your validator is deployed (typically `validator` or similar)
 - Domain with DNS access (or ability to configure DNS records)
-- Auth0 account with admin access
+- Auth0 or Keycloak instance with admin access
 - Access to Canton participant's Ledger API (gRPC)
 
 ---
@@ -33,19 +33,19 @@
 The Data App consists of two Kubernetes deployments:
 
 - **Backend (`canton-data-app-backend`)**: Indexes Canton ledger data via gRPC Ledger API, enriches it, and exposes a REST API
-- **Frontend (`canton-data-app-frontend`)**: UI that authenticates users via Auth0 and displays data from the backend
+- **Frontend (`canton-data-app-frontend`)**: UI that authenticates users via Auth0 or Keycloak (OIDC) and displays data from the backend
 
 Both deployments run in the same Kubernetes namespace as your Canton validator node to enable direct service-to-service communication via Kubernetes DNS.
 
 ### Authentication Flow
 
-1. User logs into frontend via Auth0 (SPA application)
-2. Frontend receives JWT token from Auth0
+1. User logs into frontend via Auth0 or Keycloak (OIDC provider)
+2. Frontend receives JWT token from the authentication provider
 3. Frontend sends user's JWT token to backend with data requests
 4. Backend forwards the same JWT token to Canton's Ledger API (passthrough)
 5. Canton validates JWT and returns data for authorized parties only
 
-**Important:** The backend acts as a passthrough. It does not generate its own tokens or authenticate with Auth0 directly.
+**Important:** The backend acts as a passthrough. It does not generate its own tokens or authenticate with the OIDC provider directly.
 
 ### Network Diagram
 
@@ -84,16 +84,26 @@ Both deployments run in the same Kubernetes namespace as your Canton validator n
 
 ---
 
-## Auth0 Configuration
+## Authentication Configuration
 
-**Before proceeding with deployment, complete the Auth0 setup:**
+**Before proceeding with deployment, complete your authentication provider setup:**
 
-📄 **[Auth0 Setup Guide](../authentication/auth0.md)**
+Choose your authentication provider and complete its setup:
+- **Auth0**: 📄 **[Auth0 Setup Guide](../authentication/auth0.md)**
+- **Keycloak**: 📄 **[Keycloak Setup Guide](../authentication/keycloak.md)**
 
-You'll need the following information from Auth0:
+You'll need the following information from your chosen provider:
+
+**For Auth0:**
 - Auth0 domain (e.g., `your-tenant.us.auth0.com`)
 - SPA Client ID
 - Audience/API identifier (same as used by your validator)
+
+**For Keycloak:**
+- Keycloak URL (e.g., `https://keycloak.yourdomain.com`)
+- Realm name
+- Public Client ID
+- Ensure `daml_ledger_api` scope is configured as a default scope
 
 ---
 
@@ -191,11 +201,24 @@ See [`manifests/configmaps.yaml`](manifests/configmaps.yaml) for the complete co
 - **Namespace**: Update in both ConfigMaps
 - **CANTON_NODE_ADDR**: Update namespace if different from `validator`
 - **CANTON_INDEXER_PAGE_SIZE**: Indexer page size
+
+**For Auth0 Authentication:**
 - **VITE_AUTH0_DOMAIN**: Your Auth0 tenant domain
 - **VITE_AUTH0_CLIENT_ID**: Replace `<SPA_CLIENT_ID>` with your actual Auth0 SPA Client ID
 - **VITE_AUTH0_AUDIENCE**: Auth0 API identifier - required for JWT tokens
 - **VITE_AUTH0_REDIRECT_URI**: Replace `canton-data-ui.yourdomain.com` with your actual frontend hostname
 - **VITE_AUTH0_LOGOUT_URL**: Replace `canton-data-ui.yourdomain.com` with your actual frontend hostname
+- Comment out or remove Keycloak variables
+
+**For Keycloak Authentication:**
+- **VITE_KEYCLOAK_URL**: Base URL of your Keycloak server
+- **VITE_KEYCLOAK_REALM**: Your Keycloak realm name
+- **VITE_KEYCLOAK_CLIENT_ID**: Your Keycloak Public Client ID
+- **VITE_KEYCLOAK_REDIRECT_URI**: Replace `canton-data-ui.yourdomain.com` with your actual frontend hostname
+- **VITE_KEYCLOAK_LOGOUT_URL**: Replace `canton-data-ui.yourdomain.com` with your actual frontend hostname
+- Comment out or remove Auth0 variables
+
+**Note:** The presence of `VITE_KEYCLOAK_URL` triggers Keycloak authentication. Configure **either** Auth0 **or** Keycloak variables, not both.
 
 To update configuration, edit the ConfigMap and restart the pods.
 
@@ -450,7 +473,7 @@ kubectl get pods -n validator | grep data-app
 
 1. Navigate to your frontend URL (e.g., `https://data.validator.yourdomain.com`)
 2. Click "Log in"
-3. Authenticate with Auth0
+3. Authenticate with your configured provider (Auth0 or Keycloak)
 4. Should see dashboard with your data
 
 If you encounter issues, proceed to the debugging section below.
@@ -544,9 +567,11 @@ kubectl get secret data-app-frontend-tls -n validator
 kubectl logs -n ingress-nginx -l app.kubernetes.io/component=controller
 ```
 
-### Auth0 Token Debugging
+### Authentication Token Debugging
 
-For Auth0 token debugging and inspection, see [Auth0 Setup Guide - Token Inspection](../authentication/auth0.md#token-inspection).
+For authentication provider token debugging and inspection:
+- **Auth0**: See [Auth0 Setup Guide - Token Inspection](../authentication/auth0.md#token-inspection)
+- **Keycloak**: See [Keycloak Setup Guide - Token Inspection](../authentication/keycloak.md#token-inspection)
 
 
 ---
@@ -623,24 +648,32 @@ For Auth0 token debugging and inspection, see [Auth0 Setup Guide - Token Inspect
 
 **Solutions**:
 
-See the [Auth0 Setup Guide - Troubleshooting](../authentication/auth0.md#troubleshooting-auth0-issues) for detailed Auth0-specific debugging.
+See provider-specific troubleshooting:
+- **Auth0**: [Auth0 Setup Guide - Troubleshooting](../authentication/auth0.md#troubleshooting-auth0-issues)
+- **Keycloak**: [Keycloak Setup Guide - Troubleshooting](../authentication/keycloak.md#troubleshooting-keycloak-issues)
 
 **Quick Checks**:
 
-1. Verify Auth0 configuration in frontend deployment:
+1. Verify authentication configuration in frontend deployment:
    ```bash
+   # For Auth0
    kubectl get deployment data-app-frontend -n validator -o yaml | grep AUTH0
+   
+   # For Keycloak
+   kubectl get deployment data-app-frontend -n validator -o yaml | grep KEYCLOAK
    ```
 
 2. Test user JWT token claims:
    ```bash
-   # Get token from browser or Auth0
+   # Get token from browser or authentication provider
    echo "$ACCESS_TOKEN" | cut -d'.' -f2 | base64 -d | jq .
    ```
 
-3. Verify user has Canton `can_read_as` rights (see Auth0 guide)
+3. Verify user has Canton `can_read_as` rights (see provider-specific guide)
 
-4. Check callback URLs in Auth0 match frontend URL exactly
+4. Check callback URLs in your authentication provider match frontend URL exactly
+
+5. For Keycloak: Ensure `daml_ledger_api` scope is in the token's scope claim
 
 ### No Data Showing in Dashboard
 

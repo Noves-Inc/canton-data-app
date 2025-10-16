@@ -4,7 +4,7 @@
 - Docker & Docker Compose installed
 - Existing Canton validator node running in Docker Compose (typically with network `splice-validator_splice_validator`)
 - Domain with DNS access (or ability to configure DNS records)
-- Auth0 account with admin access
+- Auth0 or Keycloak instance with admin access
 - Access to Canton participant's Ledger API (gRPC)
 
 ---
@@ -29,27 +29,29 @@
 The Data App consists of two Docker containers:
 
 - **Backend (`canton-data-app-backend`)**: Indexes Canton ledger data via gRPC Ledger API, enriches it, and exposes a REST API
-- **Frontend (`canton-data-app-frontend`)**: UI that authenticates users via Auth0 and displays data from the backend
+- **Frontend (`canton-data-app-frontend`)**: UI that authenticates users via Auth0 or Keycloak (OIDC) and displays data from the backend
 
 Both containers run in the same Docker network as your Canton validator node (`splice-validator_splice_validator` by default) to enable direct service-to-service communication.
 
 ### Authentication Flow
 
-1. User logs into frontend via Auth0 (SPA application)
-2. Frontend receives JWT token from Auth0
+1. User logs into frontend via Auth0 or Keycloak (OIDC provider)
+2. Frontend receives JWT token from the authentication provider
 3. Frontend sends user's JWT token to backend with data requests
 4. Backend forwards the same JWT token to Canton's Ledger API (passthrough)
 5. Canton validates JWT and returns data for authorized parties only
 
-**Important:** The backend acts as a passthrough. It does not generate its own tokens or authenticate with Auth0.
+**Important:** The backend acts as a passthrough. It does not generate its own tokens or authenticate with the OIDC provider directly.
 
 ---
 
-## Auth0 Configuration
+## Authentication Configuration
 
-**Before proceeding with deployment, complete the Auth0 setup:**
+**Before proceeding with deployment, complete your authentication provider setup:**
 
-📄 **[Auth0 Setup Guide](../authentication/auth0.md)**
+Choose your authentication provider and complete its setup:
+- **Auth0**: 📄 **[Auth0 Setup Guide](../authentication/auth0.md)**
+- **Keycloak**: 📄 **[Keycloak Setup Guide](../authentication/keycloak.md)**
 
 ---
 
@@ -77,6 +79,8 @@ environment:
 
 Configure the `canton-data-app-frontend` service:
 
+**For Auth0 Authentication:**
+
 ```yaml
 environment:
   PORT: "8091"
@@ -85,6 +89,7 @@ environment:
   CANTON_TRANSLATE_BASE_URL: "http://canton-data-app-backend:8090"
 
   CANTON_INDEXER_PAGE_SIZE: "1000"
+  
   # Auth0 configuration (SPA app from Auth0 Setup section)
   VITE_AUTH0_DOMAIN: "your-tenant.us.auth0.com"
   VITE_AUTH0_CLIENT_ID: "<SPA_CLIENT_ID>"  # From SPA app
@@ -92,6 +97,27 @@ environment:
   VITE_AUTH0_REDIRECT_URI: "https://canton-data-ui.yourdomain.com/callback"
   VITE_AUTH0_LOGOUT_URL: "https://canton-data-ui.yourdomain.com"
 ```
+
+**For Keycloak Authentication:**
+
+```yaml
+environment:
+  PORT: "8091"
+  
+  # Backend endpoint (internal Docker DNS)
+  CANTON_TRANSLATE_BASE_URL: "http://canton-data-app-backend:8090"
+
+  CANTON_INDEXER_PAGE_SIZE: "1000"
+  
+  # Keycloak configuration (Public client from Keycloak Setup section)
+  VITE_KEYCLOAK_URL: "https://keycloak.yourdomain.com"  # Base URL of Keycloak server
+  VITE_KEYCLOAK_REALM: "your-realm-name"  # Keycloak realm name
+  VITE_KEYCLOAK_CLIENT_ID: "data-app-ui"  # From Keycloak Public Client
+  VITE_KEYCLOAK_REDIRECT_URI: "https://canton-data-ui.yourdomain.com/callback"
+  VITE_KEYCLOAK_LOGOUT_URL: "https://canton-data-ui.yourdomain.com"
+```
+
+**Note:** The presence of `VITE_KEYCLOAK_URL` triggers Keycloak authentication. Configure **either** Auth0 **or** Keycloak variables, not both.
 
 ### Port Configuration
 
@@ -321,13 +347,14 @@ docker compose logs -f canton-data-app-frontend
 
 1. Navigate to `https://canton-data-ui.yourdomain.com`
 2. Click "Log in"
-3. Authenticate with Auth0
+3. Authenticate with your configured provider (Auth0 or Keycloak)
 4. Should see dashboard with your data
 
 If you get authentication errors, check:
-- Auth0 SPA callback URLs are correct
-- User's Auth0 account is associated with a Canton party
+- Authentication provider callback URLs are correct
+- User's account is associated with a Canton party
 - Browser console for detailed error messages
+- See provider-specific troubleshooting: [Auth0](../authentication/auth0.md#troubleshooting-auth0-issues) or [Keycloak](../authentication/keycloak.md#troubleshooting-keycloak-issues)
 
 ---
 
@@ -385,9 +412,11 @@ docker run --rm --network $DOCKER_NETWORK alpine nslookup participant
 docker run --rm --network $DOCKER_NETWORK alpine nslookup canton-data-app-backend
 ```
 
-### Auth0 Token Inspection
+### Authentication Token Inspection
 
-For Auth0 token debugging and inspection commands, see [Auth0 Setup Guide - Token Inspection](../authentication/auth0.md#token-inspection).
+For authentication provider token debugging and inspection:
+- **Auth0**: See [Auth0 Setup Guide - Token Inspection](../authentication/auth0.md#token-inspection)
+- **Keycloak**: See [Keycloak Setup Guide - Token Inspection](../authentication/keycloak.md#token-inspection)
 
 ---
 
@@ -409,7 +438,9 @@ For Auth0 token debugging and inspection commands, see [Auth0 Setup Guide - Toke
 
 **Solutions**:
 
-See the [Auth0 Setup Guide - Troubleshooting](../authentication/auth0.md#troubleshooting-auth0-issues) for detailed Auth0-specific debugging.
+See provider-specific troubleshooting:
+- **Auth0**: [Auth0 Setup Guide - Troubleshooting](../authentication/auth0.md#troubleshooting-auth0-issues)
+- **Keycloak**: [Keycloak Setup Guide - Troubleshooting](../authentication/keycloak.md#troubleshooting-keycloak-issues)
 
 
 ### No Data Showing in Dashboard

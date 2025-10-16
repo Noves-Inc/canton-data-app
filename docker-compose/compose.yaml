@@ -9,12 +9,24 @@ services:
       # Backend endpoint (internal Docker DNS)
       CANTON_TRANSLATE_BASE_URL: "http://canton-data-app-backend:8090"
       CANTON_INDEXER_PAGE_SIZE: "1000"
-      # Auth0 configuration (SPA app from Auth0 Setup section)
+      
+      # ===== Auth0 Configuration (Option 1) =====
+      # Uncomment these to use Auth0 for authentication
       VITE_AUTH0_DOMAIN: "your-tenant.us.auth0.com"
-      VITE_AUTH0_CLIENT_ID: "<SPA_CLIENT_ID>" # From SPA app
+      VITE_AUTH0_CLIENT_ID: "<SPA_CLIENT_ID>" # From Auth0 SPA app
       VITE_AUTH0_AUDIENCE: "https://canton.network.global" # Custom API identifier - REQUIRED for JWT tokens
       VITE_AUTH0_REDIRECT_URI: "https://canton-data-ui.yourdomain.com/callback"
       VITE_AUTH0_LOGOUT_URL: "https://canton-data-ui.yourdomain.com"
+      
+      # ===== Keycloak Configuration (Option 2) =====
+      # Uncomment these to use Keycloak for authentication (alternative to Auth0)
+      # NOTE: Presence of VITE_KEYCLOAK_URL triggers Keycloak authentication
+      # VITE_KEYCLOAK_URL: "https://keycloak.yourdomain.com"  # Base URL of Keycloak server
+      # VITE_KEYCLOAK_REALM: "your-realm-name"  # Keycloak realm name
+      # VITE_KEYCLOAK_CLIENT_ID: "data-app-ui"  # From Keycloak Public Client
+      # VITE_KEYCLOAK_REDIRECT_URI: "https://canton-data-ui.yourdomain.com/callback"
+      # VITE_KEYCLOAK_LOGOUT_URL: "https://canton-data-ui.yourdomain.com"
+      # IMPORTANT: Keycloak client must have 'daml_ledger_api' as a default scope
     volumes:
       - frontend-data:/app/data
       - frontend-exports:/app/exports

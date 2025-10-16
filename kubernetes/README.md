@@ -4,16 +4,18 @@ This directory contains Kubernetes manifests and deployment instructions for the
 
 ## Quick Start
 
-1. **Complete Auth0 setup first**: [../authentication/auth0.md](../authentication/auth0.md)
+1. **Complete authentication setup first**: Choose your authentication provider:
+   - **Auth0**: [../authentication/auth0.md](../authentication/auth0.md)
+   - **Keycloak**: [../authentication/keycloak.md](../authentication/keycloak.md)
 
 2. **Follow the deployment guide**: [kubernetes_deployment.md](kubernetes_deployment.md)
 
 3. **Update the manifests** in `manifests/` directory with your actual values:
    - Namespace
    - Participant service name
-   - Auth0 credentials
+   - Authentication provider credentials (Auth0 or Keycloak)
    - Hostnames
-   - Gateway references
+   - Ingress configuration
 
 4. **Deploy**:
    ```bash
@@ -39,7 +41,7 @@ This directory contains Kubernetes manifests and deployment instructions for the
 - Existing Canton validator node deployed via Kubernetes
 - Access to the validator's namespace
 - nginx Ingress Controller installed
-- Auth0 tenant with SPA application
+- Auth0 or Keycloak instance configured with appropriate client
 - TLS certificates (or cert-manager for automatic provisioning)
 
 ## Documentation
