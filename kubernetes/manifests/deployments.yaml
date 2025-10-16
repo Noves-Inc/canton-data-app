@@ -58,7 +58,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: data-app-frontend
-  namespace: validator  # UPDATE with your namespace
+  namespace: validator
   labels:
     app: data-app-frontend
 spec:
@@ -71,13 +71,49 @@ spec:
       labels:
         app: data-app-frontend
     spec:
+      # Security context for hardened deployment
+      securityContext:
+        runAsNonRoot: true
+        fsGroup: 65532
+        fsGroupChangePolicy: "OnRootMismatch"
+      
+      # One-time migration runs before app starts
+      initContainers:
+      - name: migrate-permissions
+        image: busybox:latest
+        command: ['sh', '-c']
+        args:
+        - |
+          echo "Checking and updating data permissions for security compliance..."
+          chown -R 65532:65532 /app/data /app/exports 2>/dev/null || true
+          chmod -R u+rwX /app/data /app/exports 2>/dev/null || true
+          echo "Permission check complete."
+        volumeMounts:
+        - name: frontend-data
+          mountPath: /app/data
+        - name: frontend-exports
+          mountPath: /app/exports
+        securityContext:
+          runAsUser: 0  # Needs root to chown
+      
       containers:
       - name: frontend
         image: ghcr.io/noves-inc/canton-translate-ui:dist
         imagePullPolicy: Always
+        
+        securityContext:
+          runAsUser: 65532
+          runAsGroup: 65532
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          capabilities:
+            drop:
+            - ALL
+        
         ports:
         - containerPort: 8091
           name: http
+        
         envFrom:
         - configMapRef:
             name: data-app-frontend-config
@@ -105,4 +141,3 @@ spec:
           claimName: data-app-frontend-exports-pvc
       
       restartPolicy: Always
-
