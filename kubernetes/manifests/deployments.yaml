@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: data-app-backend
-  namespace: validator  # UPDATE with your namespace
+  namespace: validator # UPDATE with your namespace
   labels:
     app: data-app-backend
 spec:
@@ -16,41 +16,41 @@ spec:
         app: data-app-backend
     spec:
       containers:
-      - name: backend
-        image: ghcr.io/noves-inc/canton-translate:dist
-        imagePullPolicy: Always
-        ports:
-        - containerPort: 8090
-          name: http
-        envFrom:
-        - configMapRef:
-            name: data-app-backend-config
-        
-        volumeMounts:
-        - name: backend-data
-          mountPath: /app/data
-        # Uncomment if using TLS:
-        # - name: participant-cert
-        #   mountPath: /app/certs
-        #   readOnly: true
-        
-        resources:
-          requests:
-            memory: "512Mi"
-            cpu: "250m"
-          limits:
-            memory: "2Gi"
-            cpu: "1000m"
-      
+        - name: backend
+          image: ghcr.io/noves-inc/canton-translate:dist
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8090
+              name: http
+          envFrom:
+            - configMapRef:
+                name: data-app-backend-config
+
+          volumeMounts:
+            - name: backend-data
+              mountPath: /app/data
+          # Uncomment if using TLS:
+          # - name: participant-cert
+          #   mountPath: /app/certs
+          #   readOnly: true
+
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "2Gi"
+              cpu: "1000m"
+
       volumes:
-      - name: backend-data
-        persistentVolumeClaim:
-          claimName: data-app-backend-pvc
+        - name: backend-data
+          persistentVolumeClaim:
+            claimName: data-app-backend-pvc
       # Uncomment if using TLS:
       # - name: participant-cert
       #   secret:
       #     secretName: participant-tls-cert
-      
+
       restartPolicy: Always
 
 ---
@@ -72,72 +72,56 @@ spec:
         app: data-app-frontend
     spec:
       # Security context for hardened deployment
+      # fsGroup automatically sets ownership of mounted volumes to match the container's group
+      # fsGroupChangePolicy "Always" ensures existing files get correct ownership (K8s 1.20+)
+      # For older K8s versions, this falls back to "OnRootMismatch" behavior
       securityContext:
         runAsNonRoot: true
         fsGroup: 65532
-        fsGroupChangePolicy: "OnRootMismatch"
-      
-      # One-time migration runs before app starts
-      initContainers:
-      - name: migrate-permissions
-        image: busybox:latest
-        command: ['sh', '-c']
-        args:
-        - |
-          echo "Checking and updating data permissions for security compliance..."
-          chown -R 65532:65532 /app/data /app/exports 2>/dev/null || true
-          chmod -R u+rwX /app/data /app/exports 2>/dev/null || true
-          echo "Permission check complete."
-        volumeMounts:
-        - name: frontend-data
-          mountPath: /app/data
-        - name: frontend-exports
-          mountPath: /app/exports
-        securityContext:
-          runAsUser: 0  # Needs root to chown
-      
+        fsGroupChangePolicy: "Always"
+
       containers:
-      - name: frontend
-        image: ghcr.io/noves-inc/canton-translate-ui:dist
-        imagePullPolicy: Always
-        
-        securityContext:
-          runAsUser: 65532
-          runAsGroup: 65532
-          allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: false
-          capabilities:
-            drop:
-            - ALL
-        
-        ports:
-        - containerPort: 8091
-          name: http
-        
-        envFrom:
-        - configMapRef:
-            name: data-app-frontend-config
-        
-        volumeMounts:
-        - name: frontend-data
-          mountPath: /app/data
-        - name: frontend-exports
-          mountPath: /app/exports
-        
-        resources:
-          requests:
-            memory: "256Mi"
-            cpu: "100m"
-          limits:
-            memory: "1024Mi"
-            cpu: "500m"
-      
+        - name: frontend
+          image: ghcr.io/noves-inc/canton-translate-ui:dist
+          imagePullPolicy: Always
+
+          securityContext:
+            runAsUser: 65532
+            runAsGroup: 65532
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL
+
+          ports:
+            - containerPort: 8091
+              name: http
+
+          envFrom:
+            - configMapRef:
+                name: data-app-frontend-config
+
+          volumeMounts:
+            - name: frontend-data
+              mountPath: /app/data
+            - name: frontend-exports
+              mountPath: /app/exports
+
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "1024Mi"
+              cpu: "500m"
+
       volumes:
-      - name: frontend-data
-        persistentVolumeClaim:
-          claimName: data-app-frontend-pvc
-      - name: frontend-exports
-        persistentVolumeClaim:
-          claimName: data-app-frontend-exports-pvc
-      
+        - name: frontend-data
+          persistentVolumeClaim:
+            claimName: data-app-frontend-pvc
+        - name: frontend-exports
+          persistentVolumeClaim:
+            claimName: data-app-frontend-exports-pvc
+
       restartPolicy: Always
