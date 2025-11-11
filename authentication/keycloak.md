@@ -6,7 +6,7 @@ This guide explains how to configure Keycloak authentication for the Data App. K
 
 ## Quick Reference: Critical Requirements
 
-To successfully configure Keycloak for Canton Data App, you MUST:
+To successfully configure Keycloak for Noves Data App, you MUST:
 
 1. ✅ **Create a Public Client** in Keycloak with Authorization Code + PKCE flow enabled
 2. ✅ **Create the `daml_ledger_api` client scope** with proper mappers:

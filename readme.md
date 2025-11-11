@@ -1,4 +1,4 @@
-# Canton Data App
+# Noves Data App
 <img width="1328" height="878" alt="image" src="https://github.com/user-attachments/assets/286a3ea1-637f-4970-9330-3aaf42fe6268" />
 
 ## Table of Contents

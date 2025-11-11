@@ -1,6 +1,6 @@
-# Kubernetes Deployment for Canton Data App
+# Kubernetes Deployment for Noves Data App
 
-This directory contains Kubernetes manifests and deployment instructions for the Canton Data App.
+This directory contains Kubernetes manifests and deployment instructions for the Noves Data App.
 
 ## Quick Start
 
