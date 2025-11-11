@@ -1,5 +1,5 @@
 # Noves Data App
-<img width="1328" height="878" alt="image" src="https://github.com/user-attachments/assets/286a3ea1-637f-4970-9330-3aaf42fe6268" />
+<img width="1822" height="886" alt="noves-data-app" src="https://github.com/user-attachments/assets/68b2d592-2a39-4249-939a-f2d5b96d7a74" />
 
 ## Table of Contents
 
