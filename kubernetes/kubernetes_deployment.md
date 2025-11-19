@@ -200,7 +200,6 @@ See [`manifests/configmaps.yaml`](manifests/configmaps.yaml) for the complete co
 **What to update in the ConfigMaps:**
 - **Namespace**: Update in both ConfigMaps
 - **CANTON_NODE_ADDR**: Update namespace if different from `validator`
-- **CANTON_INDEXER_PAGE_SIZE**: Indexer page size
 
 **For Auth0 Authentication:**
 - **VITE_AUTH0_DOMAIN**: Your Auth0 tenant domain

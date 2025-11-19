@@ -27,8 +27,6 @@ data:
   # Backend endpoint (internal Kubernetes DNS)
   CANTON_TRANSLATE_BASE_URL: "http://data-app-backend:8090"
   
-  CANTON_INDEXER_PAGE_SIZE: "1000"
-
   # ===== Auth0 Configuration (Option 1) =====
   # Use these for Auth0 authentication
   VITE_AUTH0_DOMAIN: "your-tenant.us.auth0.com"
