@@ -177,7 +177,7 @@ See [`manifests/persistentvolumeclaims.yaml`](manifests/persistentvolumeclaims.y
 
 **What to update:**
 - Namespace (all occurrences)
-- Storage sizes if needed (defaults: backend 20Gi, frontend-data 10Gi, frontend-exports 5Gi)
+- Storage sizes if needed (defaults: backend 20Gi, frontend-exports 5Gi)
 - `storageClassName` if your cluster requires it
 
 **Storage Considerations:**

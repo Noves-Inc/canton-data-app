@@ -103,8 +103,6 @@ spec:
                 name: data-app-frontend-config
 
           volumeMounts:
-            - name: frontend-data
-              mountPath: /app/data
             - name: frontend-exports
               mountPath: /app/exports
 
@@ -117,9 +115,6 @@ spec:
               cpu: "500m"
 
       volumes:
-        - name: frontend-data
-          persistentVolumeClaim:
-            claimName: data-app-frontend-pvc
         - name: frontend-exports
           persistentVolumeClaim:
             claimName: data-app-frontend-exports-pvc

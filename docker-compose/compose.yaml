@@ -28,7 +28,6 @@ services:
       # VITE_KEYCLOAK_LOGOUT_URL: "https://canton-data-ui.yourdomain.com"
       # IMPORTANT: Keycloak client must have 'daml_ledger_api' as a default scope
     volumes:
-      - frontend-data:/app/data
       - frontend-exports:/app/exports
     networks:
       - splice-validator_splice_validator
@@ -71,21 +70,20 @@ services:
       sh -c '
         echo "Setting up permissions for distroless deployment..."
         echo "Creating directories if they don't exist..."
-        mkdir -p /app/data /app/exports
+        mkdir -p /app/exports
         
         echo "Current ownership before migration:"
         ls -la /app/ 2>/dev/null || echo "No existing files"
         
         echo "Changing ownership to nonroot user (65532:65532)..."
-        chown -R 65532:65532 /app/data /app/exports 2>/dev/null || true
-        chmod -R u+rwX /app/data /app/exports 2>/dev/null || true
+        chown -R 65532:65532 /app/exports 2>/dev/null || true
+        chmod -R u+rwX /app/exports 2>/dev/null || true
         
         echo "New ownership after migration:"
         ls -la /app/
         echo "Permission setup complete for distroless deployment!"
       '
     volumes:
-      - frontend-data:/app/data
       - frontend-exports:/app/exports
     restart: "no" # Only run once per startup
     
@@ -95,6 +93,5 @@ networks:
     # Change to your actual network name
 
 volumes:
-  frontend-data: # Persistent storage for frontend data
   frontend-exports: # Persistent storage for CSV exports
   backend-data: # Persistent storage for backend database
