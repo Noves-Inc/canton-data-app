@@ -1,0 +1,103 @@
+# Docker Compose Migration Guide – v2.x → v3.0.0
+
+This guide assumes you already have the Canton Data App running with the older two‑container docker-compose deployment (frontend + backend with local volumes). Follow the steps below to upgrade to the v3.0.0 architecture, which introduces a dedicated database container while keeping ingress, authentication, and Canton connectivity unchanged.
+
+---
+
+## 1. Review What Changes (and What Doesn’t)
+
+| Component | v2.x Behavior | v3.0.0 Behavior | Action Required |
+|-----------|---------------|-----------------|-----------------|
+| Database storage | Embedded in backend (`INDEX_DB_PATH` + volume) | Dedicated Postgres (`canton-data-app-db`) with its own volume | **Adopt new compose file with DB service** |
+| Backend env vars | `INDEX_DB_PATH` pointed to local disk | `INDEX_DB_HOST/PORT/NAME/USER/PASSWORD` connect to Postgres | Included in new compose file |
+| Frontend env vars | Auth0/Keycloak, base URL | Same as before | No change |
+| Canton connectivity | `CANTON_NODE_ADDR`, TLS cert | Same as before | No change |
+| Ingress / reverse proxy | nginx config | Same as before | No change |
+
+---
+
+## 2. Download the v3 Compose Bundle
+
+1. Check out or download the repository at `v3.0.0`.  
+2. Copy `docker-compose/compose.yaml` from this release over your existing deployment host (make a backup with `cp compose.yaml compose.v2.bak` if desired).  
+3. The new file already contains:
+   - `canton-data-app-db` service with health checks and persistent volume
+   - Updated backend env vars pointing to the database
+   - Up-to-date image tags (`ghcr.io/noves-inc/...:v3.0.0`)
+   - No persistent volumes for frontend/backend
+
+> If you use any overrides (custom ports, network names, TLS mounts), re-apply those to the new file before continuing.
+
+---
+
+## 3. Provide the Database Password
+
+Set the `CANTON_TRANSLATE_DB_PASSWORD` variable via `.env` or shell export so docker-compose picks it up:
+
+```bash
+export CANTON_TRANSLATE_DB_PASSWORD="replace-with-strong-pass"
+```
+
+All other environment variables (Auth0/Keycloak, Canton node address, TLS certificates) remain unchanged from v2.x.
+
+---
+
+## 4. Stop Old Containers and Pull New Images
+
+```bash
+cd docker-compose
+docker compose down
+docker compose pull  # fetches v3.0.0 images for frontend/back-end/db
+```
+
+This removes the old backend container so no file locks remain on the retired volume.
+
+---
+
+## 5. Launch the v3 Stack
+
+```bash
+docker compose up -d
+docker compose ps
+```
+
+Verify:
+- `canton-data-app-db` shows `healthy`.
+- Backend logs contain messages like “Connected to Postgres” and “Starting initial index”.
+- Frontend remains reachable via the same ingress/reverse proxy.
+
+No changes are necessary to your nginx configuration, TLS certificates, DNS, Auth0/Keycloak settings, or Canton participant connectivity.
+
+---
+
+## 6. Clean Up Legacy Volumes (Optional)
+
+Once you’re satisfied the new database holds the required data:
+
+```bash
+docker volume rm docker-compose_frontend-exports docker-compose_backend-data 2>/dev/null
+```
+(Use `docker volume ls` to confirm names if different.)
+
+---
+
+## 7. Roll Back (If Needed)
+
+Because the backend/frontend containers are now stateless, rolling back is as simple as:
+
+```bash
+docker compose down
+git checkout -- docker-compose/compose.yaml
+docker compose up -d
+```
+
+Keep in mind that the new Postgres volume stores the latest data. If you revert to the old version, you may prefer to re-index from scratch.
+
+---
+
+## Next Steps
+
+- Monitor logs until the backend finishes the initial index (`docker compose logs -f canton-data-app-backend`).
+- Add database-level backups (e.g., nightly `pg_dump`) now that all state lives in Postgres.
+- Proceed to the Kubernetes migration if you also run the app in clusters.  
+
