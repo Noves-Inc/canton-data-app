@@ -1,6 +1,6 @@
 # Docker Compose Migration Guide – v2.x → v3.0.0
 
-This guide assumes you already have the Canton Data App running with the older two‑container docker-compose deployment (frontend + backend with local volumes). Follow the steps below to upgrade to the v3.0.0 architecture, which introduces a dedicated database container while keeping ingress, authentication, and Canton connectivity unchanged.
+This guide assumes you already have the Noves Data App running with the older two‑container docker-compose deployment (frontend + backend with local volumes). Follow the steps below to upgrade to the v3.0.0 architecture, which introduces a dedicated database container while keeping ingress, authentication, and Canton connectivity unchanged.
 
 ---
 
