@@ -1,6 +1,6 @@
 services:
   canton-data-app-frontend:
-    image: ghcr.io/noves-inc/canton-translate-ui:dist
+    image: ghcr.io/noves-inc/canton-translate-ui:v3.0.0
     container_name: canton-data-app-frontend
     ports:
       - "8091:8091"
@@ -26,71 +26,62 @@ services:
       # VITE_KEYCLOAK_REDIRECT_URI: "https://canton-data-ui.yourdomain.com/callback"
       # VITE_KEYCLOAK_LOGOUT_URL: "https://canton-data-ui.yourdomain.com"
       # IMPORTANT: Keycloak client must have 'daml_ledger_api' as a default scope
-    volumes:
-      - frontend-exports:/app/exports
     networks:
       - splice-validator_splice_validator
     depends_on:
-      frontend-permission-init:
-        condition: service_completed_successfully
       canton-data-app-backend:
         condition: service_started
     restart: unless-stopped
 
   canton-data-app-backend:
-    image: ghcr.io/noves-inc/canton-translate:dist
+    image: ghcr.io/noves-inc/canton-translate:v3.0.0
     container_name: canton-data-app-backend
     ports:
       - "8090:8090"
     environment:
-      # Local database path
-      INDEX_DB_PATH: "./index.db"
-
       # Canton Ledger API connection
       # OR if using external participant:
       # CANTON_NODE_ADDR: "canton-validator.yourdomain.com:8443"
       CANTON_NODE_ADDR: "participant:5001" # Internal Docker DNS
-
       # CANTON_NODE_CERT_FILE_PATH: "/code/validator_certificate.crt"
       CANTON_NODE_CERT_FILE_PATH: ""
-    volumes:
-      - backend-data:/app/data
-      # set this if you're using TLS and need to mount the certificate
-      # - ./certs/validator_certificate.crt:/code/validator_certificate.crt:ro
+      INDEX_DB_HOST: "canton-data-app-db"
+      INDEX_DB_PORT: "5432"
+      INDEX_DB_NAME: "canton_index"
+      INDEX_DB_USER: "appuser"
+      INDEX_DB_PASSWORD: ${CANTON_TRANSLATE_DB_PASSWORD:-change-me}
+    networks:
+      - splice-validator_splice_validator
+    depends_on:
+      canton-data-app-db:
+        condition: service_healthy
+    restart: unless-stopped
 
+  canton-data-app-db:
+    image: ghcr.io/noves-inc/canton-translate-db:v3.0.0
+    container_name: canton-data-app-db
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: "appuser"
+      POSTGRES_DB: "canton_index"
+      POSTGRES_PASSWORD: ${CANTON_TRANSLATE_DB_PASSWORD:-change-me}
+      PGDATA: /home/postgres/pgdata/data
+    volumes:
+      - canton-data-app-db-data:/home/postgres/pgdata
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 30s
+      timeout: 15s
+      retries: 5
     networks:
       - splice-validator_splice_validator
     restart: unless-stopped
-  # Permission migration for distroless frontend (nonroot user 65532)
-  frontend-permission-init:
-    image: busybox:latest
-    container_name: frontend-permission-init
-    command: |
-      sh -c '
-        echo "Setting up permissions for distroless deployment..."
-        echo "Creating directories if they don't exist..."
-        mkdir -p /app/exports
-        
-        echo "Current ownership before migration:"
-        ls -la /app/ 2>/dev/null || echo "No existing files"
-        
-        echo "Changing ownership to nonroot user (65532:65532)..."
-        chown -R 65532:65532 /app/exports 2>/dev/null || true
-        chmod -R u+rwX /app/exports 2>/dev/null || true
-        
-        echo "New ownership after migration:"
-        ls -la /app/
-        echo "Permission setup complete for distroless deployment!"
-      '
-    volumes:
-      - frontend-exports:/app/exports
-    restart: "no" # Only run once per startup
-    
+
 networks:
   splice-validator_splice_validator:
     external: true
     # Change to your actual network name
 
 volumes:
-  frontend-exports: # Persistent storage for CSV exports
-  backend-data: # Persistent storage for backend database
+  canton-data-app-db-data:

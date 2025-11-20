@@ -1,6 +1,78 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  name: data-app-db
+  namespace: validator # UPDATE with your namespace
+  labels:
+    app: data-app-db
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: data-app-db
+  template:
+    metadata:
+      labels:
+        app: data-app-db
+    spec:
+      containers:
+        - name: postgres
+          image: ghcr.io/noves-inc/canton-translate-db:v3.0.0
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 5432
+              name: postgres
+          env:
+            - name: POSTGRES_USER
+              value: "appuser"
+            - name: POSTGRES_DB
+              value: "canton_index"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: data-app-db-secret
+                  key: postgres-password
+            - name: PGDATA
+              value: /home/postgres/pgdata/data
+          volumeMounts:
+            - name: data-app-db-storage
+              mountPath: /home/postgres/pgdata
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 15
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 15
+          resources:
+            requests:
+              memory: "2Gi"
+              cpu: "1000m"
+            limits:
+              memory: "4Gi"
+              cpu: "2000m"
+      volumes:
+        - name: data-app-db-storage
+          persistentVolumeClaim:
+            claimName: data-app-db-pvc
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
   name: data-app-backend
   namespace: validator # UPDATE with your namespace
   labels:
@@ -17,7 +89,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: ghcr.io/noves-inc/canton-translate:dist
+          image: ghcr.io/noves-inc/canton-translate:v3.0.0
           imagePullPolicy: Always
           ports:
             - containerPort: 8090
@@ -25,14 +97,17 @@ spec:
           envFrom:
             - configMapRef:
                 name: data-app-backend-config
-
-          volumeMounts:
-            - name: backend-data
-              mountPath: /app/data
+          env:
+            - name: INDEX_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: data-app-db-secret
+                  key: postgres-password
           # Uncomment if using TLS:
-          # - name: participant-cert
-          #   mountPath: /app/certs
-          #   readOnly: true
+          # volumeMounts:
+          #   - name: participant-cert
+          #     mountPath: /app/certs
+          #     readOnly: true
 
           resources:
             requests:
@@ -42,14 +117,11 @@ spec:
               memory: "2Gi"
               cpu: "1000m"
 
-      volumes:
-        - name: backend-data
-          persistentVolumeClaim:
-            claimName: data-app-backend-pvc
       # Uncomment if using TLS:
-      # - name: participant-cert
-      #   secret:
-      #     secretName: participant-tls-cert
+      # volumes:
+      #   - name: participant-cert
+      #     secret:
+      #       secretName: participant-tls-cert
 
       restartPolicy: Always
 
@@ -82,7 +154,7 @@ spec:
 
       containers:
         - name: frontend
-          image: ghcr.io/noves-inc/canton-translate-ui:dist
+          image: ghcr.io/noves-inc/canton-translate-ui:v3.0.0
           imagePullPolicy: Always
 
           securityContext:
@@ -102,10 +174,6 @@ spec:
             - configMapRef:
                 name: data-app-frontend-config
 
-          volumeMounts:
-            - name: frontend-exports
-              mountPath: /app/exports
-
           resources:
             requests:
               memory: "256Mi"
@@ -113,10 +181,5 @@ spec:
             limits:
               memory: "1024Mi"
               cpu: "500m"
-
-      volumes:
-        - name: frontend-exports
-          persistentVolumeClaim:
-            claimName: data-app-frontend-exports-pvc
 
       restartPolicy: Always

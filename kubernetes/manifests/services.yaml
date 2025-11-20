@@ -1,6 +1,24 @@
 apiVersion: v1
 kind: Service
 metadata:
+  name: data-app-db
+  namespace: validator  # UPDATE with your namespace
+  labels:
+    app: data-app-db
+spec:
+  type: ClusterIP
+  ports:
+    - port: 5432
+      targetPort: 5432
+      protocol: TCP
+      name: postgres
+  selector:
+    app: data-app-db
+
+---
+apiVersion: v1
+kind: Service
+metadata:
   name: data-app-backend
   namespace: validator  # UPDATE with your namespace
   labels:

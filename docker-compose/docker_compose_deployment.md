@@ -26,12 +26,13 @@
 
 ## Architecture Overview
 
-The Data App consists of two Docker containers:
+The Data App consists of three Docker containers:
 
-- **Backend (`canton-data-app-backend`)**: Indexes Canton ledger data via gRPC Ledger API, enriches it, and exposes a REST API
-- **Frontend (`canton-data-app-frontend`)**: UI that authenticates users via Auth0 or Keycloak (OIDC) and displays data from the backend
+- **Database (`canton-data-app-db`)**: Postgres instance that stores all indexed data. This is the only stateful service and mounts the persistent volume defined in the compose file.
+- **Backend (`canton-data-app-backend`)**: Indexes Canton ledger data via gRPC Ledger API, enriches it, persists to the database, and exposes a REST API.
+- **Frontend (`canton-data-app-frontend`)**: UI that authenticates users via Auth0 or Keycloak (OIDC) and displays data from the backend.
 
-Both containers run in the same Docker network as your Canton validator node (`splice-validator_splice_validator` by default) to enable direct service-to-service communication.
+All three containers run in the same Docker network as your Canton validator node (`splice-validator_splice_validator` by default) to enable direct service-to-service communication.
 
 ### Authentication Flow
 
@@ -63,9 +64,6 @@ Edit `compose.yaml` and configure the `canton-data-app-backend` service:
 
 ```yaml
 environment:
-# Local database path
-  DB_PATH: "./index.db"
-  
   # Canton Ledger API connection
   CANTON_NODE_ADDR: "participant:5001"  # Internal Docker DNS
   # OR if using external participant:
@@ -73,7 +71,16 @@ environment:
   
   # TLS/Certificate (see next section)
   CANTON_NODE_CERT_FILE_PATH: ""
+
+  # Database connection
+  INDEX_DB_HOST: "canton-data-app-db"
+  INDEX_DB_PORT: "5432"
+  INDEX_DB_NAME: "canton_index"
+  INDEX_DB_USER: "appuser"
+  INDEX_DB_PASSWORD: ${CANTON_TRANSLATE_DB_PASSWORD:-change-me}
 ```
+
+> Define `CANTON_TRANSLATE_DB_PASSWORD` in a `.env` file or export it before running `docker compose` so the password is never checked into source control.
 
 ### Frontend Configuration
 
@@ -115,13 +122,33 @@ environment:
 
 **Note:** The presence of `VITE_KEYCLOAK_URL` triggers Keycloak authentication. Configure **either** Auth0 **or** Keycloak variables, not both.
 
+### Database Configuration
+
+The `canton-data-app-db` runs TimescaleDB/Postgres and is the only stateful workload:
+
+```yaml
+services:
+  canton-data-app-db:
+    image: ghcr.io/noves-inc/canton-translate-db:v3.0.0
+    environment:
+      POSTGRES_USER: "appuser"
+      POSTGRES_DB: "canton_index"
+      POSTGRES_PASSWORD: ${CANTON_TRANSLATE_DB_PASSWORD:-change-me}
+      PGDATA: /home/postgres/pgdata/data
+    volumes:
+      - canton-data-app-db-data:/home/postgres/pgdata
+```
+
+The named volume `canton-data-app-db-data` preserves indexed data between restarts. No other service needs a volume.
+
 ### Port Configuration
 
 Default ports (customizable):
+- Database: `5432`
 - Backend: `8090` (internal)
 - Frontend: `8091` (internal)
 
-Both can be accessed via nginx reverse proxy (or similar) on ports 80/443.
+Both app services can be accessed via nginx (or similar) on ports 80/443.
 
 ---
 
@@ -174,8 +201,6 @@ cp /path/to/participant.crt ./certs/validator_certificate.crt
 services:
   canton-data-app-backend:
     volumes:
-      - data:/app/data
-      - exports:/app/exports
       - ./certs/validator_certificate.crt:/code/validator_certificate.crt:ro
     environment:
       CANTON_NODE_CERT_FILE_PATH: "/code/validator_certificate.crt"
@@ -290,8 +315,9 @@ Double-check all environment variables in `compose.yaml`:
 Pull the required images from GitHub Container Registry:
 
 ```bash
-docker pull ghcr.io/noves-inc/canton-translate-ui:dist
-docker pull ghcr.io/noves-inc/canton-translate:dist
+docker pull ghcr.io/noves-inc/canton-translate-ui:v3.0.0
+docker pull ghcr.io/noves-inc/canton-translate:v3.0.0
+docker pull ghcr.io/noves-inc/canton-translate-db:v3.0.0
 ```
 
 ### Step 3: Start Services

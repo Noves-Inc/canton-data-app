@@ -4,9 +4,6 @@ metadata:
   name: data-app-backend-config
   namespace: validator  # UPDATE with your namespace
 data:
-  # Local database path
-  INDEX_DB_PATH: "./index.db"
-  
   # Canton Ledger API connection
   # OR if using external participant:
   # CANTON_NODE_ADDR: "canton-validator.yourdomain.com:8443"
@@ -14,6 +11,12 @@ data:
   
   # CANTON_NODE_CERT_FILE_PATH: "/code/validator_certificate.crt"
   CANTON_NODE_CERT_FILE_PATH: "" # Leave empty if not expecting TLS from inside the participant (default behavior)
+
+  # Database configuration
+  INDEX_DB_HOST: "data-app-db"
+  INDEX_DB_PORT: "5432"
+  INDEX_DB_NAME: "canton_index"
+  INDEX_DB_USER: "appuser"
 
 ---
 apiVersion: v1

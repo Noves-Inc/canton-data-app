@@ -34,7 +34,7 @@ Because it runs in your infrastructure and uses your existing authentication sys
 
 ## Components
 
-The Data App consists of two primary components:
+The Data App consists of three primary components:
 
 ### Backend Indexer/Processor
 
@@ -50,15 +50,19 @@ The frontend consists of a dashboard that runs on backend-provided data. It allo
 - Graph transaction data
 - Export to CSV
 
+### Database (TimescaleDB/Postgres)
+
+Version 3.0.0 introduces a dedicated Postgres database container. It is the authoritative store for data and the only stateful workload that requires persistent storage.
+
 ---
 
 ## Deployment
 
 ### Initial Considerations
 
-The delivery of the app is through two Docker containers, which are assumed to be running in the same network (as part of a docker-compose deployment if you're deploying in a VM, or as two separate Kubernetes deployments in the same namespace, if you're deploying in k8s).
+The delivery of the app is through three Docker containers (frontend, backend, database) that are assumed to run in the same network (for example inside a docker-compose deployment) or inside the same Kubernetes namespace.
 
-Both containers are stateful, meaning that they have local storage that needs to persist across restarts. We include the exact paths on which a volume or PVC needs to be mounted in the sample manifests.
+Only the database container requires persistent storage. The frontend and backend are stateless and can be re-created freely as long as they can reach the database service.
 
 It is not a requirement that they run in the same network as your Canton validator node. But in practice, we expect this to be the case most of the time (for your own security). All URLs and endpoints are configurable via environment variables.
 
@@ -125,7 +129,7 @@ You'll find sample manifests / config files for nginx in the instructions, but y
 
 ### Port Numbers & Networking
 
-By default, the backend runs on port `8090` and the frontend runs on port `8091`. These are both customizable via environment variables. If you change the default port, make sure to update your docker-compose config or Kubernetes manifest to target the correct port in each container.
+By default, the backend runs on port `8090`, the frontend runs on port `8091`, and the database listens on port `5432`. These are customizable via environment variables. If you change the default port, update your docker-compose config or Kubernetes manifest accordingly.
 
 Regardless of your deployment topology, it is highly advised that both containers run in the same network, for optimal service-to-service communicationn.
 
@@ -138,6 +142,7 @@ For docker-compose, we assume that you'll be deploying using the same network as
 **Default Ports:**
 - Backend: `8090`
 - Frontend: `8091`
+- Database: `5432`
 
 ---
 
@@ -146,13 +151,15 @@ For docker-compose, we assume that you'll be deploying using the same network as
 Regardless of your chosen deployment topology, you'll be pulling our Docker images from GitHub Container Registry.
 
 **Required Images:**
-- **Frontend**: `ghcr.io/noves-inc/canton-translate-ui:dist`
-- **Backend**: `ghcr.io/noves-inc/canton-translate:dist`
+- **Frontend**: `ghcr.io/noves-inc/canton-translate-ui:v3.0.0` (also available as `:latest`)
+- **Backend**: `ghcr.io/noves-inc/canton-translate:v3.0.0` (also available as `:latest`)
+- **Database**: `ghcr.io/noves-inc/canton-translate-db:v3.0.0` (also available as `:latest`)
 
 **Pull the images:**
 ```bash
-docker pull ghcr.io/noves-inc/canton-translate-ui:dist
-docker pull ghcr.io/noves-inc/canton-translate:dist
+docker pull ghcr.io/noves-inc/canton-translate-ui:v3.0.0
+docker pull ghcr.io/noves-inc/canton-translate:v3.0.0
+docker pull ghcr.io/noves-inc/canton-translate-db:v3.0.0
 ```
 
 The images will launch with the default deployment manifests included in this repository, and upon launch they will authorize your participant ID against our active subscriptions.
@@ -212,9 +219,13 @@ The backend has the following user-configurable environment variables:
 
 | Variable | Example Value | Description |
 |----------|---------------|-------------|
-| `INDEX_DB_PATH` | `.` | Path to the directory where the database file will be stored. This should point to persistent storage (a Docker volume or Kubernetes PVC). The backend will create `index.db` in this directory. |
 | `CANTON_NODE_ADDR` | `splice-validator-participant-1:5001` | Address of the Canton participant's Ledger API. For Docker Compose deployments on the same network, use the participant container name and port. For external connections, use the fully qualified domain name and port. |
 | `CANTON_NODE_CERT_FILE_PATH` | `""` or `/code/cert.crt` | Path to TLS certificate for secure gRPC communication with Canton. **Must be an empty string (`""`)** if the Ledger API does not require TLS (common for Docker Compose deployments). If TLS is required, mount the certificate file and provide its path. |
+| `INDEX_DB_HOST` | `data-app-db` | Internal hostname for the database service. |
+| `INDEX_DB_PORT` | `5432` | Database port exposed by the database service. |
+| `INDEX_DB_NAME` | `canton_index` | Database name automatically created by the database container. |
+| `INDEX_DB_USER` | `appuser` | Database username configured for the database container. |
+| `INDEX_DB_PASSWORD` | `********` | Database password. Use Docker secrets, env vars, or Kubernetes Secrets to supply this securely. |
 
 **Note:** The backend does not require Auth0 credentials. It receives JWT tokens from the frontend and passes them through to Canton's Ledger API for validation. You can also call the backend's API directly if you generate a valid JWT token on your own.
 

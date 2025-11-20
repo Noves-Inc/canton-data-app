@@ -14,12 +14,14 @@ This directory contains Kubernetes manifests and deployment instructions for the
    - Namespace
    - Participant service name
    - Authentication provider credentials (Auth0 or Keycloak)
+   - Database password secret
    - Hostnames
    - Ingress configuration
 
-4. **Deploy**:
+4. **Deploy** (adjust namespace as needed):
    ```bash
    kubectl apply -f manifests/persistentvolumeclaims.yaml
+   kubectl apply -f manifests/secrets.yaml
    kubectl apply -f manifests/configmaps.yaml
    kubectl apply -f manifests/services.yaml
    kubectl apply -f manifests/deployments.yaml
@@ -30,9 +32,10 @@ This directory contains Kubernetes manifests and deployment instructions for the
 
 - **kubernetes_deployment.md**: Comprehensive deployment guide with troubleshooting
 - **manifests/**: Kubernetes YAML manifests (templates)
-  - `persistentvolumeclaims.yaml`: Storage for backend database
+  - `persistentvolumeclaims.yaml`: Storage for database
+  - `secrets.yaml`: Database password
   - `configmaps.yaml`: Environment variable configuration
-  - `services.yaml`: ClusterIP services for backend and frontend
+  - `services.yaml`: ClusterIP services for database, backend, and frontend
   - `deployments.yaml`: Pod specifications
   - `ingress.yaml`: nginx Ingress routing
 

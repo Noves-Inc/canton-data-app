@@ -1,37 +1,11 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: data-app-backend-pvc
+  name: data-app-db-pvc
   namespace: validator  # UPDATE with your namespace
 spec:
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 20Gi  # Backend database storage
-
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: data-app-frontend-pvc
-  namespace: validator  # UPDATE with your namespace
-spec:
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 10Gi  # Frontend data storage
-
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: data-app-frontend-exports-pvc
-  namespace: validator  # UPDATE with your namespace
-spec:
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 5Gi  
+      storage: 100Gi  # Postgres data storage
