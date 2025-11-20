@@ -129,7 +129,7 @@ The `canton-data-app-db` runs TimescaleDB/Postgres and is the only stateful work
 ```yaml
 services:
   canton-data-app-db:
-    image: ghcr.io/noves-inc/canton-translate-db:v3.0.0
+    image: ghcr.io/noves-inc/canton-translate-db:latest
     environment:
       POSTGRES_USER: "appuser"
       POSTGRES_DB: "canton_index"
@@ -315,9 +315,9 @@ Double-check all environment variables in `compose.yaml`:
 Pull the required images from GitHub Container Registry:
 
 ```bash
-docker pull ghcr.io/noves-inc/canton-translate-ui:v3.0.0
-docker pull ghcr.io/noves-inc/canton-translate:v3.0.0
-docker pull ghcr.io/noves-inc/canton-translate-db:v3.0.0
+docker pull ghcr.io/noves-inc/canton-translate-ui:latest
+docker pull ghcr.io/noves-inc/canton-translate:latest
+docker pull ghcr.io/noves-inc/canton-translate-db:latest
 ```
 
 ### Step 3: Start Services

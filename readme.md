@@ -157,9 +157,9 @@ Regardless of your chosen deployment topology, you'll be pulling our Docker imag
 
 **Pull the images:**
 ```bash
-docker pull ghcr.io/noves-inc/canton-translate-ui:v3.0.0
-docker pull ghcr.io/noves-inc/canton-translate:v3.0.0
-docker pull ghcr.io/noves-inc/canton-translate-db:v3.0.0
+docker pull ghcr.io/noves-inc/canton-translate-ui:latest
+docker pull ghcr.io/noves-inc/canton-translate:latest
+docker pull ghcr.io/noves-inc/canton-translate-db:latest
 ```
 
 The images will launch with the default deployment manifests included in this repository, and upon launch they will authorize your participant ID against our active subscriptions.

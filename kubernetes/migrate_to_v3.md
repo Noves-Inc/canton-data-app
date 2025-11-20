@@ -42,7 +42,7 @@ spec:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 100Gi  # adjust for your ledger volume
+      storage: 100Gi  # adjust for your expected transaction volume
 ```
 
 Update `namespace`, `storage`, and `storageClassName` to match your cluster.
@@ -115,7 +115,7 @@ spec:
     spec:
       containers:
         - name: postgres
-          image: ghcr.io/noves-inc/canton-translate-db:v3.0.0
+          image: ghcr.io/noves-inc/canton-translate-db:latest
           env:
             - name: POSTGRES_USER
               value: "appuser"
@@ -209,26 +209,4 @@ You should see `data-app-db` enter `Running`, followed by backend logs stating i
    kubectl delete pvc data-app-frontend-pvc -n validator --ignore-not-found
    kubectl delete pvc data-app-frontend-exports-pvc -n validator --ignore-not-found
    ```
-
----
-
-## 6. Rollback Plan
-
-If you need to revert quickly:
-
-1. `kubectl rollout undo deployment/data-app-backend -n validator`
-2. Delete the database deployment/service/PVC if they cause issues.
-3. Re-apply your previous manifests which mounted the local PVCs.
-
-Because v3 stores state centrally, rolling back means the backend will look for the old on-disk data again. Keep old PVC definitions or backups until you are confident in the new setup.
-
----
-
-## 7. Post-Migration Recommendations
-
-- Schedule regular database backups (`pg_dump`, Kasten, etc.) now that the data is centralized.
-- Configure monitoring/alerts for the `data-app-db` pod to track disk usage and availability.
-- Document the new Secret management workflow for your operations team.
-
-Once these steps are complete, your Kubernetes deployment matches the v3.0.0 architecture while preserving ingress, authentication, and Canton connectivity exactly as before.  
 

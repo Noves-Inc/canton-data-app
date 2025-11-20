@@ -23,7 +23,7 @@ This guide assumes you already have the Noves Data App running with the older tw
 3. The new file already contains:
    - `canton-data-app-db` service with health checks and persistent volume
    - Updated backend env vars pointing to the database
-   - Up-to-date image tags (`ghcr.io/noves-inc/...:v3.0.0`)
+   - Up-to-date image tags (`ghcr.io/noves-inc/...:latest`)
    - No persistent volumes for frontend/backend
 
 > If you use any overrides (custom ports, network names, TLS mounts), re-apply those to the new file before continuing.
@@ -47,7 +47,6 @@ All other environment variables (Auth0/Keycloak, Canton node address, TLS certif
 ```bash
 cd docker-compose
 docker compose down
-docker compose pull  # fetches v3.0.0 images for frontend/back-end/db
 ```
 
 This removes the old backend container so no file locks remain on the retired volume.
@@ -61,8 +60,14 @@ docker compose up -d
 docker compose ps
 ```
 
-Verify:
-- `canton-data-app-db` shows `healthy`.
+If you previously exposed the ingress for the data app using the nginx container shipped by default by your Canton node, make sure to restart that service:
+
+```
+docker restart splice-validator-nginx-1
+```
+
+Then verify:
+- All containers show `healthy`.
 - Backend logs contain messages like “Connected to Postgres” and “Starting initial index”.
 - Frontend remains reachable via the same ingress/reverse proxy.
 
@@ -70,7 +75,7 @@ No changes are necessary to your nginx configuration, TLS certificates, DNS, Aut
 
 ---
 
-## 6. Clean Up Legacy Volumes (Optional)
+## 6. Clean Up Legacy Volumes
 
 Once you’re satisfied the new database holds the required data:
 
@@ -78,26 +83,4 @@ Once you’re satisfied the new database holds the required data:
 docker volume rm docker-compose_frontend-exports docker-compose_backend-data 2>/dev/null
 ```
 (Use `docker volume ls` to confirm names if different.)
-
----
-
-## 7. Roll Back (If Needed)
-
-Because the backend/frontend containers are now stateless, rolling back is as simple as:
-
-```bash
-docker compose down
-git checkout -- docker-compose/compose.yaml
-docker compose up -d
-```
-
-Keep in mind that the new Postgres volume stores the latest data. If you revert to the old version, you may prefer to re-index from scratch.
-
----
-
-## Next Steps
-
-- Monitor logs until the backend finishes the initial index (`docker compose logs -f canton-data-app-backend`).
-- Add database-level backups (e.g., nightly `pg_dump`) now that all state lives in Postgres.
-- Proceed to the Kubernetes migration if you also run the app in clusters.  
 
