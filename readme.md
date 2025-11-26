@@ -226,10 +226,26 @@ The backend has the following user-configurable environment variables:
 | `INDEX_DB_NAME` | `canton_index` | Database name automatically created by the database container. |
 | `INDEX_DB_USER` | `appuser` | Database username configured for the database container. |
 | `INDEX_DB_PASSWORD` | `********` | Database password. Use Docker secrets, env vars, or Kubernetes Secrets to supply this securely. |
+| `BACKUP_S3_BUCKET` | `canton-backup-test` | (Optional) Destination bucket for off-cluster transaction-history backups. |
+| `BACKUP_S3_PREFIX` | `validator-a/` | (Optional) Prefix applied to every uploaded backup object. |
+| `BACKUP_S3_ENDPOINT_URL` | `https://<your-provider-endpoint>` | (Optional) Custom S3-compatible endpoint (Cloudflare R2, MinIO, etc.) |
+| `BACKUP_S3_ACCESS_KEY_ID` | `AKIA...` | (Optional) Access key for the backup bucket. |
+| `BACKUP_S3_SECRET_ACCESS_KEY` | `********` | (Optional) Secret key for the backup bucket. |
+| `BACKUP_S3_SESSION_TOKEN` | `********` | (Optional) Session token when using temporary credentials. Leave blank for long-lived credentials. |
 
 **Note:** The backend does not require Auth0 credentials. It receives JWT tokens from the frontend and passes them through to Canton's Ledger API for validation. You can also call the backend's API directly if you generate a valid JWT token on your own.
 
 ---
+
+## Transaction History Backups (Optional)
+
+Major upgrades of the Canton network prune participant transaction history. This means that if you query the Ledger API, you won't be able to retrieve transaction history prior to the major upgrade ([Digital Asset validator upgrade guide](https://docs.dev.sync.global/validator_operator/validator_major_upgrades.html)).
+
+While public Canton Coin transactions are still retrievable via the Scan API, if you have any private transactions (involving for example private assets such as CBTC), those will be lost when you conduct a major upgrade, unless you take a backup first.
+
+To facilitate this, the backend container can stream periodic transaction snapshots into an S3-compatible object store. Enable this feature by setting the optional `BACKUP_S3_*` environment variables listed above. Once configured, the backend uploads append-only archives to your chosen bucket so you can restore or reprocess historical data even after a network-wide upgrade. You control retention, lifecycle rules, and access controls directly in your object storage account.
+
+The backup feature is entirely optional. The application continues to run without the variables. However, we strongly recommend enabling it in production so that your reporting data survives major Canton upgrades.
 
 ## Installation Steps
 

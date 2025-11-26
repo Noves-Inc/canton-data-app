@@ -78,6 +78,14 @@ environment:
   INDEX_DB_NAME: "canton_index"
   INDEX_DB_USER: "appuser"
   INDEX_DB_PASSWORD: ${CANTON_TRANSLATE_DB_PASSWORD:-change-me}
+
+  # Optional S3-compatible backup destination
+  BACKUP_S3_BUCKET: ""
+  BACKUP_S3_PREFIX: ""
+  BACKUP_S3_ENDPOINT_URL: ""
+  BACKUP_S3_ACCESS_KEY_ID: ""
+  BACKUP_S3_SECRET_ACCESS_KEY: ""
+  BACKUP_S3_SESSION_TOKEN: ""
 ```
 
 > Define `CANTON_TRANSLATE_DB_PASSWORD` in a `.env` file or export it before running `docker compose` so the password is never checked into source control.

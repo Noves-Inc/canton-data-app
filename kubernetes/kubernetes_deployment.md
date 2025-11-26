@@ -206,6 +206,7 @@ See [`manifests/configmaps.yaml`](manifests/configmaps.yaml) and [`manifests/sec
 - **Namespace**: Update in both ConfigMaps.
 - **CANTON_NODE_ADDR**: Update the namespace portion if different from `validator`.
 - **Database connection**: Confirm `INDEX_DB_HOST`, `INDEX_DB_PORT`, `INDEX_DB_NAME`, and `INDEX_DB_USER` reflect your database deployment details.
+- **Backups (optional)**: Populate `BACKUP_S3_BUCKET`, `BACKUP_S3_PREFIX`, and `BACKUP_S3_ENDPOINT_URL` if you plan to push history snapshots to object storage. Optional.
 
 **Frontend Auth0 variables:**
 - **VITE_AUTH0_DOMAIN**: Your Auth0 tenant domain.
@@ -224,6 +225,7 @@ See [`manifests/configmaps.yaml`](manifests/configmaps.yaml) and [`manifests/sec
 **Secret updates:**
 - Edit `manifests/secrets.yaml` and replace the placeholder password before deploying.
 - If you manage secrets via an external system (e.g., sealed-secrets, Vault), adapt the manifest accordingly.
+- When enabling backups, store `BACKUP_S3_ACCESS_KEY_ID`, `BACKUP_S3_SECRET_ACCESS_KEY`, and (if used) `BACKUP_S3_SESSION_TOKEN` in a Secret instead of the ConfigMap, then reference that Secret from the backend deployment.
 
 ---
 
@@ -253,6 +255,14 @@ See [`manifests/deployments.yaml`](manifests/deployments.yaml) for the complete 
 **Key features:**
 - `data-app-db` uses the PVC `data-app-db-pvc`, mounts `/home/postgres/pgdata`, and references the shared secret for credentials.
 - Backend and frontend deployments are stateless. They consume ConfigMaps for configuration and pull the database password from the same Secret.
+
+## Transaction History Backups (Optional)
+
+Major Canton upgrades prune participant transaction history and reset offsets, leaving only active contracts on the participant ([validator upgrade guide](https://docs.dev.sync.global/validator_operator/validator_major_upgrades.html)). To retain a complete audit trail for reporting, enable the backend’s S3-compatible backup feature:
+
+1. Populate `BACKUP_S3_BUCKET`, `BACKUP_S3_PREFIX`, and `BACKUP_S3_ENDPOINT_URL` in the backend ConfigMap (leave blank to disable).
+2. Store credentials (`BACKUP_S3_ACCESS_KEY_ID`, `BACKUP_S3_SECRET_ACCESS_KEY`, and optional `BACKUP_S3_SESSION_TOKEN`) in a Secret and reference it from the backend deployment.
+3. Apply lifecycle/retention policies on your bucket to control storage costs.
 
 ### TLS Configuration (Optional and likely not needed)
 

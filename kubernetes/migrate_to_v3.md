@@ -77,6 +77,8 @@ In `kubernetes/manifests/configmaps.yaml`, confirm the backend ConfigMap has the
 
 Remove any `INDEX_DB_PATH` or file-path references. Frontend ConfigMap remains unchanged (Auth0/Keycloak settings stay the same).
 
+If you plan to preserve long-term transaction history across future Canton major upgrades, also populate the optional `BACKUP_S3_*` variables (bucket, prefix, endpoint). Store credentials (`BACKUP_S3_ACCESS_KEY_ID`, `BACKUP_S3_SECRET_ACCESS_KEY`, `BACKUP_S3_SESSION_TOKEN`) in a Secret and reference it from the backend deployment so the archives upload securely to your object store ([upgrade context](https://docs.dev.sync.global/validator_operator/validator_major_upgrades.html)).
+
 ### Step 3.4 – Services
 
 Add the database service at the top of `kubernetes/manifests/services.yaml`:

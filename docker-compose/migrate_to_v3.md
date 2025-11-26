@@ -40,6 +40,8 @@ export CANTON_TRANSLATE_DB_PASSWORD="replace-with-strong-pass"
 
 All other environment variables (Auth0/Keycloak, Canton node address, TLS certificates) remain unchanged from v2.x.
 
+If you want the backend to upload historical transaction snapshots so they survive future Canton major upgrades, also set the optional `BACKUP_S3_*` variables (bucket, prefix, endpoint, and credentials). See [Digital Asset’s upgrade guidance](https://docs.dev.sync.global/validator_operator/validator_major_upgrades.html) for why these backups are important.
+
 ---
 
 ## 4. Stop Old Containers and Pull New Images

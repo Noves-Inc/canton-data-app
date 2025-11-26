@@ -50,6 +50,13 @@ services:
       INDEX_DB_NAME: "canton_index"
       INDEX_DB_USER: "appuser"
       INDEX_DB_PASSWORD: ${CANTON_TRANSLATE_DB_PASSWORD:-change-me}
+      # Optional S3 backup configuration
+      BACKUP_S3_BUCKET: ""
+      BACKUP_S3_PREFIX: ""
+      BACKUP_S3_ENDPOINT_URL: ""
+      BACKUP_S3_ACCESS_KEY_ID: ""
+      BACKUP_S3_SECRET_ACCESS_KEY: ""
+      BACKUP_S3_SESSION_TOKEN: ""
     networks:
       - splice-validator_splice_validator
     depends_on:
