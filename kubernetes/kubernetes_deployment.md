@@ -25,6 +25,7 @@
 11. [Debugging Commands](#debugging-commands)
 12. [Troubleshooting](#troubleshooting)
 13. [Operational Commands](#operational-commands)
+14. [Optional: Traffic Analyzer Addon](#optional-traffic-analyzer-addon)
 
 ---
 
@@ -842,6 +843,57 @@ See provider-specific troubleshooting:
 This is an early-stage product. It's possible that issues will arise, and we're here to help in any way we can.
 
 If you spot any issues or run into a snag during deployment, contact us through our shared Slack channel `#canton-data-app` (ask us for an invite link if you're not a member already).
+
+---
+
+## Optional: Traffic Analyzer Addon
+
+The Traffic Analyzer addon enables real-time traffic cost analysis by collecting Canton participant logs and correlating them with transaction data.
+
+**This is an optional feature.** The main Data App functions fully without it.
+
+### Prerequisites
+
+- Data App backend deployed and accessible within the cluster
+- Canton participant with `LOG_LEVEL_CANTON=DEBUG` enabled
+
+### Installation
+
+```bash
+cd ../traffic-analyzer/kubernetes
+
+helm repo add fluent https://fluent.github.io/helm-charts
+helm repo update
+
+helm upgrade -i fluent-bit fluent/fluent-bit \
+  -n logging --create-namespace \
+  -f values-fluentbit.yaml
+```
+
+### Configuration
+
+Update the backend service hostname in `values-fluentbit.yaml` to match your deployment:
+
+```ini
+[OUTPUT]
+    Name              http
+    Match             kube.*
+    Host              data-app-backend.YOUR_NAMESPACE.svc.cluster.local
+    Port              5124
+    ...
+```
+
+### Verification
+
+```bash
+# Check Fluent Bit pods
+kubectl -n logging get pods -l app.kubernetes.io/name=fluent-bit
+
+# Verify backend is receiving data
+kubectl exec -it deploy/data-app-backend -n validator -- curl localhost:5124/queue-stats
+```
+
+📄 **For full documentation, see: [../traffic-analyzer/README.md](../traffic-analyzer/README.md)**
 
 ---
 

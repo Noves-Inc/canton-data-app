@@ -17,7 +17,9 @@
    - [Frontend Environment Variables](#frontend-environment-variables)
    - [Backend Environment Variables](#backend-environment-variables)
 5. [Installation Steps](#installation-steps)
-6. [Support](#support)
+6. [Optional Addons](#optional-addons)
+   - [Traffic Analyzer](#traffic-analyzer)
+7. [Support](#support)
 
 ---
 
@@ -267,6 +269,32 @@ You'll need credentials from your chosen authentication provider before proceedi
 - **Kubernetes**: See [kubernetes/kubernetes_deployment.md](kubernetes/kubernetes_deployment.md) for step-by-step instructions
 
 **Note**: the app will take approximately 2-3 minutes to index the first batch of data after being installed. Once the dashboard is up & running, wait for a few minutes.
+
+---
+
+## Optional Addons
+
+### Traffic Analyzer
+
+The Traffic Analyzer addon enables real-time traffic cost analysis by collecting Canton participant logs and correlating them with transaction data. This allows you to see the traffic cost associated with each transaction.
+
+**This is an optional feature.** The main Data App functions fully without it.
+
+**How it works:**
+1. Fluent Bit collects logs from your Canton participant container
+2. Logs are filtered and sent via HTTP to the Data App backend (port 5124)
+3. The backend correlates traffic costs with transaction IDs
+4. Traffic cost data becomes available via the Traffic Cost API
+
+**Requirements:**
+- Canton participant with `LOG_LEVEL_CANTON=DEBUG` enabled
+- Fluent Bit 2.x installed and configured per our instructions
+
+**Installation:**
+- **Docker Compose**: See [traffic-analyzer/docker-compose/README.md](traffic-analyzer/docker-compose/README.md)
+- **Kubernetes**: See [traffic-analyzer/kubernetes/README.md](traffic-analyzer/kubernetes/README.md)
+
+📄 **For full documentation, see: [traffic-analyzer/README.md](traffic-analyzer/README.md)**
 
 ---
 

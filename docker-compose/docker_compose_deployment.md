@@ -21,6 +21,7 @@
 8. [Debugging Commands](#debugging-commands)
 9. [Troubleshooting](#troubleshooting)
 10. [Operational Commands](#operational-commands)
+11. [Optional: Traffic Analyzer Addon](#optional-traffic-analyzer-addon)
 
 ---
 
@@ -551,3 +552,48 @@ docker compose up -d --force-recreate
 # Or combined
 docker compose pull && docker compose up -d --force-recreate
 ```
+
+---
+
+## Optional: Traffic Analyzer Addon
+
+The Traffic Analyzer addon enables real-time traffic cost analysis by collecting Canton participant logs and correlating them with transaction data.
+
+**This is an optional feature.** The main Data App functions fully without it.
+
+### Prerequisites
+
+- Data App backend running and accessible
+- Canton participant with `LOG_LEVEL_CANTON=DEBUG` enabled
+
+### Installation
+
+```bash
+cd ../traffic-analyzer/docker-compose
+docker compose up -d
+```
+
+### Configuration
+
+The Fluent Bit configuration sends logs to the Data App backend at `http://canton-data-app-backend:5124/ingest`. If your backend container has a different name, update `fluent-bit.conf`:
+
+```ini
+[OUTPUT]
+    Name              http
+    Match             docker.*
+    Host              YOUR_BACKEND_CONTAINER_NAME
+    Port              5124
+    ...
+```
+
+### Verification
+
+```bash
+# Check Fluent Bit is running
+docker compose ps
+
+# Verify backend is receiving data
+curl http://localhost:5124/queue-stats
+```
+
+📄 **For full documentation, see: [../traffic-analyzer/README.md](../traffic-analyzer/README.md)**
