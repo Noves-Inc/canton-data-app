@@ -44,6 +44,15 @@ All three containers run in the same Docker network as your Canton validator nod
 
 **Important:** The backend acts as a passthrough. It does not generate its own tokens or authenticate with the OIDC provider directly.
 
+### Wallet Features (Optional)
+
+The app includes optional wallet functionality that enables users to send/receive Canton Coin (CC) transfers and maintain an address book. To enable wallet features:
+
+1. **Backend**: Set `SCAN_PROXY_URL` to point to your validator's Scan API (e.g., `http://validator:5003/api/validator`)
+2. **Frontend** (optional): Configure `VITE_WALLET_CONFIRMATION_THRESHOLD` to set the CC amount requiring explicit confirmation (default: 100000 CC)
+
+If `SCAN_PROXY_URL` is not set, the app will function normally but wallet features will be disabled.
+
 ---
 
 ## Authentication Configuration
@@ -86,6 +95,9 @@ environment:
   BACKUP_S3_ACCESS_KEY_ID: ""
   BACKUP_S3_SECRET_ACCESS_KEY: ""
   BACKUP_S3_SESSION_TOKEN: ""
+
+  # Wallet features (optional - leave empty to disable)
+  SCAN_PROXY_URL: "http://validator:5003/api/validator"  # Required to enable wallet features
 ```
 
 > Define `CANTON_TRANSLATE_DB_PASSWORD` in a `.env` file or export it before running `docker compose` so the password is never checked into source control.
@@ -129,6 +141,14 @@ environment:
 ```
 
 **Note:** The presence of `VITE_KEYCLOAK_URL` triggers Keycloak authentication. Configure **either** Auth0 **or** Keycloak variables, not both.
+
+**Wallet Configuration (Optional):**
+
+```yaml
+environment:
+  # Optional: Threshold for requiring "CONFIRM" on large transfers (default: 100000 CC)
+  VITE_WALLET_CONFIRMATION_THRESHOLD: "100000"
+```
 
 ### Database Configuration
 

@@ -50,6 +50,15 @@ The frontend consists of a dashboard that runs on backend-provided data. It allo
 - Graph transaction data
 - Export to CSV
 
+### Wallet Features (Optional)
+
+The app includes optional wallet functionality that enables users to:
+- Send and receive Canton Coin (CC) transfers
+- Maintain an address book for parties
+- Perform wallet operations for any party the user is authorized to act as
+
+**To enable wallet features**, the backend must have network access to the validator's Scan API and the `SCAN_PROXY_URL` environment variable must be configured. If this variable is not set, the app will launch normally but wallet features will be disabled.
+
 ### Database (TimescaleDB/Postgres)
 
 Version 3.0.0 introduces a dedicated Postgres database container. It is the authoritative store for data and the only stateful workload that requires persistent storage.
@@ -204,6 +213,8 @@ Both containers are configured via environment variables. Below is a comprehensi
 | `VITE_KEYCLOAK_CLIENT_ID` | `data-app-ui` | The Client ID of your Keycloak Public Client (see [Keycloak Setup](authentication/keycloak.md)) |
 | `VITE_KEYCLOAK_REDIRECT_URI` | `https://canton-data-ui.yourdomain.com/callback` | The callback URL where Keycloak redirects after login. Must match the **Valid redirect URIs** configured in your Keycloak client. |
 | `VITE_KEYCLOAK_LOGOUT_URL` | `https://canton-data-ui.yourdomain.com` | The URL where users are redirected after logout. Must match the **Valid post logout redirect URIs** configured in your Keycloak client. |
+| **Wallet Configuration** | | **Optional settings for wallet features** |
+| `VITE_WALLET_CONFIRMATION_THRESHOLD` | `100000` | (Optional) The Canton Coin (CC) amount threshold above which users must type "CONFIRM" to complete a transfer. Defaults to `100000` CC if not set. |
 
 **Authentication Provider Selection:**
 - The app automatically detects which authentication provider to use based on environment variables
@@ -232,6 +243,8 @@ The backend has the following user-configurable environment variables:
 | `BACKUP_S3_ACCESS_KEY_ID` | `AKIA...` | (Optional) Access key for the backup bucket. |
 | `BACKUP_S3_SECRET_ACCESS_KEY` | `********` | (Optional) Secret key for the backup bucket. |
 | `BACKUP_S3_SESSION_TOKEN` | `********` | (Optional) Session token when using temporary credentials. Leave blank for long-lived credentials. |
+| **Wallet Configuration** | | **Required to enable wallet features** |
+| `SCAN_PROXY_URL` | `http://validator:5003/api/validator` | (Optional) URL to the validator's Scan API proxy endpoint. **Required to enable wallet features.** If not set, wallet functionality is disabled. For Docker Compose, use the validator container name (e.g., `http://validator:5003/api/validator`). For Kubernetes, use the fully qualified service name (e.g., `http://validator.validator.svc.cluster.local:5003/api/validator`). |
 
 **Note:** The backend does not require Auth0 credentials. It receives JWT tokens from the frontend and passes them through to Canton's Ledger API for validation. You can also call the backend's API directly if you generate a valid JWT token on your own.
 
