@@ -33,7 +33,7 @@ This optional addon enables the Noves Data App to correlate Canton traffic costs
     ├── README.md
     ├── fluent-bit.conf
     ├── parsers.conf
-    └── docker-compose.yaml
+    └── compose.yaml
 ```
 
 ## Quick Start

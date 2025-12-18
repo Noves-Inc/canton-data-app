@@ -14,7 +14,7 @@ Collect Canton participant logs from Docker containers and send to the Data App 
 
 ### 1. Configure the network
 
-If your validator compose uses a different network name, update `docker-compose.yaml`:
+If your validator compose uses a different network name, update `compose.yaml`:
 
 ```yaml
 networks:
