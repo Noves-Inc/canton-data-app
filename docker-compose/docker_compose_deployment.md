@@ -563,7 +563,7 @@ The Traffic Analyzer addon enables real-time traffic cost analysis by collecting
 
 ### Prerequisites
 
-- Data App backend running and accessible
+- Data App backend running with `TRAFFIC_ANALYSIS_ENABLED=true` environment variable set
 - Canton participant with `LOG_LEVEL_CANTON=DEBUG` enabled
 
 ### Installation

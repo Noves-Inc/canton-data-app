@@ -18,6 +18,9 @@ data:
   INDEX_DB_NAME: "canton_index"
   INDEX_DB_USER: "appuser"
 
+  # Optional: Traffic Analysis (requires Fluent Bit addon, see traffic-analyzer/)
+  # TRAFFIC_ANALYSIS_ENABLED: "true"  # Default is "false"
+
   # Optional S3 backup configuration (leave empty to disable)
   BACKUP_S3_BUCKET: ""
   BACKUP_S3_PREFIX: ""

@@ -8,7 +8,7 @@ Collect Canton participant logs from Kubernetes pods and send to the Data App ba
 - Helm v3 installed
 - Canton participant pods in a known namespace (default: `validator`)
 - Participant emitting JSON logs with `LOG_LEVEL_CANTON=DEBUG`
-- Noves Data App backend deployed and accessible within the cluster
+- Noves Data App backend deployed with `TRAFFIC_ANALYSIS_ENABLED=true` environment variable set
 
 ## Install Fluent Bit
 

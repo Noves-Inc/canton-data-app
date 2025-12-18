@@ -7,7 +7,7 @@ Collect Canton participant logs from Docker containers and send to the Data App 
 - Docker and Docker Compose installed
 - Canton participant running as a Docker container
 - Participant emitting JSON logs with `LOG_LEVEL_CANTON=DEBUG`
-- Noves Data App backend running and accessible
+- Noves Data App backend running with `TRAFFIC_ANALYSIS_ENABLED=true` environment variable set
 - Know the network name of your validator stack (default: `splice-validator_splice_validator`)
 
 ## Setup

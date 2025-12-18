@@ -234,6 +234,7 @@ The backend has the following user-configurable environment variables:
 | `BACKUP_S3_ACCESS_KEY_ID` | `AKIA...` | (Optional) Access key for the backup bucket. |
 | `BACKUP_S3_SECRET_ACCESS_KEY` | `********` | (Optional) Secret key for the backup bucket. |
 | `BACKUP_S3_SESSION_TOKEN` | `********` | (Optional) Session token when using temporary credentials. Leave blank for long-lived credentials. |
+| `TRAFFIC_ANALYSIS_ENABLED` | `true` or `false` | (Optional) Enable traffic cost analysis. Requires Fluent Bit addon. Default is `false`. See [traffic-analyzer/](traffic-analyzer/) for setup. |
 
 **Note:** The backend does not require Auth0 credentials. It receives JWT tokens from the frontend and passes them through to Canton's Ledger API for validation. You can also call the backend's API directly if you generate a valid JWT token on your own.
 
@@ -287,6 +288,7 @@ The Traffic Analyzer addon enables real-time traffic cost analysis by collecting
 4. Traffic cost data becomes available via the Traffic Cost API
 
 **Requirements:**
+- Backend container with `TRAFFIC_ANALYSIS_ENABLED=true` environment variable set
 - Canton participant with `LOG_LEVEL_CANTON=DEBUG` enabled
 - Fluent Bit 2.x installed and configured per our instructions
 

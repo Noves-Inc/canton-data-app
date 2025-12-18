@@ -18,9 +18,9 @@ This optional addon enables the Noves Data App to correlate Canton traffic costs
 
 ## Requirements
 
-- Noves Data App backend running (with Traffic Cost API enabled on port 5124)
+- Noves Data App backend running with `TRAFFIC_ANALYSIS_ENABLED=true` environment variable set (default is `false`)
 - Canton participant configured to emit JSON logs to stdout
-- `LOG_LEVEL_CANTON=DEBUG` must be set to capture traffic-related log lines
+- `LOG_LEVEL_CANTON=DEBUG` must be set on your Canton participant to capture traffic-related log lines
 - Fluent Bit 2.x
 
 ## Directory Structure
