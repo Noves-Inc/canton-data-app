@@ -27,7 +27,7 @@ data:
   BACKUP_S3_SESSION_TOKEN: ""
 
   # Wallet features (optional - leave empty to disable wallet functionality)
-  SCAN_PROXY_URL: "http://validator.validator.svc.cluster.local:5003/api/validator"  # UPDATE namespace if different
+  SCAN_PROXY_URL: "http://validator-app.validator.svc.cluster.local:5003/api/validator"  # UPDATE namespace if different
 
 ---
 apiVersion: v1
