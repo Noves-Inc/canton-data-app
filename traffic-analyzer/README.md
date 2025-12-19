@@ -55,7 +55,7 @@ helm repo add fluent https://fluent.github.io/helm-charts
 helm repo update
 helm upgrade -i fluent-bit fluent/fluent-bit \
   -n logging --create-namespace \
-  -f values-fluentbit.yaml
+  -f traffic-analyzer/kubernetes/values-fluentbit.yaml
 ```
 
 See [kubernetes/README.md](kubernetes/README.md) for detailed instructions.

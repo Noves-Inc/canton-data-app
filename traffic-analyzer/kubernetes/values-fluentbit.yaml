@@ -16,6 +16,14 @@ resources:
     cpu: 500m
     memory: 512Mi
 
+# You need to ensure that fluent-bit is running in the node hosting the participant pod
+# Add any needed tolerations here
+# tolerations:
+  # - key: ""
+  #   operator: "Equal"
+  #   value: ""
+  #   effect: "NoSchedule"
+
 # Mount host path for fluent-bit database
 extraVolumes:
   - name: flb-db
@@ -43,14 +51,14 @@ config:
   inputs: |
     [INPUT]
         Name              tail
-        Path              /var/log/containers/*_validator_*.log
+        Path              /var/log/containers/participant*_validator_*.log
         Tag               kube.*
         Parser            cri
-        Mem_Buf_Limit     50MB
+        Mem_Buf_Limit     200MB
         Skip_Long_Lines   Off
         DB                /var/lib/fluent-bit/flb_validator.db
         DB.Sync           Normal
-        Refresh_Interval  5
+        Refresh_Interval  3
 
   # Enrich with Kubernetes metadata and parse JSON from app logs
   filters: |
