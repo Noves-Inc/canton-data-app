@@ -1,7 +1,6 @@
 # Traffic Analyzer (Optional Addon)
-<img width="1491" height="846" alt="traffic-used-column" src="https://github.com/user-attachments/assets/6748e2ea-fec1-406c-914e-6200bcae71f7" />
+<img width="1491" height="846" alt="image" src="https://github.com/user-attachments/assets/903add9e-3216-4a8d-b8d6-bbdcd9dedb7e" />
 
-Collect Canton participant logs for real-time traffic cost analysis.
 
 ## Overview
 
