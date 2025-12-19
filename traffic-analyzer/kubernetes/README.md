@@ -48,37 +48,15 @@ Path              /var/log/containers/*_YOUR_NAMESPACE_*.log
 
 ### Container Runtime
 
-The default parser is `cri` (containerd). If your cluster uses Docker runtime, change:
+The default parser for Kubernetes is `cri` (containerd). If your cluster uses Docker runtime, change:
 
 ```ini
 Parser            docker
 ```
 
-## Verify Installation
-
-```bash
-# Check pods
-kubectl -n logging get pods -l app.kubernetes.io/name=fluent-bit
-
-# Check logs
-kubectl -n logging logs daemonset/fluent-bit --tail=50
-
-# Verify backend is receiving data
-kubectl exec -it deploy/data-app-backend -n validator -- curl localhost:5124/queue-stats
-```
-
 ## Log Filtering
 
-The configuration filters logs to only include traffic-relevant lines:
-
-- `TrafficReceipt(`
-- `EventCostDetails(`
-- `Processing event`
-- `messageId=`
-- `updateId`
-- `workflowId`
-- `commandId`
-- Transaction sequencing events
+The configuration filters logs to only include traffic-relevant lines.
 
 To temporarily disable filtering for debugging, comment out the grep filter section in `values-fluentbit.yaml`.
 

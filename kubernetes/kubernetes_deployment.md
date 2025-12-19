@@ -53,7 +53,7 @@ All deployments run in the same Kubernetes namespace as your Canton validator no
 
 The app includes optional wallet functionality that enables users to send/receive Canton Coin (CC) transfers and maintain an address book. To enable wallet features:
 
-1. **Backend**: Set `SCAN_PROXY_URL` in the backend ConfigMap to point to your validator's Scan API (e.g., `http://validator.validator.svc.cluster.local:5003/api/validator`)
+1. **Backend**: Set `SCAN_PROXY_URL` in the backend ConfigMap to point to your validator's Scan API (e.g., `http://validator-app.validator.svc.cluster.local:5003/api/validator`)
 2. **Frontend** (optional): Configure `VITE_WALLET_CONFIRMATION_THRESHOLD` in the frontend ConfigMap to set the CC amount requiring explicit confirmation (default: 100000 CC)
 
 If `SCAN_PROXY_URL` is not set, the app will function normally but wallet features will be disabled.
@@ -217,7 +217,7 @@ See [`manifests/configmaps.yaml`](manifests/configmaps.yaml) and [`manifests/sec
 - **CANTON_NODE_ADDR**: Update the namespace portion if different from `validator`.
 - **Database connection**: Confirm `INDEX_DB_HOST`, `INDEX_DB_PORT`, `INDEX_DB_NAME`, and `INDEX_DB_USER` reflect your database deployment details.
 - **Backups (optional)**: Populate `BACKUP_S3_BUCKET`, `BACKUP_S3_PREFIX`, and `BACKUP_S3_ENDPOINT_URL` if you plan to push history snapshots to object storage. Optional.
-- **Wallet features (optional)**: Set `SCAN_PROXY_URL` to enable wallet functionality (e.g., `http://validator.validator.svc.cluster.local:5003/api/validator`). Update the namespace portion if different from `validator`.
+- **Wallet features (optional)**: Set `SCAN_PROXY_URL` to enable wallet functionality (e.g., `http://validator-app.validator.svc.cluster.local:5003/api/validator`). Update the namespace portion if different from `validator`.
 
 **Frontend Auth0 variables:**
 - **VITE_AUTH0_DOMAIN**: Your Auth0 tenant domain.

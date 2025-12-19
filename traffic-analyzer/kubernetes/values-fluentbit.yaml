@@ -51,7 +51,7 @@ config:
   inputs: |
     [INPUT]
         Name              tail
-        Path              /var/log/containers/participant*_validator_*.log
+        Path              /var/log/containers/*_validator_*.log
         Tag               kube.*
         Parser            cri
         Mem_Buf_Limit     200MB

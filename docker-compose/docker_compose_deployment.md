@@ -606,14 +606,4 @@ The Fluent Bit configuration sends logs to the Data App backend at `http://canto
     ...
 ```
 
-### Verification
-
-```bash
-# Check Fluent Bit is running
-docker compose ps
-
-# Verify backend is receiving data
-curl http://localhost:5124/queue-stats
-```
-
 📄 **For full documentation, see: [../traffic-analyzer/README.md](../traffic-analyzer/README.md)**
