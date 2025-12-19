@@ -18,7 +18,7 @@ helm repo update
 
 helm upgrade -i fluent-bit fluent/fluent-bit \
   -n logging --create-namespace \
-  -f values-fluentbit.yaml
+  -f traffic-analyzer/kubernetes/values-fluentbit.yaml
 ```
 
 ## Configuration
