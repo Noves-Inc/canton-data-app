@@ -1,0 +1,91 @@
+# Fluent Bit Helm values for collecting Canton participant logs
+# Sends filtered traffic logs to Data App backend via HTTP
+
+serviceAccount:
+  create: true
+  name: fluent-bit
+
+rbac:
+  create: true
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+# You need to ensure that fluent-bit is running in the node hosting the participant pod
+# Add any needed tolerations here
+# tolerations:
+  # - key: ""
+  #   operator: "Equal"
+  #   value: ""
+  #   effect: "NoSchedule"
+
+# Mount host path for fluent-bit database
+extraVolumes:
+  - name: flb-db
+    emptyDir: {}
+
+extraVolumeMounts:
+  - name: flb-db
+    mountPath: /var/lib/fluent-bit
+
+config:
+  service: |
+    [SERVICE]
+        Flush        1
+        Daemon       Off
+        Log_Level    info
+        Parsers_File parsers.conf
+        HTTP_Server  On
+        HTTP_Listen  0.0.0.0
+        HTTP_Port    2020
+        scheduler.base   5
+        scheduler.cap    120
+
+  # Tail only the validator namespace logs
+  # File pattern: /var/log/containers/<pod>_<namespace>_<container>-<id>.log
+  inputs: |
+    [INPUT]
+        Name              tail
+        Path              /var/log/containers/participant*_validator_*.log
+        Tag               kube.*
+        Parser            cri
+        Mem_Buf_Limit     200MB
+        Skip_Long_Lines   Off
+        DB                /var/lib/fluent-bit/flb_validator.db
+        DB.Sync           Normal
+        Refresh_Interval  3
+
+  # Enrich with Kubernetes metadata and parse JSON from app logs
+  filters: |
+    [FILTER]
+        Name                kubernetes
+        Match               kube.*
+        Kube_URL            https://kubernetes.default.svc:443
+        Merge_Log           On
+        Keep_Log            Off
+        K8S-Logging.Parser  On
+        K8S-Logging.Exclude On
+
+    # Keep only lines needed for traffic analysis (case-insensitive)
+    [FILTER]
+        Name    grep
+        Match   kube.*
+        Regex   message  (?i)(TrafficReceipt\(|EventCostDetails\(|messageId=|message id\s*=\s*Some\(|Sending message ID|Finalizing Transaction request|Phase 7|Responding with update trees|EventPublicationTask\(|SequencedCommandRejected|SequencedTransactionAccepted\()
+
+  # Send to Data App backend via HTTP
+  outputs: |
+    [OUTPUT]
+        Name              http
+        Match             kube.*
+        Host              data-app-backend.validator.svc.cluster.local
+        Port              5124
+        URI               /ingest
+        Format            json_lines
+        Json_date_key     timestamp
+        Json_date_format  iso8601
+        Retry_Limit       50

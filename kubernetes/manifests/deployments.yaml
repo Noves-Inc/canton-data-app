@@ -94,6 +94,8 @@ spec:
           ports:
             - containerPort: 8090
               name: http
+            - containerPort: 5124
+              name: traffic-analysis
           envFrom:
             - configMapRef:
                 name: data-app-backend-config

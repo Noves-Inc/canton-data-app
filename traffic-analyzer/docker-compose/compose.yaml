@@ -1,0 +1,22 @@
+name: canton-traffic-analyzer
+
+networks:
+  splice_validator:
+    external: true
+    name: splice-validator_splice_validator
+
+volumes:
+  flb-db:
+
+services:
+  fluent-bit:
+    image: cr.fluentbit.io/fluent/fluent-bit:2.2
+    user: "0:0"
+    volumes:
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - flb-db:/var/lib/fluent-bit
+      - ./fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
+      - ./parsers.conf:/fluent-bit/etc/parsers.conf:ro
+    networks:
+      - splice_validator
+    restart: unless-stopped

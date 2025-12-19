@@ -30,6 +30,10 @@ spec:
       targetPort: 8090
       protocol: TCP
       name: http
+    - port: 5124
+      targetPort: 5124
+      protocol: TCP
+      name: traffic-analysis
   selector:
     app: data-app-backend
 

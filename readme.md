@@ -17,7 +17,9 @@
    - [Frontend Environment Variables](#frontend-environment-variables)
    - [Backend Environment Variables](#backend-environment-variables)
 5. [Installation Steps](#installation-steps)
-6. [Support](#support)
+6. [Optional Addons](#optional-addons)
+   - [Traffic Analyzer](#traffic-analyzer)
+7. [Support](#support)
 
 ---
 
@@ -245,6 +247,7 @@ The backend has the following user-configurable environment variables:
 | `BACKUP_S3_SESSION_TOKEN` | `********` | (Optional) Session token when using temporary credentials. Leave blank for long-lived credentials. |
 | **Wallet Configuration** | | **Required to enable wallet features** |
 | `SCAN_PROXY_URL` | `http://validator:5003/api/validator` | (Optional) URL to the validator's Scan API proxy endpoint. **Required to enable wallet features.** If not set, wallet functionality is disabled. For Docker Compose, use the validator container name (e.g., `http://validator:5003/api/validator`). For Kubernetes, use the fully qualified service name (e.g., `http://validator.validator.svc.cluster.local:5003/api/validator`). |
+| `TRAFFIC_ANALYSIS_ENABLED` | `true` or `false` | (Optional) Enable traffic cost analysis. Requires Fluent Bit addon. Default is `false`. See [traffic-analyzer/](traffic-analyzer/) for setup. |
 
 **Note:** The backend does not require Auth0 credentials. It receives JWT tokens from the frontend and passes them through to Canton's Ledger API for validation. You can also call the backend's API directly if you generate a valid JWT token on your own.
 
@@ -280,6 +283,33 @@ You'll need credentials from your chosen authentication provider before proceedi
 - **Kubernetes**: See [kubernetes/kubernetes_deployment.md](kubernetes/kubernetes_deployment.md) for step-by-step instructions
 
 **Note**: the app will take approximately 2-3 minutes to index the first batch of data after being installed. Once the dashboard is up & running, wait for a few minutes.
+
+---
+
+## Optional Addons
+
+### Traffic Analyzer
+
+The Traffic Analyzer addon enables real-time traffic cost analysis by collecting Canton participant logs and correlating them with transaction data. This allows you to see the traffic cost associated with each transaction.
+
+**This is an optional feature.** The main Data App functions fully without it.
+
+**How it works:**
+1. Fluent Bit collects logs from your Canton participant container
+2. Logs are filtered and sent via HTTP to the Data App backend (port 5124)
+3. The backend correlates traffic costs with transaction IDs
+4. Traffic cost data becomes available via the Traffic Cost API
+
+**Requirements:**
+- Backend container with `TRAFFIC_ANALYSIS_ENABLED=true` environment variable set
+- Canton participant with `LOG_LEVEL_CANTON=DEBUG` enabled
+- Fluent Bit 2.x installed and configured per our instructions
+
+**Installation:**
+- **Docker Compose**: See [traffic-analyzer/docker-compose/README.md](traffic-analyzer/docker-compose/README.md)
+- **Kubernetes**: See [traffic-analyzer/kubernetes/README.md](traffic-analyzer/kubernetes/README.md)
+
+📄 **For full documentation, see: [traffic-analyzer/README.md](traffic-analyzer/README.md)**
 
 ---
 
