@@ -1,7 +1,7 @@
 name: canton-traffic-analyzer
 
 networks:
-  splice_validator:
+  splice-validator_splice_validator:
     external: true
     name: splice-validator_splice_validator
 
@@ -18,5 +18,5 @@ services:
       - ./fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
       - ./parsers.conf:/fluent-bit/etc/parsers.conf:ro
     networks:
-      - splice_validator
+      - splice-validator_splice_validator
     restart: unless-stopped

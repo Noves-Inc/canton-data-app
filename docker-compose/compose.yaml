@@ -96,7 +96,7 @@ services:
 networks:
   splice-validator_splice_validator:
     external: true
-    # Change to your actual network name
+    name: splice-validator_splice_validator
 
 volumes:
   canton-data-app-db-data:
