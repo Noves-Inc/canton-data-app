@@ -56,6 +56,9 @@ services:
       # Optional: Traffic Analysis (requires Fluent Bit addon, see traffic-analyzer/)
       # TRAFFIC_ANALYSIS_ENABLED: "true"  # Default is "false"
 
+      # Optional: Automatic Unclassified Reporting
+      # AUTOMATIC_UNCLASSIFIED_REPORTING: "true"  # Default is "false". When enabled, unclassified transactions are automatically included in reporting workflows.
+
       # Optional S3 backup configuration
       BACKUP_S3_BUCKET: ""
       BACKUP_S3_PREFIX: ""

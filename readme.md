@@ -239,6 +239,9 @@ The backend has the following user-configurable environment variables:
 | `INDEX_DB_NAME` | `canton_index` | Database name automatically created by the database container. |
 | `INDEX_DB_USER` | `appuser` | Database username configured for the database container. |
 | `INDEX_DB_PASSWORD` | `********` | Database password. Use Docker secrets, env vars, or Kubernetes Secrets to supply this securely. |
+| **Reporting Configuration** | | **Optional settings for transaction reporting workflows** |
+| `AUTOMATIC_UNCLASSIFIED_REPORTING` | `true` or `false` | (Optional) Enable automatic reporting flow for unclassified transactions. When set to `true`, unclassified transactions are automatically included in reporting workflows. If not set or set to `false`, the app falls back to a manual reporting option, available directly in the UI next to the "Unclassified" transaction label. Default is `false`. |
+| **Backup Configuration** | | **Optional S3-compatible backup settings for transaction history** |
 | `BACKUP_S3_BUCKET` | `canton-backup-test` | (Optional) Destination bucket for off-cluster transaction-history backups. |
 | `BACKUP_S3_PREFIX` | `validator-a/` | (Optional) Prefix applied to every uploaded backup object. |
 | `BACKUP_S3_ENDPOINT_URL` | `https://<your-provider-endpoint>` | (Optional) Custom S3-compatible endpoint (Cloudflare R2, MinIO, etc.) |
