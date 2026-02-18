@@ -162,9 +162,9 @@ For docker-compose, we assume that you'll be deploying using the same network as
 Regardless of your chosen deployment topology, you'll be pulling our Docker images from GitHub Container Registry.
 
 **Required Images:**
-- **Frontend**: `ghcr.io/noves-inc/canton-translate-ui:v3.0.0` (also available as `:latest`)
-- **Backend**: `ghcr.io/noves-inc/canton-translate:v3.0.0` (also available as `:latest`)
-- **Database**: `ghcr.io/noves-inc/canton-translate-db:v3.0.0` (also available as `:latest`)
+- **Frontend**: `ghcr.io/noves-inc/canton-translate-ui:latest` (also available with individual version numbers)
+- **Backend**: `ghcr.io/noves-inc/canton-translate:latest` (also available with individual version numbers)
+- **Database**: `ghcr.io/noves-inc/canton-translate-db:latest` (also available with individual version numbers)
 
 **Pull the images:**
 ```bash

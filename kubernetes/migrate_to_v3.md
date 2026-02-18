@@ -167,7 +167,7 @@ spec:
 
 No other changes are needed—keep `CANTON_NODE_ADDR`, TLS settings, resources, etc.
 
-3. **Frontend Deployment**: Remove any PVC sections if they existed. Image tag should be `ghcr.io/noves-inc/canton-translate-ui:v3.0.0` (or `:latest`).
+3. **Frontend Deployment**: Remove any PVC sections if they existed. Image tag should be `ghcr.io/noves-inc/canton-translate-ui:latest`.
 
 ---
 

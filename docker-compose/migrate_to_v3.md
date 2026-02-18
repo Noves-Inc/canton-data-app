@@ -18,7 +18,7 @@ This guide assumes you already have the Noves Data App running with the older tw
 
 ## 2. Download the v3 Compose Bundle
 
-1. Check out or download the repository at `v3.0.0`.  
+1. Check out or download the repository at `v3.x.x`.  
 2. Copy `docker-compose/compose.yaml` from this release over your existing deployment host (make a backup with `cp compose.yaml compose.v2.bak` if desired).  
 3. The new file already contains:
    - `canton-data-app-db` service with health checks and persistent volume
