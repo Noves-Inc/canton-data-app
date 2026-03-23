@@ -232,8 +232,11 @@ The backend has the following user-configurable environment variables:
 
 | Variable | Example Value | Description |
 |----------|---------------|-------------|
+| `NODES_CONFIG_FILE_PATH` | `/app/config/nodes-config.json` | (Recommended) Path to a JSON file that defines one or more Canton validator nodes. When set, this takes precedence over the legacy single-node environment variables below. Required for multi-validator deployments. See deployment guides for format details. |
+| **Legacy single-node variables** | | **Use the JSON config file above instead for new deployments. These remain supported for single-node setups.** |
 | `CANTON_NODE_ADDR` | `splice-validator-participant-1:5001` | Address of the Canton participant's Ledger API. For Docker Compose deployments on the same network, use the participant container name and port. For external connections, use the fully qualified domain name and port. |
 | `CANTON_NODE_CERT_FILE_PATH` | `""` or `/code/cert.crt` | Path to TLS certificate for secure gRPC communication with Canton. **Must be an empty string (`""`)** if the Ledger API does not require TLS (common for Docker Compose deployments). If TLS is required, mount the certificate file and provide its path. |
+| `CANTON_NODE_ID` | `main-node` | Identifier assigned to the node when using legacy environment variables. Defaults to `main-node` if not set. This value is stored in the database to tag all indexed data; keep it stable after initial deployment. |
 | `INDEX_DB_HOST` | `data-app-db` | Internal hostname for the database service. |
 | `INDEX_DB_PORT` | `5432` | Database port exposed by the database service. |
 | `INDEX_DB_NAME` | `canton_index` | Database name automatically created by the database container. |

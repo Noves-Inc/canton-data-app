@@ -14,14 +14,15 @@
 1. [Architecture Overview](#architecture-overview)
 2. [Auth0 Configuration](#auth0-configuration)
 3. [Environment Configuration](#environment-configuration)
-4. [Network & TLS Configuration](#network--tls-configuration)
-5. [Nginx Configuration](#nginx-configuration)
-6. [Deployment](#deployment)
-7. [Verification & Testing](#verification--testing)
-8. [Debugging Commands](#debugging-commands)
-9. [Troubleshooting](#troubleshooting)
-10. [Operational Commands](#operational-commands)
-11. [Optional: Traffic Analyzer Addon](#optional-traffic-analyzer-addon)
+4. [Node Configuration (v3.12.0+)](#node-configuration-v3120)
+5. [Network & TLS Configuration](#network--tls-configuration)
+6. [Nginx Configuration](#nginx-configuration)
+7. [Deployment](#deployment)
+8. [Verification & Testing](#verification--testing)
+9. [Debugging Commands](#debugging-commands)
+10. [Troubleshooting](#troubleshooting)
+11. [Operational Commands](#operational-commands)
+12. [Optional: Traffic Analyzer Addon](#optional-traffic-analyzer-addon)
 
 ---
 
@@ -74,12 +75,16 @@ Edit `compose.yaml` and configure the `canton-data-app-backend` service:
 
 ```yaml
 environment:
-  # Canton Ledger API connection
+  # Node configuration (v3.12.0+): use a JSON config file for single or multi-node setups
+  # See "Node Configuration" section below for format and volume mount instructions
+  NODES_CONFIG_FILE_PATH: "/app/config/nodes-config.json"
+
+  # Legacy single-node variables (still supported; used when NODES_CONFIG_FILE_PATH is not set)
   CANTON_NODE_ADDR: "participant:5001"  # Internal Docker DNS
   # OR if using external participant:
   # CANTON_NODE_ADDR: "canton-validator.yourdomain.com:8443"
-  
-  # TLS/Certificate (see next section)
+
+  # TLS/Certificate (legacy single-node only; for multi-node set cert_file inside the JSON config)
   CANTON_NODE_CERT_FILE_PATH: ""
 
   # Database connection
@@ -178,6 +183,82 @@ Default ports (customizable):
 - Frontend: `8091` (internal)
 
 Both app services can be accessed via nginx (or similar) on ports 80/443.
+
+---
+
+## Node Configuration (v3.12.0+)
+
+Starting with v3.12.0, Canton Translate supports connecting to **one or more Canton validator nodes**. The recommended approach is a JSON config file. The legacy single-node environment variables (`CANTON_NODE_ADDR`, `CANTON_NODE_CERT_FILE_PATH`) remain supported but cannot configure multiple nodes.
+
+### Configuration file format
+
+**Single node:**
+
+```json
+{
+  "nodes": {
+    "validator-1": {
+      "addr": "participant.example.com:5001",
+      "cert_file": "/certs/validator-1.crt"
+    }
+  }
+}
+```
+
+**Multiple nodes:**
+
+```json
+{
+  "primaryNodeId": "validator-1",
+  "nodes": {
+    "validator-1": {
+      "addr": "participant-1.example.com:5001",
+      "cert_file": "/certs/validator-1.crt"
+    },
+    "validator-2": {
+      "addr": "participant-2.example.com:5001",
+      "cert_file": "/certs/validator-2.crt"
+    }
+  }
+}
+```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `primaryNodeId` | Required when multiple nodes are configured | ID of the node that owns pre-existing data in the database. See [Pre-existing Data Attribution](#pre-existing-data-attribution). |
+| `nodes` | Yes | Object mapping node IDs to their configuration. Each key is the node ID (must be unique). |
+| `nodes.<id>.addr` | Yes | gRPC address of the validator participant (`host:port`). |
+| `nodes.<id>.cert_file` | No | Path to the TLS certificate file inside the container. Omit for insecure connections. |
+
+### Mounting the config file
+
+Place the JSON file on the host and mount it into the container. Certificate files referenced inside the JSON must also be mounted:
+
+```yaml
+services:
+  canton-data-app-backend:
+    image: ghcr.io/noves-inc/canton-translate:latest
+    volumes:
+      - ./config/nodes-config.json:/app/config/nodes-config.json:ro
+      - ./certs/validator-1.crt:/certs/validator-1.crt:ro
+      - ./certs/validator-2.crt:/certs/validator-2.crt:ro   # omit if only one node
+    environment:
+      NODES_CONFIG_FILE_PATH: "/app/config/nodes-config.json"
+```
+
+> If `NODES_CONFIG_FILE_PATH` is not set, the app also checks `/config/nodes-config.json` automatically before falling back to the legacy environment variables.
+
+### Pre-existing data attribution
+
+> **WARNING: Setting `primaryNodeId` incorrectly will mis-label all historical data. This is not easily reversible.**
+
+When you add a second node to an existing deployment, the app needs to know which node originally indexed the data already in the database. On first startup with multiple nodes, it adds a `validator_node_id` column to every data table and backfills all existing rows with the value of `primaryNodeId`.
+
+- `primaryNodeId` must match the node ID that was previously configured (the one whose data is already in the database).
+- If you were using the legacy environment variables, the implicit node ID was `main-node` (or whatever `CANTON_NODE_ID` was set to).
+- The app will refuse to start if multiple nodes are configured without `primaryNodeId`.
+
+For step-by-step migration instructions, see [migrate_to_v3_12.md](migrate_to_v3_12.md).
 
 ---
 

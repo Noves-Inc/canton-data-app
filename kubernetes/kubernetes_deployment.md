@@ -17,15 +17,17 @@
 3. [Namespace and Network Considerations](#namespace-and-network-considerations)
 4. [Preparing Kubernetes Manifests](#preparing-kubernetes-manifests)
 5. [Storage Configuration](#storage-configuration)
-6. [Service Configuration](#service-configuration)
-7. [Deployment Configuration](#deployment-configuration)
-8. [Ingress Configuration](#ingress-configuration)
-9. [Deployment](#deployment)
-10. [Verification & Testing](#verification--testing)
-11. [Debugging Commands](#debugging-commands)
-12. [Troubleshooting](#troubleshooting)
-13. [Operational Commands](#operational-commands)
-14. [Optional: Traffic Analyzer Addon](#optional-traffic-analyzer-addon)
+6. [Configuration Management](#configuration-management)
+7. [Node Configuration (v3.12.0+)](#node-configuration-v3120)
+8. [Service Configuration](#service-configuration)
+9. [Deployment Configuration](#deployment-configuration)
+10. [Ingress Configuration](#ingress-configuration)
+11. [Deployment](#deployment)
+12. [Verification & Testing](#verification--testing)
+13. [Debugging Commands](#debugging-commands)
+14. [Troubleshooting](#troubleshooting)
+15. [Operational Commands](#operational-commands)
+16. [Optional: Traffic Analyzer Addon](#optional-traffic-analyzer-addon)
 
 ---
 
@@ -214,7 +216,8 @@ See [`manifests/configmaps.yaml`](manifests/configmaps.yaml) and [`manifests/sec
 
 **ConfigMap updates:**
 - **Namespace**: Update in both ConfigMaps.
-- **CANTON_NODE_ADDR**: Update the namespace portion if different from `validator`.
+- **Node configuration (v3.12.0+)**: For single or multi-validator setups, use a JSON config file via a ConfigMap and set `NODES_CONFIG_FILE_PATH` in the backend config. See [Node Configuration (v3.12.0+)](#node-configuration-v3120) below.
+- **CANTON_NODE_ADDR**: Legacy single-node variable. Still supported when `NODES_CONFIG_FILE_PATH` is not set. Update the namespace portion if different from `validator`.
 - **Database connection**: Confirm `INDEX_DB_HOST`, `INDEX_DB_PORT`, `INDEX_DB_NAME`, and `INDEX_DB_USER` reflect your database deployment details.
 - **Backups (optional)**: Populate `BACKUP_S3_BUCKET`, `BACKUP_S3_PREFIX`, and `BACKUP_S3_ENDPOINT_URL` if you plan to push history snapshots to object storage. Optional.
 - **Wallet features (optional)**: Set `SCAN_PROXY_URL` to enable wallet functionality (e.g., `http://validator-app.validator.svc.cluster.local:5003/api/validator`). Update the namespace portion if different from `validator`.
@@ -240,6 +243,103 @@ See [`manifests/configmaps.yaml`](manifests/configmaps.yaml) and [`manifests/sec
 - Edit `manifests/secrets.yaml` and replace the placeholder password before deploying.
 - If you manage secrets via an external system (e.g., sealed-secrets, Vault), adapt the manifest accordingly.
 - When enabling backups, store `BACKUP_S3_ACCESS_KEY_ID`, `BACKUP_S3_SECRET_ACCESS_KEY`, and (if used) `BACKUP_S3_SESSION_TOKEN` in a Secret instead of the ConfigMap, then reference that Secret from the backend deployment.
+
+---
+
+## Node Configuration (v3.12.0+)
+
+Starting with v3.12.0, Canton Translate supports connecting to **one or more Canton validator nodes**. The recommended approach is a JSON config file stored in a Kubernetes ConfigMap. The legacy single-node environment variables (`CANTON_NODE_ADDR`, `CANTON_NODE_CERT_FILE_PATH`) remain supported but cannot configure multiple nodes.
+
+### Step 1: Create a ConfigMap with the node configuration
+
+Create a ConfigMap containing the JSON config file. For a single node:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: data-app-nodes-config
+  namespace: validator  # your namespace
+data:
+  nodes-config.json: |
+    {
+      "nodes": {
+        "validator-1": {
+          "addr": "participant.validator.svc.cluster.local:5001"
+        }
+      }
+    }
+```
+
+For multiple nodes (include `primaryNodeId` — see [Pre-existing Data Attribution](#pre-existing-data-attribution)):
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: data-app-nodes-config
+  namespace: validator  # your namespace
+data:
+  nodes-config.json: |
+    {
+      "primaryNodeId": "validator-1",
+      "nodes": {
+        "validator-1": {
+          "addr": "participant-1.validator.svc.cluster.local:5001",
+          "cert_file": "/certs/validator-1.crt"
+        },
+        "validator-2": {
+          "addr": "participant-2.validator.svc.cluster.local:5001",
+          "cert_file": "/certs/validator-2.crt"
+        }
+      }
+    }
+```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `primaryNodeId` | Required when multiple nodes are configured | ID of the node that owns pre-existing data in the database. See [Pre-existing Data Attribution](#pre-existing-data-attribution). |
+| `nodes` | Yes | Object mapping node IDs to their configuration. Each key is the node ID (must be unique). |
+| `nodes.<id>.addr` | Yes | gRPC address of the validator participant (`host:port`). |
+| `nodes.<id>.cert_file` | No | Path to the TLS certificate file inside the container. Omit for insecure connections. |
+
+### Step 2: Mount the ConfigMap in the backend Deployment
+
+Add a volume and volume mount to the backend deployment, and set `NODES_CONFIG_FILE_PATH`:
+
+```yaml
+spec:
+  containers:
+    - name: canton-data-app-backend
+      volumeMounts:
+        - name: nodes-config
+          mountPath: /app/config/nodes-config.json
+          subPath: nodes-config.json
+          readOnly: true
+      env:
+        - name: NODES_CONFIG_FILE_PATH
+          value: "/app/config/nodes-config.json"
+  volumes:
+    - name: nodes-config
+      configMap:
+        name: data-app-nodes-config
+```
+
+If TLS certificates are needed for any node, create a Kubernetes Secret with the certificate files and mount them at the paths referenced in `cert_file` inside the JSON config (same pattern as the TLS section above).
+
+> If `NODES_CONFIG_FILE_PATH` is not set, the app also checks `/config/nodes-config.json` automatically before falling back to the legacy environment variables.
+
+### Pre-existing data attribution
+
+> **WARNING: Setting `primaryNodeId` incorrectly will mis-label all historical data. This is not easily reversible.**
+
+When you add a second node to an existing deployment, the app needs to know which node originally indexed the data already in the database. On first startup with multiple nodes, it adds a `validator_node_id` column to every data table and backfills all existing rows with the value of `primaryNodeId`.
+
+- `primaryNodeId` must match the node ID that was previously configured (the one whose data is already in the database).
+- If you were using the legacy environment variables, the implicit node ID was `main-node` (or whatever `CANTON_NODE_ID` was set to).
+- The app will refuse to start if multiple nodes are configured without `primaryNodeId`.
+
+For step-by-step migration instructions, see [migrate_to_v3_12.md](migrate_to_v3_12.md).
 
 ---
 
