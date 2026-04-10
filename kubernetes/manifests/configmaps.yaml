@@ -67,3 +67,9 @@ data:
   
   # ===== Wallet Configuration (Optional) =====
   # VITE_WALLET_CONFIRMATION_THRESHOLD: "100000"  # CC threshold requiring "CONFIRM" for large transfers (default: 100000)
+
+  # ===== Embedded Mode (Optional) =====
+  # Allow a host application to embed the Data App in an iframe
+  # Set to the origin(s) of the host application that will embed the Data App
+  # When not set, iframe embedding is blocked (default behavior)
+  # EMBED_ALLOWED_ORIGINS: "https://host.example.com"

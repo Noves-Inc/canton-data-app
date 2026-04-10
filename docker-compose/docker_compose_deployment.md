@@ -156,6 +156,18 @@ environment:
   VITE_WALLET_CONFIRMATION_THRESHOLD: "100000"
 ```
 
+**Embedded Mode (Optional):**
+
+```yaml
+environment:
+  # Optional: Allow a host application to embed the Data App in an iframe
+  # Set to the origin(s) of the host application that will embed the Data App
+  # When not set, iframe embedding is blocked (default behavior)
+  EMBED_ALLOWED_ORIGINS: "https://host.example.com"
+```
+
+See [embedded-mode/embedded_mode.md](../embedded-mode/embedded_mode.md) for the full integration guide.
+
 ### Database Configuration
 
 The `canton-data-app-db` runs TimescaleDB/Postgres and is the only stateful workload:
