@@ -19,7 +19,8 @@
 5. [Installation Steps](#installation-steps)
 6. [Optional Addons](#optional-addons)
    - [Traffic Analyzer](#traffic-analyzer)
-7. [Support](#support)
+7. [Embedded Mode](#embedded-mode)
+8. [Support](#support)
 
 ---
 
@@ -217,6 +218,8 @@ Both containers are configured via environment variables. Below is a comprehensi
 | `VITE_KEYCLOAK_LOGOUT_URL` | `https://canton-data-ui.yourdomain.com` | The URL where users are redirected after logout. Must match the **Valid post logout redirect URIs** configured in your Keycloak client. |
 | **Wallet Configuration** | | **Optional settings for wallet features** |
 | `VITE_WALLET_CONFIRMATION_THRESHOLD` | `100000` | (Optional) The Canton Coin (CC) amount threshold above which users must type "CONFIRM" to complete a transfer. Defaults to `100000` CC if not set. |
+| **Embedded Mode** | | **Optional settings for iframe embedding** |
+| `EMBED_ALLOWED_ORIGINS` | `https://host.example.com` | (Optional) Comma-separated list of origins allowed to embed the Data App in an iframe. When not set, iframe embedding is blocked. See [Embedded Mode](#embedded-mode). |
 
 **Authentication Provider Selection:**
 - The app automatically detects which authentication provider to use based on environment variables
@@ -316,6 +319,37 @@ The Traffic Analyzer addon enables real-time traffic cost analysis by collecting
 - **Kubernetes**: See [traffic-analyzer/kubernetes/README.md](traffic-analyzer/kubernetes/README.md)
 
 📄 **For full documentation, see: [traffic-analyzer/README.md](traffic-analyzer/README.md)**
+
+---
+
+## Embedded Mode
+
+The Data App can be embedded inside a host application via iframe. This allows platforms that manage Canton node deployments to offer the Data App as part of their own UI, with seamless authentication and URL synchronization.
+
+**This is an optional feature.** The main Data App functions fully without it.
+
+**How it works:**
+1. The host application authenticates the user via its own OIDC provider (Keycloak/Auth0)
+2. The host renders the Data App in an iframe with `?embedded=true`
+3. The host passes JWT tokens to the Data App via the browser's `postMessage` API
+4. The Data App authenticates the user instantly — no login screen, no redirects
+5. Navigation events are emitted back to the host so its URL bar stays in sync
+
+**Requirements:**
+- Frontend container with `EMBED_ALLOWED_ORIGINS` set to the host application's origin
+- The host and Data App must share the same OIDC provider (same Keycloak or Auth0 instance)
+
+**Configuration:**
+
+```bash
+# Single origin
+EMBED_ALLOWED_ORIGINS=https://host.example.com
+
+# Multiple origins
+EMBED_ALLOWED_ORIGINS=https://host.example.com,https://staging.host.example.com
+```
+
+📄 **For full integration documentation, see: [embedded-mode/embedded_mode.md](embedded-mode/embedded_mode.md)**
 
 ---
 
