@@ -237,6 +237,9 @@ See [`manifests/configmaps.yaml`](manifests/configmaps.yaml) and [`manifests/sec
 **Frontend Wallet variables (optional):**
 - **VITE_WALLET_CONFIRMATION_THRESHOLD**: The CC amount above which users must type "CONFIRM" to complete a transfer (default: 100000 CC).
 
+**Frontend Embedded Mode variables (optional):**
+- **EMBED_ALLOWED_ORIGINS**: Comma-separated list of origins allowed to embed the Data App in an iframe (e.g., `https://host.example.com`). When not set, iframe embedding is blocked. See [embedded-mode/embedded_mode.md](../embedded-mode/embedded_mode.md) for the full integration guide.
+
 > The presence of `VITE_KEYCLOAK_URL` triggers Keycloak authentication. Configure **either** Auth0 **or** Keycloak variables, not both.
 
 **Secret updates:**
