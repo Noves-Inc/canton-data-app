@@ -105,11 +105,16 @@ spec:
                 secretKeyRef:
                   name: data-app-db-secret
                   key: postgres-password
-          # Uncomment if using TLS:
-          # volumeMounts:
-          #   - name: participant-cert
-          #     mountPath: /app/certs
-          #     readOnly: true
+            - name: NODES_CONFIG_FILE_PATH
+              value: "/app/config/nodes-config.json"
+          volumeMounts:
+            - name: nodes-config
+              mountPath: /app/config
+              readOnly: true
+            # Uncomment if using TLS:
+            # - name: participant-cert
+            #   mountPath: /app/certs
+            #   readOnly: true
           resources:
             requests:
               memory: "512Mi"
@@ -117,11 +122,14 @@ spec:
             limits:
               memory: "2Gi"
               cpu: "1000m"
-      # Uncomment if using TLS:
-      # volumes:
-      #   - name: participant-cert
-      #     secret:
-      #       secretName: participant-tls-cert
+      volumes:
+        - name: nodes-config
+          configMap:
+            name: data-app-nodes-config
+        # Uncomment if using TLS:
+        # - name: participant-cert
+        #   secret:
+        #     secretName: participant-tls-cert
       restartPolicy: Always
 
 ---

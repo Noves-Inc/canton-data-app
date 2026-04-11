@@ -1,0 +1,7 @@
+{
+  "nodes": {
+    "main-node": {
+      "addr": "participant:5001"
+    }
+  }
+}

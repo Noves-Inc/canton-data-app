@@ -8,7 +8,7 @@ This guide covers how to add a second (or more) Canton validator node to an exis
 
 | Area | Before | After | Action Required |
 |------|--------|-------|-----------------|
-| Node configuration | `CANTON_NODE_ADDR` + `CANTON_NODE_CERT_FILE_PATH` in ConfigMap | JSON config file in a dedicated ConfigMap | Create ConfigMap, mount it, set `NODES_CONFIG_FILE_PATH` |
+| Node configuration | `CANTON_NODE_ADDR` + `CANTON_NODE_CERT_FILE_PATH` in ConfigMap | JSON config file in `data-app-nodes-config` ConfigMap | Update the node config block, mount it, set `NODES_CONFIG_FILE_PATH` |
 | TLS certificates | Single cert in a Secret, referenced by `CANTON_NODE_CERT_FILE_PATH` | Per-node `cert_file` paths inside the JSON config | Move cert reference into JSON config |
 | Database schema | No `validator_node_id` column | Column added and backfilled on first startup | Automatic — no manual action needed |
 | Other env vars | Unchanged | Unchanged | No change |
@@ -33,9 +33,11 @@ Write this value down — you will need it in the next step.
 
 ---
 
-## 3. Create the Nodes ConfigMap
+## 3. Update the Nodes ConfigMap
 
-Create a new ConfigMap containing the JSON node configuration. Replace `main-node` with your actual existing node ID from Step 2.
+The current repository templates already include a `data-app-nodes-config` block in `manifests/configmaps.yaml`. Replace the placeholder JSON in that block with your real node configuration.
+
+The backend expects `nodes` to be an object keyed by node ID. It is not a list. Replace `main-node` with your actual existing node ID from Step 2.
 
 ```yaml
 apiVersion: v1
@@ -62,12 +64,14 @@ data:
 
 If your participants do not use TLS, omit the `cert_file` lines.
 
+The shipped `manifests/configmaps.yaml` contains a valid single-node configuration example. Replace its sample node IDs, addresses, and optional certificate paths with your real values before deployment. If you are configuring multiple nodes, add `primaryNodeId` and include each node under the `nodes` object.
+
 > **WARNING: `primaryNodeId` must exactly match the node ID already in your database.** An incorrect value will mis-label all existing historical data, which is not easily reversible.
 
-Apply the ConfigMap:
+Apply the updated ConfigMap:
 
 ```bash
-kubectl apply -f manifests/nodes-configmap.yaml
+kubectl apply -f manifests/configmaps.yaml
 
 # Verify
 kubectl get configmap data-app-nodes-config -n validator
@@ -89,7 +93,7 @@ kubectl create secret generic participant-2-tls-cert \
 
 ## 5. Update the Backend Deployment
 
-Add the new volume and volume mount to your backend deployment manifest (`manifests/deployments.yaml`), and add `NODES_CONFIG_FILE_PATH` to the container's env:
+Ensure your backend deployment manifest (`manifests/deployments.yaml`) mounts the nodes ConfigMap and sets `NODES_CONFIG_FILE_PATH`:
 
 ```yaml
 spec:
@@ -97,8 +101,7 @@ spec:
     - name: canton-data-app-backend
       volumeMounts:
         - name: nodes-config
-          mountPath: /app/config/nodes-config.json
-          subPath: nodes-config.json
+          mountPath: /app/config
           readOnly: true
         # Keep any existing cert mounts for previously configured nodes
         - name: participant-cert
@@ -127,9 +130,12 @@ spec:
         secretName: participant-2-tls-cert
 ```
 
-Apply the updated deployment:
+Adjust the certificate mount paths to match the `cert_file` values you put in `nodes-config.json`.
+
+Apply the updated manifests:
 
 ```bash
+kubectl apply -f manifests/configmaps.yaml
 kubectl apply -f manifests/deployments.yaml
 ```
 

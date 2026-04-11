@@ -216,7 +216,7 @@ See [`manifests/configmaps.yaml`](manifests/configmaps.yaml) and [`manifests/sec
 
 **ConfigMap updates:**
 - **Namespace**: Update in both ConfigMaps.
-- **Node configuration (v3.12.0+)**: For single or multi-validator setups, use a JSON config file via a ConfigMap and set `NODES_CONFIG_FILE_PATH` in the backend config. See [Node Configuration (v3.12.0+)](#node-configuration-v3120) below.
+- **Node configuration (v3.12.0+)**: For single or multi-validator setups, edit the `data-app-nodes-config` block in `manifests/configmaps.yaml` and set `NODES_CONFIG_FILE_PATH` in the backend deployment. The `nodes` field must be an object keyed by node ID, not an array. See [Node Configuration (v3.12.0+)](#node-configuration-v3120) below.
 - **CANTON_NODE_ADDR**: Legacy single-node variable. Still supported when `NODES_CONFIG_FILE_PATH` is not set. Update the namespace portion if different from `validator`.
 - **Database connection**: Confirm `INDEX_DB_HOST`, `INDEX_DB_PORT`, `INDEX_DB_NAME`, and `INDEX_DB_USER` reflect your database deployment details.
 - **Backups (optional)**: Populate `BACKUP_S3_BUCKET`, `BACKUP_S3_PREFIX`, and `BACKUP_S3_ENDPOINT_URL` if you plan to push history snapshots to object storage. Optional.
@@ -250,9 +250,11 @@ See [`manifests/configmaps.yaml`](manifests/configmaps.yaml) and [`manifests/sec
 
 Starting with v3.12.0, Canton Translate supports connecting to **one or more Canton validator nodes**. The recommended approach is a JSON config file stored in a Kubernetes ConfigMap. The legacy single-node environment variables (`CANTON_NODE_ADDR`, `CANTON_NODE_CERT_FILE_PATH`) remain supported but cannot configure multiple nodes.
 
-### Step 1: Create a ConfigMap with the node configuration
+The current Kubernetes templates include a sample `data-app-nodes-config` block in `manifests/configmaps.yaml`. Replace the placeholder JSON there before deploying. The backend expects the `nodes` field to be an object keyed by node ID, for example `"nodes": { "validator-1": { ... } }`. A placeholder such as `"nodes": []` is not a valid runtime configuration.
 
-Create a ConfigMap containing the JSON config file. For a single node:
+### Step 1: Update `manifests/configmaps.yaml` with the node configuration
+
+For a single node:
 
 ```yaml
 apiVersion: v1
@@ -305,7 +307,7 @@ data:
 
 ### Step 2: Mount the ConfigMap in the backend Deployment
 
-Add a volume and volume mount to the backend deployment, and set `NODES_CONFIG_FILE_PATH`:
+The current `manifests/deployments.yaml` template mounts the whole config directory and sets `NODES_CONFIG_FILE_PATH` explicitly:
 
 ```yaml
 spec:
@@ -313,8 +315,7 @@ spec:
     - name: canton-data-app-backend
       volumeMounts:
         - name: nodes-config
-          mountPath: /app/config/nodes-config.json
-          subPath: nodes-config.json
+          mountPath: /app/config
           readOnly: true
       env:
         - name: NODES_CONFIG_FILE_PATH

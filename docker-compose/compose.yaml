@@ -68,6 +68,10 @@ services:
       BACKUP_S3_SESSION_TOKEN: ""
       # Wallet features (optional - leave empty to disable wallet functionality)
       SCAN_PROXY_URL: "http://validator:5003/api/validator"
+      # Nodes configuration (JSON file mount)
+      NODES_CONFIG_FILE_PATH: "/app/config/nodes-config.json"
+    volumes:
+      - ./config/nodes-config.json:/app/config/nodes-config.json:ro
     networks:
       - splice-validator_splice_validator
     depends_on:

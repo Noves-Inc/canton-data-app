@@ -39,6 +39,22 @@ data:
 apiVersion: v1
 kind: ConfigMap
 metadata:
+  name: data-app-nodes-config
+  namespace: validator  # UPDATE with your namespace
+data:
+  nodes-config.json: |
+    {
+      "nodes": {
+        "main-node": {
+          "addr": "participant.validator.svc.cluster.local:5001"
+        }
+      }
+    }
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
   name: data-app-frontend-config
   namespace: validator  # UPDATE with your namespace
 data:
