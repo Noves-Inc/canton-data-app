@@ -324,20 +324,19 @@ The Traffic Analyzer addon enables real-time traffic cost analysis by collecting
 
 ## Embedded Mode
 
-The Data App can be embedded inside a host application via iframe. This allows platforms that manage Canton node deployments to offer the Data App as part of their own UI, with seamless authentication and URL synchronization.
+The Data App can be embedded inside a host application via iframe. This allows platforms that manage Canton node deployments to offer the Data App as part of their own UI, with URL synchronization and flexible authentication.
 
 **This is an optional feature.** The main Data App functions fully without it.
 
-**How it works:**
-1. The host application authenticates the user via its own OIDC provider (Keycloak/Auth0)
-2. The host renders the Data App in an iframe with `?embedded=true`
-3. The host passes JWT tokens to the Data App via the browser's `postMessage` API
-4. The Data App authenticates the user instantly — no login screen, no redirects
-5. Navigation events are emitted back to the host so its URL bar stays in sync
+**Two authentication modes:**
+
+| Mode | iframe URL | Description |
+|------|-----------|-------------|
+| **Own Login** | `?embedded=true` | Data App shows its own Keycloak/Auth0 login inside the iframe. Use when the host user and Canton participant user are different. |
+| **Host Auth** | `?embedded=true&auth=host` | Host passes JWT tokens via postMessage — no login screen. Use when host and Data App share the same OIDC user. |
 
 **Requirements:**
 - Frontend container with `EMBED_ALLOWED_ORIGINS` set to the host application's origin
-- The host and Data App must share the same OIDC provider (same Keycloak or Auth0 instance)
 
 **Configuration:**
 

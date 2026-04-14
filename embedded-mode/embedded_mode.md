@@ -1,6 +1,6 @@
 # Embedded Mode Integration Guide
 
-Embed the Noves Data App inside a host application via iframe with seamless authentication and URL synchronization.
+Embed the Noves Data App inside a host application via iframe with full functionality and URL synchronization.
 
 ---
 
@@ -9,62 +9,52 @@ Embed the Noves Data App inside a host application via iframe with seamless auth
 1. [Overview](#overview)
 2. [Prerequisites](#prerequisites)
 3. [Data App Configuration](#data-app-configuration)
-4. [Host Application Setup](#host-application-setup)
-5. [postMessage API Reference](#postmessage-api-reference)
-6. [Complete Integration Example](#complete-integration-example)
-7. [Deployment Recommendations](#deployment-recommendations)
-8. [Verification & Testing](#verification--testing)
-9. [Troubleshooting](#troubleshooting)
+4. [Auth Mode 1: Own Login](#auth-mode-1-own-login)
+5. [Auth Mode 2: Host Auth](#auth-mode-2-host-auth)
+6. [Navigation & URL Sync (Both Modes)](#navigation--url-sync-both-modes)
+7. [postMessage API Reference](#postmessage-api-reference)
+8. [Complete Integration Examples](#complete-integration-examples)
+9. [Deployment Recommendations](#deployment-recommendations)
+10. [Verification & Testing](#verification--testing)
+11. [Troubleshooting](#troubleshooting)
 
 ---
 
 ## Overview
 
-The Data App supports an embedded mode that allows a host application to render it inside an iframe. The app retains its full UI — header, Noves logo, navigation, footer, and all functionality. No separate builds or deploy coordination required.
+The Data App supports an embedded mode with two authentication approaches, selected by the host via a URL query parameter:
 
-### How It Works
+| Mode | iframe URL | How Auth Works | Best For |
+|------|-----------|----------------|----------|
+| **Own Login** | `?embedded=true` | Data App shows its own Keycloak/Auth0 login inside the iframe | Host user and Canton participant user are **different** (e.g., node management platform where the platform user is not the Canton participant) |
+| **Host Auth** | `?embedded=true&auth=host` | Host passes JWT tokens via `postMessage` — no login screen | Host and Data App share the **same** OIDC provider and user identity |
 
-1. The host authenticates the user via its own OIDC provider (Keycloak, Auth0, etc.)
-2. The host renders the Data App in an iframe with `?embedded=true`
-3. The Data App emits a `noves:ready` event when it's ready to receive tokens
-4. The host passes the JWT and refresh token via `postMessage`
-5. The Data App authenticates the user instantly — no login screen, no redirects
-6. As the user navigates inside the Data App, it emits route change events so the host URL bar stays in sync
-7. Shareable URLs generated inside the Data App point to the host's domain
-
-### Architecture
-
-```
-Host Application (e.g., host.example.com)
-├── Authenticates user via Keycloak/Auth0
-├── Renders iframe -> Data App URL + ?embedded=true
-├── Sends JWT via postMessage (on noves:ready)
-├── Listens for noves:navigation events
-│   └── Updates host URL bar (history.pushState)
-│
-└── iframe: Noves Data App (e.g., dataapp.example.com)
-    ├── Emits noves:ready when loaded
-    ├── Receives JWT via postMessage
-    ├── Authenticates user (no OIDC redirect)
-    ├── Registers refresh token for server-side indexer keepalive
-    └── Emits noves:navigation on every route change
-```
+Both modes share: iframe embedding configuration, navigation events for URL sync, shareable URL rewriting, clipboard support, and accounting integration handling.
 
 ---
 
 ## Prerequisites
 
-- **Data App** deployed and accessible from the host application's network
-- **Shared OIDC provider** — the host and Data App must use the same Keycloak or Auth0 instance, so the JWT tokens are valid for both
-- The OIDC tokens must include the claims and scopes the Data App backend expects (e.g., `daml_ledger_api` scope for Keycloak). If the host uses the same Keycloak instance that manages the Canton node, this works out of the box.
+**Both modes:**
+- Data App deployed and accessible from the host application's network
+- `EMBED_ALLOWED_ORIGINS` environment variable set on the Data App frontend container
 
-> **Important:** The host application must already have the user authenticated before loading the embedded Data App. The Data App does not show a login screen in embedded mode — it waits for tokens from the host.
+**Own Login mode (additional):**
+- Data App configured with **Keycloak** credentials (same as any standalone deployment)
+- The OIDC provider must allow redirects from the Data App's URL
+- Keycloak must be configured to allow its login page to render inside an iframe (see [Keycloak iframe configuration](#own-login-keycloak-configuration) below)
+
+> **Important:** Own Login mode requires **Keycloak**. Auth0's Universal Login page blocks iframe rendering entirely (`X-Frame-Options: deny`) as a clickjacking protection, and this cannot be configured per-origin. If the Data App uses Auth0, use Host Auth mode instead.
+
+**Host Auth mode (additional):**
+- Host and Data App must use the **same** Keycloak or Auth0 instance, so the JWT tokens are valid for both
+- OIDC tokens must include the claims and scopes the Data App backend expects (e.g., `daml_ledger_api` scope for Keycloak). If using the same Keycloak instance that manages the Canton node, this works out of the box.
 
 ---
 
 ## Data App Configuration
 
-The Data App requires one environment variable to enable embedding. All other embedded mode behavior is activated automatically when the host loads the app with `?embedded=true`.
+The Data App requires one environment variable to enable embedding. The auth mode is selected by the host application via a URL query parameter — no additional Data App configuration needed.
 
 | Variable | Required | Description |
 |----------|----------|-------------|
@@ -99,9 +89,28 @@ EMBED_ALLOWED_ORIGINS=https://host.example.com,https://staging.host.example.com
 
 ---
 
-## Host Application Setup
+## Auth Mode 1: Own Login
 
-### 1. Render the Data App in an iframe
+The simplest integration. The Data App handles authentication internally — the Keycloak login page renders inside the iframe. The host application only provides the iframe container.
+
+This mode is appropriate when the host platform's user is **not** the same user who has credentials for the Canton participant (e.g., a node management platform where operators deploy Canton nodes for their customers, and each customer has their own Keycloak credentials to access the Data App).
+
+### Own Login: Keycloak Configuration
+
+By default, Keycloak's login page may block iframe rendering. To allow it, configure the Content Security Policy in your Keycloak realm:
+
+1. Go to **Realm Settings** > **Security Defenses** in the Keycloak admin console
+2. Under **Content-Security-Policy**, update the `frame-ancestors` directive to include the host application's origin:
+   ```
+   frame-src 'self'; frame-ancestors 'self' https://host.example.com; ...
+   ```
+3. Save the configuration
+
+This allows Keycloak's login page to render inside the iframe hosted at the specified origin.
+
+> **Important:** Only add the specific origin of the host application. Do not use `*` or remove frame-ancestors entirely, as this would disable clickjacking protection.
+
+### Host Setup
 
 ```html
 <iframe
@@ -112,27 +121,58 @@ EMBED_ALLOWED_ORIGINS=https://host.example.com,https://staging.host.example.com
 ></iframe>
 ```
 
-**Required attributes:**
+The user sees the Data App's Keycloak login page inside the iframe, authenticates with their Canton participant credentials, and uses the app normally. No `postMessage` auth handshake is needed.
 
-| Attribute | Purpose |
-|-----------|---------|
-| `src` | Data App URL with `?embedded=true` query parameter |
-| `allow="clipboard-write"` | Enables copy-to-clipboard inside the iframe. Without this, the Clipboard API is blocked by the browser in cross-origin iframes. |
+> **Important:** The `allow="clipboard-write"` attribute is required. Without it, browsers block the Clipboard API inside cross-origin iframes, and copy-to-clipboard features will fail silently.
 
-### 2. Listen for `noves:ready` and send authentication tokens
+### Optional: Pass Host Base URL
 
-The Data App emits a `noves:ready` message when it's loaded and ready to receive tokens. The host should wait for this event before sending authentication data.
+To make "Copy link" and "Share" features inside the Data App generate URLs pointing to the host's domain instead of the Data App's own URL, send a `noves:config` message after the iframe loads:
+
+```js
+const iframe = document.getElementById('data-app')
+
+iframe.addEventListener('load', () => {
+  iframe.contentWindow.postMessage({
+    type: 'noves:config',
+    hostBaseUrl: 'https://host.example.com/data-app'
+  }, 'https://<data-app-url>')
+})
+```
+
+---
+
+## Auth Mode 2: Host Auth
+
+The host application authenticates the user via its own OIDC provider and passes tokens to the Data App via `postMessage`. No login screen is shown inside the iframe — the user is authenticated instantly.
+
+This mode is appropriate when the host and the Data App share the **same** OIDC provider and user identity.
+
+### Host Setup
+
+```html
+<iframe
+  id="data-app"
+  src="https://<data-app-url>/dashboard?embedded=true&auth=host"
+  allow="clipboard-write"
+  style="width: 100%; height: 100%; border: none;"
+></iframe>
+```
+
+Note the `&auth=host` parameter — this tells the Data App to wait for tokens from the host instead of showing its own login page.
+
+### Send Tokens After `noves:ready`
+
+The Data App emits a `noves:ready` message when it's loaded and ready to receive tokens. The host must wait for this event before sending authentication data.
 
 ```js
 const DATA_APP_ORIGIN = 'https://<data-app-url>'
 const iframe = document.getElementById('data-app')
 
 window.addEventListener('message', (event) => {
-  // Always validate the message origin
   if (event.origin !== DATA_APP_ORIGIN) return
 
   if (event.data.type === 'noves:ready') {
-    // Data App is ready — send authentication tokens
     iframe.contentWindow.postMessage({
       type: 'noves:auth',
       token: keycloakAccessToken,
@@ -150,39 +190,37 @@ window.addEventListener('message', (event) => {
 | `type` | Yes | Must be `'noves:auth'` |
 | `token` | Yes | JWT access token from the OIDC provider |
 | `refreshToken` | Yes | OIDC refresh token. The Data App uses this server-side to keep backend indexers alive by autonomously refreshing the JWT before it expires. |
-| `hostBaseUrl` | No | Base URL for shareable links (e.g., `https://host.example.com/data-app`). When set, "Copy link" features inside the Data App generate URLs pointing to the host domain instead of the Data App domain. |
+| `hostBaseUrl` | No | Base URL for shareable links (e.g., `https://host.example.com/data-app`). When set, "Copy link" features generate URLs pointing to the host domain. |
 
 > **Important:** Always specify the target origin (second argument to `postMessage`) — never use `'*'`. This prevents token leakage to unintended windows.
 
-### 3. Listen for navigation events
+---
 
-As the user navigates inside the Data App, it emits `noves:navigation` events with the current path. The host should listen for these to keep its URL bar in sync.
+## Navigation & URL Sync (Both Modes)
+
+Regardless of which auth mode is used, the Data App emits `noves:navigation` events on every client-side route change. The host should listen for these to keep its URL bar in sync with the embedded app's current page.
+
+### Listen for Navigation Events
 
 ```js
 window.addEventListener('message', (event) => {
-  if (event.origin !== DATA_APP_ORIGIN) return
+  if (event.origin !== 'https://<data-app-url>') return
 
   if (event.data.type === 'noves:navigation') {
-    // Update host URL bar to reflect the Data App page
     history.pushState(null, '', `/data-app${event.data.path}`)
   }
 })
 ```
 
-**Fields in `noves:navigation`:**
+When a user clicks "Backend Status" inside the embedded Data App, the host URL updates to `host.example.com/data-app/backend-status`.
 
-| Field | Description |
-|-------|-------------|
-| `type` | Always `'noves:navigation'` |
-| `path` | Relative path within the Data App (e.g., `/dashboard`, `/backend-status`, `/exports`) |
-
-### 4. Support deep links
+### Support Deep Links
 
 When a user navigates directly to a host URL that maps to a Data App page (e.g., `host.example.com/data-app/backend-status`), the host should:
 
 1. Extract the Data App path from the URL (`/backend-status`)
-2. Set the iframe `src` to `https://<data-app-url>/backend-status?embedded=true`
-3. Wait for `noves:ready` and send the JWT as usual
+2. Set the iframe `src` to `https://<data-app-url>/backend-status?embedded=true` (add `&auth=host` for host-auth mode)
+3. For host-auth mode: wait for `noves:ready` and send tokens as usual
 
 This ensures bookmarks and shared links open the correct page inside the embedded app.
 
@@ -192,92 +230,106 @@ This ensures bookmarks and shared links open the correct page inside the embedde
 
 ### Messages from Data App to Host
 
-| Message Type | When | Payload |
-|-------------|------|---------|
-| `noves:ready` | On load, when the Data App is ready to receive tokens | `{ type: 'noves:ready' }` |
-| `noves:navigation` | On every client-side route change | `{ type: 'noves:navigation', path: '/dashboard' }` |
+| Message | Auth Mode | When | Payload |
+|---------|-----------|------|---------|
+| `noves:ready` | Host Auth only | On load, when ready to receive tokens | `{ type: 'noves:ready' }` |
+| `noves:navigation` | Both | On every client-side route change | `{ type: 'noves:navigation', path: '/dashboard' }` |
 
 ### Messages from Host to Data App
 
-| Message Type | When | Payload |
-|-------------|------|---------|
-| `noves:auth` | After receiving `noves:ready` | `{ type: 'noves:auth', token, refreshToken, hostBaseUrl }` |
+| Message | Auth Mode | When | Payload |
+|---------|-----------|------|---------|
+| `noves:auth` | Host Auth only | After receiving `noves:ready` | `{ type: 'noves:auth', token, refreshToken, hostBaseUrl }` |
+| `noves:config` | Own Login (optional) | After iframe load | `{ type: 'noves:config', hostBaseUrl }` |
 
-### Message Flow
+### Message Flow — Own Login
 
 ```
 Host                              Data App (iframe)
  |                                     |
- |  <-- noves:ready ------------------ |  (iframe loaded, listener active)
+ |  (optional) noves:config ---------> |  (hostBaseUrl for shareable URLs)
+ |                                     |
+ |                                     |  (shows Keycloak login, user authenticates)
+ |                                     |
+ |  <-- noves:navigation ------------- |  (user navigates inside the app)
+ |  (updates URL bar)                  |
+```
+
+### Message Flow — Host Auth
+
+```
+Host                              Data App (iframe)
+ |                                     |
+ |  <-- noves:ready ------------------- |  (iframe loaded, listener active)
  |                                     |
  |  --- noves:auth ------------------> |  (JWT + refresh token + hostBaseUrl)
  |                                     |
  |                                     |  (authenticates user, renders app)
  |                                     |
- |  <-- noves:navigation ------------- |  (user clicks "Backend Status")
- |                                     |
+ |  <-- noves:navigation ------------- |  (user navigates inside the app)
  |  (updates URL bar)                  |
- |                                     |
 ```
 
 ---
 
-## Complete Integration Example
+## Complete Integration Examples
 
-A minimal but complete host application implementation:
+### Own Login Mode (Minimal)
 
 ```html
-<!DOCTYPE html>
-<html>
-<head><title>Host Application</title></head>
-<body>
-  <header>
-    <h1>My Platform</h1>
-    <nav><!-- host navigation --></nav>
-  </header>
+<iframe
+  id="data-app"
+  src="https://dataapp.example.com/dashboard?embedded=true"
+  allow="clipboard-write"
+  style="width: 100%; height: calc(100vh - 60px); border: none;"
+></iframe>
 
-  <iframe
-    id="data-app"
-    src="https://dataapp.example.com/dashboard?embedded=true"
-    allow="clipboard-write"
-    style="width: 100%; height: calc(100vh - 60px); border: none;"
-  ></iframe>
+<script>
+  const DATA_APP_ORIGIN = 'https://dataapp.example.com'
 
-  <script>
-    const DATA_APP_ORIGIN = 'https://dataapp.example.com'
-    const HOST_BASE_URL = 'https://host.example.com/data-app'
-    const iframe = document.getElementById('data-app')
-
-    window.addEventListener('message', (event) => {
-      if (event.origin !== DATA_APP_ORIGIN) return
-
-      switch (event.data.type) {
-        case 'noves:ready':
-          // Data App is ready — send tokens
-          iframe.contentWindow.postMessage({
-            type: 'noves:auth',
-            token: getAccessToken(),       // your OIDC access token
-            refreshToken: getRefreshToken(), // your OIDC refresh token
-            hostBaseUrl: HOST_BASE_URL
-          }, DATA_APP_ORIGIN)
-          break
-
-        case 'noves:navigation':
-          // Sync host URL bar with Data App navigation
-          history.pushState(null, '', `/data-app${event.data.path}`)
-          break
-      }
-    })
-
-    // Deep link support: load the correct Data App page from host URL
-    const path = window.location.pathname
-    if (path.startsWith('/data-app/')) {
-      const appPath = path.replace('/data-app', '')
-      iframe.src = `${DATA_APP_ORIGIN}${appPath}?embedded=true`
+  window.addEventListener('message', (event) => {
+    if (event.origin !== DATA_APP_ORIGIN) return
+    if (event.data.type === 'noves:navigation') {
+      history.pushState(null, '', `/data-app${event.data.path}`)
     }
-  </script>
-</body>
-</html>
+  })
+</script>
+```
+
+### Host Auth Mode (Full)
+
+```html
+<iframe
+  id="data-app"
+  src="https://dataapp.example.com/dashboard?embedded=true&auth=host"
+  allow="clipboard-write"
+  style="width: 100%; height: calc(100vh - 60px); border: none;"
+></iframe>
+
+<script>
+  const DATA_APP_ORIGIN = 'https://dataapp.example.com'
+  const HOST_BASE_URL = 'https://host.example.com/data-app'
+  const iframe = document.getElementById('data-app')
+
+  window.addEventListener('message', (event) => {
+    if (event.origin !== DATA_APP_ORIGIN) return
+
+    switch (event.data.type) {
+      case 'noves:ready':
+        iframe.contentWindow.postMessage({
+          type: 'noves:auth',
+          token: getAccessToken(),
+          refreshToken: getRefreshToken(),
+          hostBaseUrl: HOST_BASE_URL
+        }, DATA_APP_ORIGIN)
+        break
+
+      case 'noves:navigation':
+        history.pushState(null, '', `/data-app${event.data.path}`)
+        break
+    }
+  })
+</script>
 ```
 
 A fully working demo application is available at [Noves-Inc/canton-data-app-embedded-demo](https://github.com/Noves-Inc/canton-data-app-embedded-demo).
@@ -292,58 +344,42 @@ For the best user experience, deploy the Data App on a subdomain of the host's d
 
 ```
 Host:     host.example.com
-Data App: dataapp.host.example.com    (same-site subdomain)
+Data App: dataapp.host.example.com
 ```
 
 This makes the iframe **same-site**, which means:
 
 - User preferences (theme, table settings, selected party) persist across sessions
 - No risk of third-party cookie/storage blocking from Safari, Chrome, or Firefox
+- OIDC redirects in own-login mode work without cross-origin issues
 
 ### Cross-Origin Deployment
 
-If the Data App is deployed on a completely separate origin (e.g., `dataapp.otherdomain.com`), everything still works — authentication is handled via `postMessage` regardless. However:
+If the Data App is deployed on a completely separate origin, everything still works — authentication is handled within the iframe (own-login mode) or via postMessage (host-auth mode) regardless. However:
 
-- User preferences may not persist between page reloads on browsers with strict third-party storage policies (Safari, Firefox strict mode, Chrome with third-party cookie phase-out)
+- User preferences may not persist between page reloads on browsers with strict third-party storage policies
 - Preferences work within a single session but may reset on reload
 
 ---
 
 ## Verification & Testing
 
-After completing the integration, verify each step of the handshake:
+### Own Login Mode
 
-### 1. iframe loads without CSP blocking
+1. **iframe loads:** Navigate to host page — Data App should render inside the iframe. If you see a CSP error, check `EMBED_ALLOWED_ORIGINS`.
+2. **Login works:** The Keycloak login page should appear inside the iframe. After authenticating, the dashboard loads.
+3. **Navigation sync:** Click through pages inside the Data App. The host URL bar should update (e.g., `/data-app/backend-status`).
+4. **Clipboard:** Copy a party ID or transaction URL — should work if `allow="clipboard-write"` is set.
 
-Open the browser DevTools Console. If you see:
+### Host Auth Mode
 
-```
-Refused to frame 'https://dataapp.example.com/' because an ancestor violates the Content Security Policy
-```
+1. **Waiting state:** Load iframe with `?embedded=true&auth=host` — should show "Waiting for authentication..." spinner.
+2. **Token handshake:** After host sends `noves:auth` in response to `noves:ready`, the app should authenticate and show the dashboard.
+3. **Navigation sync:** Same as own-login mode.
 
-Check that `EMBED_ALLOWED_ORIGINS` is set correctly in the Data App deployment and that the origin matches exactly (protocol + domain + port).
+### Standalone Regression
 
-### 2. `noves:ready` is received
-
-In the host application's Console, confirm that a `noves:ready` message arrives from the Data App. If it doesn't:
-
-- Verify the iframe `src` includes `?embedded=true`
-- Check that the Data App loaded successfully inside the iframe (no network errors)
-
-### 3. Authentication works
-
-After sending `noves:auth`, the Data App should display the dashboard without showing a login screen. If you see "Waiting for authentication..." instead:
-
-- The `noves:auth` message was not received — check that it's sent after `noves:ready`
-- The token may be invalid — verify the JWT is from the same OIDC provider the Data App is configured to use
-
-### 4. Navigation sync works
-
-Click through pages inside the embedded Data App. The host URL bar should update to reflect the current page (e.g., `/data-app/backend-status`).
-
-### 5. Clipboard works
-
-Use a "Copy" button inside the embedded Data App (e.g., copy a party ID or transaction URL). If it fails silently, check that the iframe has `allow="clipboard-write"`.
+Run the Data App without `EMBED_ALLOWED_ORIGINS` — should behave identically to a normal standalone deployment.
 
 ---
 
@@ -364,20 +400,43 @@ Use a "Copy" button inside the embedded Data App (e.g., copy a party ID or trans
 3. **Data App not restarted** — The environment variable was added but the server wasn't restarted.
    - **Solution:** Restart the Data App container to pick up the new configuration.
 
-### User sees login screen instead of being authenticated
+### Own Login: Auth0 login page shows error or refuses to load
 
-**Symptoms:** The Data App renders inside the iframe but shows the login page with "Waiting for authentication..." or the standard OIDC login button.
+**Symptoms:** The iframe loads but Auth0's Universal Login shows an error page, a blank page, or "Oops!, something went wrong."
+
+**Cause:** Auth0 blocks its Universal Login page from rendering inside iframes entirely. Auth0 sets `X-Frame-Options: deny` and `Content-Security-Policy: frame-ancestors 'none'` on all login pages as clickjacking protection. This cannot be configured per-origin.
+
+**Solution:** Own Login mode is not compatible with Auth0. Use **Host Auth mode** (`?embedded=true&auth=host`) instead, where the host application authenticates via Auth0 and passes tokens to the Data App via postMessage.
+
+### Own Login: Keycloak login page doesn't render inside iframe
+
+**Symptoms:** The iframe loads but the Keycloak login page doesn't appear, or redirects fail.
 
 **Common causes:**
 
-1. **Tokens sent before `noves:ready`** — The `postMessage` was sent before the Data App's listener was active.
+1. **Keycloak blocks iframe rendering** — By default, Keycloak sets `X-Frame-Options: SAMEORIGIN` and `frame-ancestors 'self'` which block cross-origin iframe rendering.
+   - **Solution:** In Keycloak admin console, go to **Realm Settings > Security Defenses > Headers**. Clear the **X-Frame-Options** field (leave empty), and update **Content-Security-Policy** to add the host origin to `frame-ancestors`: `frame-src 'self'; frame-ancestors 'self' https://host.example.com; object-src 'none';`
+
+2. **Redirect URI mismatch** — The Data App's `VITE_KEYCLOAK_REDIRECT_URI` doesn't match the Data App's actual URL.
+   - **Solution:** Ensure the redirect URI points to the Data App's own URL (e.g., `https://dataapp.host.example.com/callback`), not the host's URL.
+
+3. **Third-party cookie blocking** — Cross-origin iframes may have `sessionStorage` blocked, breaking the OIDC PKCE flow.
+   - **Solution:** Deploy the Data App on a same-site subdomain. See [Deployment Recommendations](#deployment-recommendations).
+
+### Host Auth: User sees "Waiting for authentication..." indefinitely
+
+**Symptoms:** The Data App renders inside the iframe but shows a loading spinner with "Waiting for authentication..."
+
+**Common causes:**
+
+1. **Missing `&auth=host`** — The iframe URL doesn't include `auth=host`, so the Data App shows its own login instead of waiting for tokens.
+   - **Solution:** Append `&auth=host` to the iframe `src`.
+
+2. **Tokens sent before `noves:ready`** — The `postMessage` was sent before the Data App's listener was active.
    - **Solution:** Always wait for the `noves:ready` message before sending `noves:auth`.
 
-2. **Invalid JWT** — The token is from a different OIDC provider than the Data App expects.
+3. **Invalid JWT** — The token is from a different OIDC provider than the Data App expects.
    - **Solution:** Verify both the host and Data App use the same Keycloak or Auth0 instance.
-
-3. **Missing `?embedded=true`** — The iframe URL doesn't include the query parameter.
-   - **Solution:** Append `?embedded=true` to the iframe `src`.
 
 ### Copy-to-clipboard not working
 
@@ -391,6 +450,14 @@ Use a "Copy" button inside the embedded Data App (e.g., copy a party ID or trans
 
 **Symptoms:** Theme, table settings, or selected party revert to defaults each time the page reloads.
 
-**Cause:** The browser is blocking `localStorage` access in the cross-origin iframe (common in Safari and Firefox strict mode).
+**Cause:** The browser is blocking `localStorage` access in the cross-origin iframe.
 
 **Solution:** Deploy the Data App on a same-site subdomain of the host. See [Deployment Recommendations](#deployment-recommendations).
+
+### Own Login: "Connection blocked" error during Keycloak redirect (local development only)
+
+**Symptoms:** After authenticating on Keycloak, the redirect back to the Data App fails with: "The connection is blocked because it was initiated by a public page to connect to devices or servers on your local network."
+
+**Cause:** Chrome's [Local Network Access](https://developer.chrome.com/blog/local-network-access) (LNA) protection blocks requests from public origins (e.g., `keycloak.example.com`) to private/local addresses (e.g., `localhost`). This only happens when the Data App runs on `localhost` while Keycloak is on a remote domain.
+
+**Solution:** This does not affect production deployments where both the Data App and Keycloak are on public or same-network domains. For local development only: go to `chrome://flags/#local-network-access-check`, set to **Disabled**, and relaunch Chrome. Re-enable after testing.
