@@ -88,6 +88,15 @@ We assume that the traffic between the backend container and Ledger API will be 
 
 On your validator node, if not done already, you will need to expose a port for the gRPC Ledger API, and (optionally) enable TLS. We're including exact instructions on how to do this, in a separate file.
 
+### Hardware Requirements
+
+Resource usage is driven primarily by the number of transactions in your validator. As an initial benchmark, we recommend allocating to the data app:
+
+- `1 CPU` core allocated to the backend container, `1 CPU` core allocated to the database container
+- `1 GB` of memory allocated to the backend container, `2 GB` of memory allocated to the database container
+-  The frontend container has minimal requirements, `0.5 CPU` and `512 MB` for memory should be sufficient
+- For storage, plan to be using approximately `70%` of the validator's Postgres volume size. For example, if the validator is using `100 GB` of storage, assume the data app database would use approximately `70 GB`
+
 ---
 
 ### Authentication 
