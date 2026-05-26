@@ -153,7 +153,7 @@ kubectl logs -f deployment/data-app-backend -n validator
 
 Look for messages indicating:
 - Node configuration loaded
-- `validator_node_id` column migration complete (only appears on first startup with multiple nodes)
+- `validator_node_id` column added — appears only on the first v3.12+ startup. If you previously ran v3.12+ as single-node, the column is already in place and existing rows are labeled with that node's ID; `primaryNodeId` must match that value.
 - Connection established to both participant nodes
 
 ---
