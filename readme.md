@@ -16,11 +16,13 @@
 4. [Environment Variables](#environment-variables)
    - [Frontend Environment Variables](#frontend-environment-variables)
    - [Backend Environment Variables](#backend-environment-variables)
-5. [Installation Steps](#installation-steps)
-6. [Optional Addons](#optional-addons)
+5. [Data Exports](#data-exports)
+6. [Transaction History Backups](#transaction-history-backups-optional)
+7. [Installation Steps](#installation-steps)
+8. [Optional Addons](#optional-addons)
    - [Traffic Analyzer](#traffic-analyzer)
-7. [Embedded Mode](#embedded-mode)
-8. [Support](#support)
+9. [Embedded Mode](#embedded-mode)
+10. [Support](#support)
 
 ---
 
@@ -51,7 +53,9 @@ The frontend consists of a dashboard that runs on backend-provided data. It allo
 - Visualize data in multiple views
 - Filter by various conditions
 - Graph transaction data
-- Export to CSV
+- Export to CSV (see [Data Exports](#data-exports))
+
+> The larger **transaction** and **cost-basis** exports run as asynchronous jobs on the backend and require an S3-compatible bucket to be configured. See [Data Exports](#data-exports) for setup.
 
 ### Wallet Features (Optional)
 
@@ -263,11 +267,61 @@ The backend has the following user-configurable environment variables:
 | `BACKUP_S3_ACCESS_KEY_ID` | `AKIA...` | (Optional) Access key for the backup bucket. |
 | `BACKUP_S3_SECRET_ACCESS_KEY` | `********` | (Optional) Secret key for the backup bucket. |
 | `BACKUP_S3_SESSION_TOKEN` | `********` | (Optional) Session token when using temporary credentials. Leave blank for long-lived credentials. |
+| **Export Configuration** | | **S3-compatible storage for asynchronous data exports. See [Data Exports](#data-exports).** |
+| `EXPORTS_S3_BUCKET` | `canton-exports` | (Optional) Destination bucket for transaction and cost-basis export results. **If left blank, the export feature falls back to `BACKUP_S3_BUCKET`.** When neither is set, those exports return a `501 "exports are not configured"` error. |
+| `EXPORTS_S3_ENDPOINT_URL` | `https://<your-provider-endpoint>` | (Optional) Custom S3-compatible endpoint (Cloudflare R2, MinIO, etc.). Falls back to `BACKUP_S3_ENDPOINT_URL`. |
+| `EXPORTS_S3_ACCESS_KEY_ID` | `AKIA...` | (Optional) Access key for the exports bucket. Falls back to `BACKUP_S3_ACCESS_KEY_ID`. Not required when using an attached IAM role on AWS. |
+| `EXPORTS_S3_SECRET_ACCESS_KEY` | `********` | (Optional) Secret key for the exports bucket. Falls back to `BACKUP_S3_SECRET_ACCESS_KEY`. Not required when using an attached IAM role on AWS. |
+| `TRANSACTION_EXPORT_TTL_DAYS` | `7` | (Optional) Days an export result is retained in the bucket before automatic cleanup. Default `7`. |
+| `COST_BASIS_EXPORT_TTL_DAYS` | `7` | (Optional) Same retention setting for cost-basis export results. Default `7`. |
+| `TRANSACTION_EXPORT_MAX_SOURCE_PARTIES` | `50` | (Optional) Maximum number of parties allowed in a single transaction export job. Default `50`. |
 | **Wallet Configuration** | | **Required to enable wallet features** |
 | `SCAN_PROXY_URL` | `http://validator:5003/api/validator` | (Optional) URL to the validator's Scan API proxy endpoint. **Required to enable wallet features.** If not set, wallet functionality is disabled. For Docker Compose, use the validator container name (e.g., `http://validator:5003/api/validator`). For Kubernetes, use the fully qualified service name (e.g., `http://validator-app.validator.svc.cluster.local:5003/api/validator`). |
 | `TRAFFIC_ANALYSIS_ENABLED` | `true` or `false` | (Optional) Enable traffic cost analysis. Requires Fluent Bit addon. Default is `false`. See [traffic-analyzer/](traffic-analyzer/) for setup. |
 
 **Note:** The backend does not require Auth0 credentials. It receives JWT tokens from the frontend and passes them through to Canton's Ledger API for validation. You can also call the backend's API directly if you generate a valid JWT token on your own.
+
+---
+
+## Data Exports
+
+The dashboard can export your data for downstream reporting and accounting. There are two categories of export, with different storage requirements:
+
+### 1. In-browser CSV (no configuration required)
+
+Smaller, on-screen result sets — such as the rollup/accounting preview — are turned into a CSV directly in your browser and downloaded locally. These work out of the box and need no extra setup.
+
+### 2. Asynchronous exports (require an S3-compatible bucket)
+
+Larger exports run as **background jobs on the backend** and stream their output to an S3-compatible object store. From the UI these are:
+
+- **Transaction exports** — Financial CSV, Activity CSV, and Raw JSON (NDJSON).
+- **Cost-basis exports** — realized gains/losses CSV (FIFO/LIFO/Proportional).
+
+The flow is: the dashboard submits a job, polls until it completes, then receives a short-lived **presigned download URL** (valid 1 hour) that the browser uses to download the file directly from the bucket. Results are retained in the bucket for **7 days** by default ([`TRANSACTION_EXPORT_TTL_DAYS`](#backend-environment-variables) / `COST_BASIS_EXPORT_TTL_DAYS`) and then cleaned up automatically. The frontend never holds S3 credentials.
+
+#### Configuring the exports bucket
+
+These exports require an S3-compatible bucket. You have two options:
+
+1. **Reuse your backup bucket (simplest).** If you have already configured the [Transaction History Backups](#transaction-history-backups-optional) (`BACKUP_S3_*`) variables, **exports work automatically** — no extra configuration is needed. The export feature reads the `EXPORTS_S3_*` variables first and transparently falls back to the corresponding `BACKUP_S3_*` values when they are blank.
+
+2. **Use a dedicated exports bucket.** Set the `EXPORTS_S3_*` variables to send exports to a different bucket than your backups:
+
+   ```yaml
+   EXPORTS_S3_BUCKET: "canton-exports"
+   EXPORTS_S3_ENDPOINT_URL: "https://<your-provider-endpoint>"   # for R2/MinIO/etc.
+   EXPORTS_S3_ACCESS_KEY_ID: "AKIA..."                            # omit when using an AWS IAM role
+   EXPORTS_S3_SECRET_ACCESS_KEY: "********"                       # omit when using an AWS IAM role
+   ```
+
+Any S3-compatible provider works (AWS S3, Cloudflare R2, MinIO, etc.). On AWS with an attached IAM role, you can omit the access key and secret. Store credentials in a Secret rather than a plain ConfigMap.
+
+> **After setting these variables, restart the backend** so it picks them up — environment variables are read only at startup. For Docker Compose, recreate the backend container (`docker compose up -d`); for Kubernetes, restart the backend deployment (`kubectl rollout restart deployment/<backend-deployment>`).
+
+> **If no bucket is configured at all** (neither `EXPORTS_S3_*` nor `BACKUP_S3_*`), submitting a transaction or cost-basis export returns `501 "exports are not configured (set EXPORTS_S3_BUCKET env var)"`. The rest of the app is unaffected.
+
+> Support for other destinations (e.g. a mounted PVC) is not available in this release. If you need one, reach out via the support channel below.
 
 ---
 

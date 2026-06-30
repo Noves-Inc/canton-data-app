@@ -102,11 +102,20 @@ environment:
   BACKUP_S3_SECRET_ACCESS_KEY: ""
   BACKUP_S3_SESSION_TOKEN: ""
 
+  # Optional S3 destination for asynchronous data exports (transaction & cost-basis exports).
+  # If left empty, exports reuse the BACKUP_S3_* values above. Set these only for a separate bucket.
+  # EXPORTS_S3_BUCKET: ""
+  # EXPORTS_S3_ENDPOINT_URL: ""
+  # EXPORTS_S3_ACCESS_KEY_ID: ""
+  # EXPORTS_S3_SECRET_ACCESS_KEY: ""
+
   # Wallet features (optional - leave empty to disable)
   SCAN_PROXY_URL: "http://validator:5003/api/validator"  # Required to enable wallet features
 ```
 
 > Define `CANTON_TRANSLATE_DB_PASSWORD` in a `.env` file or export it before running `docker compose` so the password is never checked into source control.
+
+> **Data exports:** The asynchronous transaction and cost-basis exports stream their results to an S3-compatible bucket. If you set the `BACKUP_S3_*` values above, exports use that bucket automatically — otherwise set the `EXPORTS_S3_*` variables to use a separate one. With neither configured, those exports return a `501 "exports are not configured"` error. After changing these variables, recreate the backend container (`docker compose up -d`) so it picks them up. See the [Data Exports](../readme.md#data-exports) section in the main readme for details.
 
 ### Frontend Configuration
 

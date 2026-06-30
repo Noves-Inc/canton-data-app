@@ -32,6 +32,15 @@ data:
   BACKUP_S3_SECRET_ACCESS_KEY: ""
   BACKUP_S3_SESSION_TOKEN: ""
 
+  # Optional S3 configuration for asynchronous data exports (transaction & cost-basis exports).
+  # If left empty, exports reuse the BACKUP_S3_* values above. If both are empty, those exports
+  # return a 501 "exports are not configured" error. Set these only to use a separate bucket.
+  # Store credentials in a Secret rather than this ConfigMap. See readme.md -> Data Exports.
+  # EXPORTS_S3_BUCKET: ""
+  # EXPORTS_S3_ENDPOINT_URL: ""
+  # EXPORTS_S3_ACCESS_KEY_ID: ""
+  # EXPORTS_S3_SECRET_ACCESS_KEY: ""
+
   # Wallet features (optional - leave empty to disable wallet functionality)
   SCAN_PROXY_URL: "http://validator-app.validator.svc.cluster.local:5003/api/validator"  # UPDATE namespace if different
 
