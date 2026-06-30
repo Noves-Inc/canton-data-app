@@ -115,7 +115,7 @@ environment:
 
 > Define `CANTON_TRANSLATE_DB_PASSWORD` in a `.env` file or export it before running `docker compose` so the password is never checked into source control.
 
-> **Data exports:** The asynchronous transaction and cost-basis exports stream their results to an S3-compatible bucket. If you set the `BACKUP_S3_*` values above, exports use that bucket automatically — otherwise set the `EXPORTS_S3_*` variables to use a separate one. With neither configured, those exports return a `501 "exports are not configured"` error. See the [Data Exports](../readme.md#data-exports) section in the main readme for details.
+> **Data exports:** The asynchronous transaction and cost-basis exports stream their results to an S3-compatible bucket. If you set the `BACKUP_S3_*` values above, exports use that bucket automatically — otherwise set the `EXPORTS_S3_*` variables to use a separate one. With neither configured, those exports return a `501 "exports are not configured"` error. After changing these variables, recreate the backend container (`docker compose up -d`) so it picks them up. See the [Data Exports](../readme.md#data-exports) section in the main readme for details.
 
 ### Frontend Configuration
 

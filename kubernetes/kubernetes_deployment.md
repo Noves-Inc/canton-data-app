@@ -386,6 +386,8 @@ You have two ways to provide the bucket:
    - `EXPORTS_S3_BUCKET`, `EXPORTS_S3_ENDPOINT_URL` in the backend ConfigMap.
    - `EXPORTS_S3_ACCESS_KEY_ID`, `EXPORTS_S3_SECRET_ACCESS_KEY` in a Secret (omit on AWS when using an attached IAM role).
 
+After updating the ConfigMap/Secret, restart the backend so it picks up the new values (`kubectl rollout restart deployment/<backend-deployment>`) — environment variables are read only at startup.
+
 If neither `EXPORTS_S3_*` nor `BACKUP_S3_*` is configured, transaction and cost-basis exports return `501 "exports are not configured (set EXPORTS_S3_BUCKET env var)"`. Export results are retained for 7 days by default (`TRANSACTION_EXPORT_TTL_DAYS` / `COST_BASIS_EXPORT_TTL_DAYS`) and then cleaned up automatically. A mounted-PVC destination is not supported in this release.
 
 ---

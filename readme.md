@@ -317,6 +317,8 @@ These exports require an S3-compatible bucket. You have two options:
 
 Any S3-compatible provider works (AWS S3, Cloudflare R2, MinIO, etc.). On AWS with an attached IAM role, you can omit the access key and secret. Store credentials in a Secret rather than a plain ConfigMap.
 
+> **After setting these variables, restart the backend** so it picks them up — environment variables are read only at startup. For Docker Compose, recreate the backend container (`docker compose up -d`); for Kubernetes, restart the backend deployment (`kubectl rollout restart deployment/<backend-deployment>`).
+
 > **If no bucket is configured at all** (neither `EXPORTS_S3_*` nor `BACKUP_S3_*`), submitting a transaction or cost-basis export returns `501 "exports are not configured (set EXPORTS_S3_BUCKET env var)"`. The rest of the app is unaffected.
 
 > Support for other destinations (e.g. a mounted PVC) is not available in this release. If you need one, reach out via the support channel below.
