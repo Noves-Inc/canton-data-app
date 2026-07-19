@@ -29,7 +29,13 @@ Use this guide if you already run the Noves Data App in Kubernetes using the pre
 
 ### Step 3.1 – Persistent Volume Claim
 
-Open `kubernetes/manifests/persistentvolumeclaims.yaml` and ensure it contains only the `data-app-db-pvc` definition:
+Open `kubernetes/manifests/persistentvolumeclaims.yaml` and ensure it contains both
+`data-app-db-pvc` and `canton-data-app-exports`. The database claim stores PostgreSQL data; the
+exports claim is mounted at `/exports` and is used when S3-compatible artifact storage is not
+configured. Use the checked-in manifest as the canonical definitions and size both claims for your
+retention and transaction volume.
+
+The database portion begins:
 
 ```yaml
 apiVersion: v1

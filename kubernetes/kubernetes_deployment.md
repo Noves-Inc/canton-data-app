@@ -222,7 +222,9 @@ See [`manifests/configmaps.yaml`](manifests/configmaps.yaml) and [`manifests/sec
 - **CANTON_NODE_ADDR**: Legacy single-node variable. Still supported when `NODES_CONFIG_FILE_PATH` is not set. Update the namespace portion if different from `validator`.
 - **Database connection**: Confirm `INDEX_DB_HOST`, `INDEX_DB_PORT`, `INDEX_DB_NAME`, and `INDEX_DB_USER` reflect your database deployment details.
 - **Backups (optional)**: Populate `BACKUP_S3_BUCKET`, `BACKUP_S3_PREFIX`, and `BACKUP_S3_ENDPOINT_URL` if you plan to push history snapshots to object storage. Optional.
-- **Exports (optional)**: The asynchronous transaction and cost-basis exports stream their results to an S3-compatible bucket. If the `BACKUP_S3_*` values are set, exports reuse them automatically. To send exports to a separate bucket, set the `EXPORTS_S3_*` variables instead. See [Data Exports](#data-exports) below.
+- **Exports**: Asynchronous transaction, cost-basis, and rollup artifacts use `EXPORTS_S3_*`,
+  then `BACKUP_S3_*`, then the backend PVC mounted at `/exports`. See
+  [Data Exports](#data-exports) below.
 - **Wallet features (optional)**: Set `SCAN_PROXY_URL` to enable wallet functionality (e.g., `http://validator-app.validator.svc.cluster.local:5003/api/validator`). Update the namespace portion if different from `validator`.
 
 **Frontend Auth0 variables:**
@@ -376,13 +378,16 @@ See [`manifests/deployments.yaml`](manifests/deployments.yaml) for the complete 
 
 **Key features:**
 - `data-app-db` uses the PVC `data-app-db-pvc`, mounts `/home/postgres/pgdata`, and references the shared secret for credentials.
-- Backend and frontend deployments are stateless. They consume ConfigMaps for configuration and pull the database password from the same Secret.
+- The frontend is stateless. The backend consumes ConfigMaps and Secrets and also mounts the
+  `canton-data-app-exports` PVC for filesystem artifact storage when S3 is not selected.
 
 ## Data Exports
 
-The asynchronous transaction and cost-basis exports (Financial/Activity CSV, Raw JSON, and cost-basis CSV) stream their output to an S3-compatible bucket, and the dashboard downloads the result via a short-lived presigned URL. (The smaller in-browser CSV downloads need no configuration.)
+Asynchronous transaction, cost-basis, and rollup exports stream to the selected artifact provider.
+Downloads use one-hour application tokens whose hashes are stored in PostgreSQL; this contract is the
+same for S3-compatible and filesystem providers.
 
-You have two ways to provide the bucket:
+S3-compatible storage can be configured in either of these ways:
 
 1. **Reuse the backup bucket** — if `BACKUP_S3_*` is already configured (see [Transaction History Backups](#transaction-history-backups-optional)), exports use it automatically with no further changes.
 2. **Dedicated exports bucket** — set the `EXPORTS_S3_*` variables to send exports to a different bucket:

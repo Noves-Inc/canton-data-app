@@ -55,7 +55,9 @@ The frontend consists of a dashboard that runs on backend-provided data. It allo
 - Graph transaction data
 - Export to CSV (see [Data Exports](#data-exports))
 
-> The larger **transaction** and **cost-basis** exports run as asynchronous jobs on the backend and require an S3-compatible bucket to be configured. See [Data Exports](#data-exports) for setup.
+> The larger transaction, cost-basis, and rollup exports run as asynchronous backend jobs. Configure
+> either S3-compatible storage or the persistent `/exports` volume described in
+> [Data Exports](#data-exports).
 
 ### Wallet Features (Optional)
 
@@ -80,7 +82,9 @@ durable storage, either in S3-compatible object storage or on the `/exports` per
 
 The delivery of the app is through three Docker containers (frontend, backend, database) that are assumed to run in the same network (for example inside a docker-compose deployment) or inside the same Kubernetes namespace.
 
-Only the database container requires persistent storage. The frontend and backend are stateless and can be re-created freely as long as they can reach the database service.
+The database always requires persistent storage. The frontend is stateless. The backend is stateless
+only when exports use S3-compatible storage; when filesystem artifact storage is selected, its
+`/exports` mount must be persistent and restored or reattached when the backend is replaced.
 
 It is not a requirement that they run in the same network as your Canton validator node. But in practice, we expect this to be the case most of the time (for your own security). All URLs and endpoints are configurable via environment variables.
 
