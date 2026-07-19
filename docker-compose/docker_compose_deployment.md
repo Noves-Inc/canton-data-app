@@ -102,7 +102,7 @@ environment:
   BACKUP_S3_SECRET_ACCESS_KEY: ""
   BACKUP_S3_SESSION_TOKEN: ""
 
-  # Optional S3 destination for asynchronous data exports (transaction & cost-basis exports).
+  # Optional S3 destination for asynchronous transaction, cost-basis, and rollup exports.
   # If left empty, exports reuse the BACKUP_S3_* values above. Set these only for a separate bucket.
   # EXPORTS_S3_BUCKET: ""
   # EXPORTS_S3_ENDPOINT_URL: ""
