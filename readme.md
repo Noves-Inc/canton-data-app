@@ -253,6 +253,7 @@ The backend has the following user-configurable environment variables:
 | `CANTON_NODE_ADDR` | `splice-validator-participant-1:5001` | Address of the Canton participant's Ledger API. For Docker Compose deployments on the same network, use the participant container name and port. For external connections, use the fully qualified domain name and port. |
 | `CANTON_NODE_CERT_FILE_PATH` | `""` or `/code/cert.crt` | Path to TLS certificate for secure gRPC communication with Canton. **Must be an empty string (`""`)** if the Ledger API does not require TLS (common for Docker Compose deployments). If TLS is required, mount the certificate file and provide its path. |
 | `CANTON_NODE_ID` | `main-node` | Identifier assigned to the node when using legacy environment variables. Defaults to `main-node` if not set. This value is stored in the database to tag all indexed data; keep it stable after initial deployment. |
+| `CANTON_EXPECTED_PARTICIPANT_ID` | `participant::...` | Required for an automatic v3 upgrade when using legacy single-node variables. The observed participant identity must match before database mutation and on replay resume. |
 | `INDEX_DB_HOST` | `data-app-db` | Internal hostname for the database service. |
 | `INDEX_DB_PORT` | `5432` | Database port exposed by the database service. |
 | `INDEX_DB_NAME` | `canton_index` | Database name automatically created by the database container. |
@@ -268,12 +269,21 @@ The backend has the following user-configurable environment variables:
 | `BACKUP_S3_SECRET_ACCESS_KEY` | `********` | (Optional) Secret key for the backup bucket. |
 | `BACKUP_S3_SESSION_TOKEN` | `********` | (Optional) Session token when using temporary credentials. Leave blank for long-lived credentials. |
 | **Export Configuration** | | **S3-compatible storage for asynchronous data exports. See [Data Exports](#data-exports).** |
-| `EXPORTS_S3_BUCKET` | `canton-exports` | (Optional) Destination bucket for transaction and cost-basis export results. **If left blank, the export feature falls back to `BACKUP_S3_BUCKET`.** When neither is set, those exports return a `501 "exports are not configured"` error. |
+| `EXPORTS_S3_BUCKET` | `canton-exports` | (Optional) Destination bucket for transaction, cost-basis, and accounting-rollup artifacts. **If left blank, the export feature falls back to `BACKUP_S3_BUCKET`, then a mounted `/exports` volume.** With no provider, submission returns `501 export_storage_not_configured`. |
 | `EXPORTS_S3_ENDPOINT_URL` | `https://<your-provider-endpoint>` | (Optional) Custom S3-compatible endpoint (Cloudflare R2, MinIO, etc.). Falls back to `BACKUP_S3_ENDPOINT_URL`. |
 | `EXPORTS_S3_ACCESS_KEY_ID` | `AKIA...` | (Optional) Access key for the exports bucket. Falls back to `BACKUP_S3_ACCESS_KEY_ID`. Not required when using an attached IAM role on AWS. |
 | `EXPORTS_S3_SECRET_ACCESS_KEY` | `********` | (Optional) Secret key for the exports bucket. Falls back to `BACKUP_S3_SECRET_ACCESS_KEY`. Not required when using an attached IAM role on AWS. |
-| `TRANSACTION_EXPORT_TTL_DAYS` | `7` | (Optional) Days an export result is retained in the bucket before automatic cleanup. Default `7`. |
-| `COST_BASIS_EXPORT_TTL_DAYS` | `7` | (Optional) Same retention setting for cost-basis export results. Default `7`. |
+| `EXPORTS_S3_SESSION_TOKEN` | `********` | (Optional) Session token for temporary export-bucket credentials. Falls back to `BACKUP_S3_SESSION_TOKEN`. |
+| `ACCOUNTING_ARTIFACT_TTL_DAYS` | `60` | Artifact retention. Expired job metadata remains visible and artifact reads return `410`. |
+| `ACCOUNTING_ARTIFACT_MAX_BYTES` | `10737418240` | Maximum artifact size in bytes (default 10 GiB). |
+| `ACCOUNTING_JOB_MAX_RUNTIME_MINUTES` | `120` | Maximum runtime per job before failure and partial-artifact cleanup. |
+| `ACCOUNTING_PER_USER_CONCURRENCY` | `2` | Maximum queued or processing accounting artifact jobs per user. |
+| `ACCOUNTING_WORKER_CONCURRENCY` | `2` | Maximum artifact jobs processed concurrently by one backend instance. |
+| `ACCOUNTING_ARTIFACT_TTL_DAYS` | `60` | Days transaction, cost-basis, and rollup artifacts are retained. Job metadata remains visible after expiry. |
+| `ACCOUNTING_ARTIFACT_MAX_BYTES` | `10737418240` | Maximum artifact size (default 10 GiB). |
+| `ACCOUNTING_JOB_MAX_RUNTIME_MINUTES` | `120` | Maximum generation runtime (default 2 hours). |
+| `ACCOUNTING_PER_USER_CONCURRENCY` | `2` | Maximum queued/processing accounting artifact jobs per user. |
+| `ACCOUNTING_WORKER_CONCURRENCY` | `2` | Global worker concurrency for the single backend container. |
 | `TRANSACTION_EXPORT_MAX_SOURCE_PARTIES` | `50` | (Optional) Maximum number of parties allowed in a single transaction export job. Default `50`. |
 | **Wallet Configuration** | | **Required to enable wallet features** |
 | `SCAN_PROXY_URL` | `http://validator:5003/api/validator` | (Optional) URL to the validator's Scan API proxy endpoint. **Required to enable wallet features.** If not set, wallet functionality is disabled. For Docker Compose, use the validator container name (e.g., `http://validator:5003/api/validator`). For Kubernetes, use the fully qualified service name (e.g., `http://validator-app.validator.svc.cluster.local:5003/api/validator`). |
@@ -291,18 +301,18 @@ The dashboard can export your data for downstream reporting and accounting. Ther
 
 Smaller, on-screen result sets — such as the rollup/accounting preview — are turned into a CSV directly in your browser and downloaded locally. These work out of the box and need no extra setup.
 
-### 2. Asynchronous exports (require an S3-compatible bucket)
+### 2. Asynchronous exports (require S3 or a persistent `/exports` mount)
 
-Larger exports run as **background jobs on the backend** and stream their output to an S3-compatible object store. From the UI these are:
+Larger exports run as durable PostgreSQL-backed jobs and stream their artifacts to S3-compatible storage or a persistent filesystem mounted at `/exports`. Rollup JSON uses the same store and retention lifecycle.
 
 - **Transaction exports** — Financial CSV, Activity CSV, and Raw JSON (NDJSON).
 - **Cost-basis exports** — realized gains/losses CSV (FIFO/LIFO/Proportional).
 
-The flow is: the dashboard submits a job, polls until it completes, then receives a short-lived **presigned download URL** (valid 1 hour) that the browser uses to download the file directly from the bucket. Results are retained in the bucket for **7 days** by default ([`TRANSACTION_EXPORT_TTL_DAYS`](#backend-environment-variables) / `COST_BASIS_EXPORT_TTL_DAYS`) and then cleaned up automatically. The frontend never holds S3 credentials.
+The dashboard submits a job, polls until completion, and receives an application download URL carrying a random token valid for one hour. Only a SHA-256 token hash is stored. Artifacts are retained for 60 days by default; expired job metadata remains visible and downloads return `410 Gone`.
 
 #### Configuring the exports bucket
 
-These exports require an S3-compatible bucket. You have two options:
+Provider precedence is fixed: `EXPORTS_S3_BUCKET`, then `BACKUP_S3_BUCKET`, then a verified writable mount at `/exports`. S3 wins when both S3 and a volume are present. If S3 is configured but its startup probe fails, the backend returns `503` and does not silently switch to the filesystem.
 
 1. **Reuse your backup bucket (simplest).** If you have already configured the [Transaction History Backups](#transaction-history-backups-optional) (`BACKUP_S3_*`) variables, **exports work automatically** — no extra configuration is needed. The export feature reads the `EXPORTS_S3_*` variables first and transparently falls back to the corresponding `BACKUP_S3_*` values when they are blank.
 
@@ -319,9 +329,11 @@ Any S3-compatible provider works (AWS S3, Cloudflare R2, MinIO, etc.). On AWS wi
 
 > **After setting these variables, restart the backend** so it picks them up — environment variables are read only at startup. For Docker Compose, recreate the backend container (`docker compose up -d`); for Kubernetes, restart the backend deployment (`kubectl rollout restart deployment/<backend-deployment>`).
 
-> **If no bucket is configured at all** (neither `EXPORTS_S3_*` nor `BACKUP_S3_*`), submitting a transaction or cost-basis export returns `501 "exports are not configured (set EXPORTS_S3_BUCKET env var)"`. The rest of the app is unaffected.
+For Docker Compose, the sample named volume `accounting-exports:/exports` is persistent across container replacement. Back it up separately and ensure the container user can write it. A bind mount is also valid when its host directory is persistent, writable, backed up, and not shared by unrelated applications.
 
-> Support for other destinations (e.g. a mounted PVC) is not available in this release. If you need one, reach out via the support channel below.
+For Kubernetes, the sample `canton-data-app-exports` PVC uses `ReadWriteOnce`, matching the supported single backend replica. Size it for the 60-day retention window, include it in the cluster backup policy, and use a storage class that reattaches the claim when the pod is rescheduled. Do not use `emptyDir` for production exports.
+
+> If no S3 bucket or valid `/exports` mount exists, the application still starts, the UI disables submission, and creation returns `501 export_storage_not_configured`.
 
 ---
 

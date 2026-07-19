@@ -55,7 +55,8 @@ data:
     {
       "nodes": {
         "main-node": {
-          "addr": "participant.validator.svc.cluster.local:5001"
+          "addr": "participant.validator.svc.cluster.local:5001",
+          "expectedParticipantId": "REPLACE_WITH_PARTICIPANT_ID"
         }
       }
     }

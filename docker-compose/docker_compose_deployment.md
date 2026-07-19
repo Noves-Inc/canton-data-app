@@ -115,7 +115,7 @@ environment:
 
 > Define `CANTON_TRANSLATE_DB_PASSWORD` in a `.env` file or export it before running `docker compose` so the password is never checked into source control.
 
-> **Data exports:** The asynchronous transaction and cost-basis exports stream their results to an S3-compatible bucket. If you set the `BACKUP_S3_*` values above, exports use that bucket automatically — otherwise set the `EXPORTS_S3_*` variables to use a separate one. With neither configured, those exports return a `501 "exports are not configured"` error. After changing these variables, recreate the backend container (`docker compose up -d`) so it picks them up. See the [Data Exports](../readme.md#data-exports) section in the main readme for details.
+> **Data exports:** Provider precedence is `EXPORTS_S3_BUCKET`, `BACKUP_S3_BUCKET`, then a persistent volume mounted at `/exports`. The sample Compose file includes a named `accounting-exports` volume. Size and back it up for the default 60-day retention window; for bind mounts, ensure the host directory is persistent, writable by the container UID, backed up separately, and not shared by unrelated applications. A configured S3 provider that fails its probe returns `503` without falling back. With no provider, submission is disabled and returns `501 export_storage_not_configured`.
 
 ### Frontend Configuration
 

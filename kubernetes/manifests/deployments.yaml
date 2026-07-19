@@ -111,6 +111,8 @@ spec:
             - name: nodes-config
               mountPath: /app/config
               readOnly: true
+            - name: accounting-exports
+              mountPath: /exports
             # Uncomment if using TLS:
             # - name: participant-cert
             #   mountPath: /app/certs
@@ -126,6 +128,9 @@ spec:
         - name: nodes-config
           configMap:
             name: data-app-nodes-config
+        - name: accounting-exports
+          persistentVolumeClaim:
+            claimName: canton-data-app-exports
         # Uncomment if using TLS:
         # - name: participant-cert
         #   secret:

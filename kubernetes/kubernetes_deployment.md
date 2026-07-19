@@ -308,6 +308,7 @@ data:
 | `nodes` | Yes | Object mapping node IDs to their configuration. Each key is the node ID (must be unique). |
 | `nodes.<id>.addr` | Yes | gRPC address of the validator participant (`host:port`). |
 | `nodes.<id>.cert_file` | No | Path to the TLS certificate file inside the container. Omit for insecure connections. |
+| `nodes.<id>.expectedParticipantId` | Required for automatic v3 upgrades | Exact participant identity verified before mutation and again on replay resume. |
 
 ### Step 2: Mount the ConfigMap in the backend Deployment
 
@@ -388,7 +389,7 @@ You have two ways to provide the bucket:
 
 After updating the ConfigMap/Secret, restart the backend so it picks up the new values (`kubectl rollout restart deployment/<backend-deployment>`) — environment variables are read only at startup.
 
-If neither `EXPORTS_S3_*` nor `BACKUP_S3_*` is configured, transaction and cost-basis exports return `501 "exports are not configured (set EXPORTS_S3_BUCKET env var)"`. Export results are retained for 7 days by default (`TRANSACTION_EXPORT_TTL_DAYS` / `COST_BASIS_EXPORT_TTL_DAYS`) and then cleaned up automatically. A mounted-PVC destination is not supported in this release.
+Provider precedence is `EXPORTS_S3_BUCKET`, `BACKUP_S3_BUCKET`, then a writable PVC mounted at `/exports`. The sample `canton-data-app-exports` claim uses `ReadWriteOnce` for the supported single backend pod. Size it for peak output over the default 60-day retention period, include it in backups, ensure the container UID can write it, and choose a storage class that reattaches it after pod rescheduling. Do not use `emptyDir` for production exports. A configured S3 provider that fails its probe returns `503` without falling back to the PVC; no configured provider returns `501` while the rest of the application remains available.
 
 ---
 
@@ -1040,4 +1041,3 @@ kubectl exec -it deploy/data-app-backend -n validator -- curl localhost:5124/que
 - [Splice Validator Documentation](https://docs.dev.sync.global/sv_operator/sv_helm.html) - Canton validator deployment guide
 - [nginx Ingress Controller Documentation](https://kubernetes.github.io/ingress-nginx/) - nginx Ingress setup and configuration
 - [cert-manager Documentation](https://cert-manager.io/docs/) - Automatic TLS certificate management
-
