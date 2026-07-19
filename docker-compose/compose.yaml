@@ -67,9 +67,9 @@ services:
       BACKUP_S3_SECRET_ACCESS_KEY: ""
       BACKUP_S3_SESSION_TOKEN: ""
 
-      # Optional S3 configuration for asynchronous data exports (transaction & cost-basis exports).
-      # If left empty, exports reuse the BACKUP_S3_* values above. If both are empty, those exports
-      # return a 501 "exports are not configured" error. Set these only to use a separate bucket.
+      # Optional S3 configuration for asynchronous transaction, cost-basis, and rollup artifacts.
+      # If left empty, exports reuse BACKUP_S3_* and then the sample's persistent /exports volume.
+      # A 501 is returned only when neither S3 nor a valid /exports mount is available.
       # See readme.md -> Data Exports.
       # EXPORTS_S3_BUCKET: ""
       # EXPORTS_S3_ENDPOINT_URL: ""

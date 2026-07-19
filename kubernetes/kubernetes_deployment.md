@@ -35,7 +35,7 @@
 
 The Data App consists of three Kubernetes deployments:
 
-- **Database (`data-app-db`)**: Postgres instance that stores all indexed ledger data. This is the only stateful workload and mounts the provided PVC.
+- **Database (`data-app-db`)**: Postgres instance that stores indexed ledger data and job metadata. It mounts the database PVC; the backend also mounts an artifact PVC at `/exports` when S3 is not configured.
 - **Backend (`data-app-backend`)**: Indexes Canton ledger data via gRPC Ledger API, enriches it, persists to the database, and exposes a REST API.
 - **Frontend (`data-app-frontend`)**: UI that authenticates users via Auth0 or Keycloak (OIDC) and displays data from the backend.
 
@@ -192,7 +192,9 @@ We'll create the following manifest files:
 
 ## Storage Configuration
 
-Only the database deployment requires persistent storage.
+The database requires persistent storage for indexed data and job metadata. When S3-compatible export
+storage is not configured, the backend also requires the `canton-data-app-exports` PVC mounted at
+`/exports`; include both stores in capacity planning and backup policy.
 
 See [`manifests/persistentvolumeclaims.yaml`](manifests/persistentvolumeclaims.yaml) for the complete configuration.
 

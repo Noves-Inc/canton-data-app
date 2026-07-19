@@ -68,7 +68,9 @@ The app includes optional wallet functionality that enables users to:
 
 ### Database (TimescaleDB/Postgres)
 
-Version 3.0.0 introduces a dedicated Postgres database container. It is the authoritative store for data and the only stateful workload that requires persistent storage.
+Version 3.0.0 introduces a dedicated Postgres database container. PostgreSQL is the authoritative
+metadata and indexed-data store. Asynchronous transaction, cost-basis, and rollup artifacts also require
+durable storage, either in S3-compatible object storage or on the `/exports` persistent volume.
 
 ---
 
@@ -279,11 +281,6 @@ The backend has the following user-configurable environment variables:
 | `ACCOUNTING_JOB_MAX_RUNTIME_MINUTES` | `120` | Maximum runtime per job before failure and partial-artifact cleanup. |
 | `ACCOUNTING_PER_USER_CONCURRENCY` | `2` | Maximum queued or processing accounting artifact jobs per user. |
 | `ACCOUNTING_WORKER_CONCURRENCY` | `2` | Maximum artifact jobs processed concurrently by one backend instance. |
-| `ACCOUNTING_ARTIFACT_TTL_DAYS` | `60` | Days transaction, cost-basis, and rollup artifacts are retained. Job metadata remains visible after expiry. |
-| `ACCOUNTING_ARTIFACT_MAX_BYTES` | `10737418240` | Maximum artifact size (default 10 GiB). |
-| `ACCOUNTING_JOB_MAX_RUNTIME_MINUTES` | `120` | Maximum generation runtime (default 2 hours). |
-| `ACCOUNTING_PER_USER_CONCURRENCY` | `2` | Maximum queued/processing accounting artifact jobs per user. |
-| `ACCOUNTING_WORKER_CONCURRENCY` | `2` | Global worker concurrency for the single backend container. |
 | `TRANSACTION_EXPORT_MAX_SOURCE_PARTIES` | `50` | (Optional) Maximum number of parties allowed in a single transaction export job. Default `50`. |
 | **Wallet Configuration** | | **Required to enable wallet features** |
 | `SCAN_PROXY_URL` | `http://validator:5003/api/validator` | (Optional) URL to the validator's Scan API proxy endpoint. **Required to enable wallet features.** If not set, wallet functionality is disabled. For Docker Compose, use the validator container name (e.g., `http://validator:5003/api/validator`). For Kubernetes, use the fully qualified service name (e.g., `http://validator-app.validator.svc.cluster.local:5003/api/validator`). |

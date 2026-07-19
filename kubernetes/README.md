@@ -32,7 +32,7 @@ This directory contains Kubernetes manifests and deployment instructions for the
 
 - **kubernetes_deployment.md**: Comprehensive deployment guide with troubleshooting
 - **manifests/**: Kubernetes YAML manifests (templates)
-  - `persistentvolumeclaims.yaml`: Storage for database
+  - `persistentvolumeclaims.yaml`: Storage for the database and the backend `/exports` artifact volume
   - `secrets.yaml`: Database password
   - `configmaps.yaml`: Environment variable configuration
   - `services.yaml`: ClusterIP services for database, backend, and frontend
@@ -52,4 +52,3 @@ This directory contains Kubernetes manifests and deployment instructions for the
 For complete deployment instructions, see: [kubernetes_deployment.md](kubernetes_deployment.md)
 
 For architecture and overview, see: [../readme.md](../readme.md)
-

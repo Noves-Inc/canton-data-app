@@ -30,8 +30,8 @@
 
 The Data App consists of three Docker containers:
 
-- **Database (`canton-data-app-db`)**: Postgres instance that stores all indexed data. This is the only stateful service and mounts the persistent volume defined in the compose file.
-- **Backend (`canton-data-app-backend`)**: Indexes Canton ledger data via gRPC Ledger API, enriches it, persists to the database, and exposes a REST API.
+- **Database (`canton-data-app-db`)**: Postgres instance that stores indexed data and job metadata; it mounts its database volume.
+- **Backend (`canton-data-app-backend`)**: Indexes Canton ledger data via gRPC Ledger API, enriches it, persists to the database, and exposes a REST API. Its `/exports` volume durably stores accounting artifacts when S3 is not configured.
 - **Frontend (`canton-data-app-frontend`)**: UI that authenticates users via Auth0 or Keycloak (OIDC) and displays data from the backend.
 
 All three containers run in the same Docker network as your Canton validator node (`splice-validator_splice_validator` by default) to enable direct service-to-service communication.
@@ -179,7 +179,8 @@ See [embedded-mode/embedded_mode.md](../embedded-mode/embedded_mode.md) for the 
 
 ### Database Configuration
 
-The `canton-data-app-db` runs TimescaleDB/Postgres and is the only stateful workload:
+The `canton-data-app-db` runs TimescaleDB/Postgres, and the backend `/exports` mount is also stateful
+when filesystem artifact storage is selected:
 
 ```yaml
 services:
