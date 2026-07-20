@@ -1,7 +1,8 @@
 {
   "nodes": {
     "main-node": {
-      "addr": "participant:5001"
+      "addr": "participant:5001",
+      "expectedParticipantId": "REPLACE_WITH_PARTICIPANT_ID"
     }
   }
 }

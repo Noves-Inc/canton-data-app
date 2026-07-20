@@ -30,8 +30,8 @@
 
 The Data App consists of three Docker containers:
 
-- **Database (`canton-data-app-db`)**: Postgres instance that stores all indexed data. This is the only stateful service and mounts the persistent volume defined in the compose file. **In v4 this volume is expected to live on encrypted storage** — set `CANTON_DATA_APP_DB_DATA` in `.env` to a path on an encrypted filesystem; see [Encryption at Rest](../encryption_at_rest.md) for setup, migration of existing data, and verification.
-- **Backend (`canton-data-app-backend`)**: Indexes Canton ledger data via gRPC Ledger API, enriches it, persists to the database, and exposes a REST API.
+- **Database (`canton-data-app-db`)**: Postgres instance that stores indexed data and job metadata. Its volume must use encrypted storage; see [Encryption at Rest](../encryption_at_rest.md).
+- **Backend (`canton-data-app-backend`)**: Indexes Canton ledger data via gRPC Ledger API, enriches it, persists to the database, and exposes a REST API. When S3 is not configured, its `/exports` volume is also stateful and must be durable and encrypted.
 - **Frontend (`canton-data-app-frontend`)**: UI that authenticates users via Auth0 or Keycloak (OIDC) and displays data from the backend.
 
 All three containers run in the same Docker network as your Canton validator node (`splice-validator_splice_validator` by default) to enable direct service-to-service communication.
@@ -44,7 +44,9 @@ All three containers run in the same Docker network as your Canton validator nod
 4. Backend forwards the same JWT token to Canton's Ledger API (passthrough)
 5. Canton validates JWT and returns data for authorized parties only
 
-**Important:** The backend acts as a passthrough. It does not generate its own tokens or authenticate with the OIDC provider directly.
+**Important:** User-scoped requests use token passthrough. Separately, the v4 backend obtains and
+refreshes a client-credentials token for background capture. The browser login client and capture
+client are distinct; keep the capture client secret outside the Compose file.
 
 ### Wallet Features (Optional)
 
@@ -102,7 +104,7 @@ environment:
   BACKUP_S3_SECRET_ACCESS_KEY: ""
   BACKUP_S3_SESSION_TOKEN: ""
 
-  # Optional S3 destination for asynchronous data exports (transaction & cost-basis exports).
+  # Optional S3 destination for asynchronous transaction, cost-basis, and rollup exports.
   # If left empty, exports reuse the BACKUP_S3_* values above. Set these only for a separate bucket.
   # EXPORTS_S3_BUCKET: ""
   # EXPORTS_S3_ENDPOINT_URL: ""
@@ -115,7 +117,20 @@ environment:
 
 > Define `CANTON_TRANSLATE_DB_PASSWORD` in a `.env` file or export it before running `docker compose` so the password is never checked into source control.
 
-> **Data exports:** The asynchronous transaction and cost-basis exports stream their results to an S3-compatible bucket. If you set the `BACKUP_S3_*` values above, exports use that bucket automatically — otherwise set the `EXPORTS_S3_*` variables to use a separate one. With neither configured, those exports return a `501 "exports are not configured"` error. After changing these variables, recreate the backend container (`docker compose up -d`) so it picks them up. See the [Data Exports](../readme.md#data-exports) section in the main readme for details.
+> **Data exports:** Provider precedence is `EXPORTS_S3_BUCKET`, `BACKUP_S3_BUCKET`, then a persistent volume mounted at `/exports`. The sample Compose file includes a named `accounting-exports` volume. Size and back it up for the default 60-day retention window; for bind mounts, ensure the host directory is persistent, writable by the container UID, backed up separately, and not shared by unrelated applications. A configured S3 provider that fails its probe returns `503` without falling back. With no provider, submission is disabled and returns `501 export_storage_not_configured`.
+
+### Enabling validator uptime
+
+Uptime is enabled by default. Its read endpoint is public and needs no OIDC settings. If an
+internet-facing deployment needs throttling, configure it at the reverse proxy, where the
+original client identity is available.
+
+1. Set `PUBLIC_SCAN_INDEXER_URL` for the on-ledger liveness overlay and automatic validator-party discovery.
+2. Confirm the backend capture worker is authenticated. Uptime reuses that identity and needs no new client or secret.
+3. Recreate the backend container and check `/startup-status`. Set `VALIDATOR_UPTIME_ENABLED=false` only if the feature must be suppressed.
+
+The backend derives the validator party from the participant ID and public validator index.
+Per-node `validator_party` is only an override for unusual deployments.
 
 ### Frontend Configuration
 
@@ -179,12 +194,13 @@ See [embedded-mode/embedded_mode.md](../embedded-mode/embedded_mode.md) for the 
 
 ### Database Configuration
 
-The `canton-data-app-db` runs TimescaleDB/Postgres and is the only stateful workload:
+The `canton-data-app-db` runs TimescaleDB/Postgres, and the backend `/exports` mount is also stateful
+when filesystem artifact storage is selected:
 
 ```yaml
 services:
   canton-data-app-db:
-    image: ghcr.io/noves-inc/canton-translate-db:latest
+    image: ghcr.io/noves-inc/cda-db:v4.0.0@sha256:f1d7a1c1bee3ca64c17a59a76351a5404b975fe0463b354797309321f76440f4
     environment:
       POSTGRES_USER: "appuser"
       POSTGRES_DB: "canton_index"
@@ -250,6 +266,10 @@ Starting with v3.12.0, Canton Translate supports connecting to **one or more Can
 | `nodes` | Yes | Object mapping node IDs to their configuration. Each key is the node ID (must be unique). |
 | `nodes.<id>.addr` | Yes | gRPC address of the validator participant (`host:port`). |
 | `nodes.<id>.cert_file` | No | Path to the TLS certificate file inside the container. Omit for insecure connections. |
+| `nodes.<id>.expectedParticipantId` | Required for automatic v3 upgrades | Exact participant identity verified before database mutation and again on replay resume. |
+| `nodes.<id>.validator_party` | No | Optional validator-party override. Normally omit it: uptime derives the party from the participant namespace and public validator index. |
+| `nodes.<id>.synchronizer_alias` | No | Submission-ready synchronizer alias checked by uptime. Defaults to `global`. |
+| `nodes.<id>.expected_synchronizer_id` | No | Optional exact synchronizer-ID override. |
 
 ### Mounting the config file
 
@@ -448,7 +468,7 @@ Pull the required images from GitHub Container Registry:
 ```bash
 docker pull ghcr.io/noves-inc/canton-translate-ui:latest
 docker pull ghcr.io/noves-inc/canton-translate:latest
-docker pull ghcr.io/noves-inc/canton-translate-db:latest
+docker pull ghcr.io/noves-inc/cda-db:v4.0.0
 ```
 
 ### Step 3: Start Services

@@ -24,7 +24,8 @@ This guide assumes you already have the Noves Data App running with the older tw
    - `canton-data-app-db` service with health checks and persistent volume
    - Updated backend env vars pointing to the database
    - Up-to-date image tags (`ghcr.io/noves-inc/...:latest`)
-   - No persistent volumes for frontend/backend
+   - A persistent backend volume mounted at `/exports` for artifact storage when S3 is not configured
+   - No persistent volume for the frontend
 
 > If you use any overrides (custom ports, network names, TLS mounts), re-apply those to the new file before continuing.
 
@@ -85,4 +86,3 @@ Once you’re satisfied the new database holds the required data:
 docker volume rm docker-compose_frontend-exports docker-compose_backend-data 2>/dev/null
 ```
 (Use `docker volume ls` to confirm names if different.)
-

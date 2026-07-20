@@ -12,7 +12,23 @@ spec:
   # If your cluster's DEFAULT StorageClass is already encrypted, you may delete this
   # line — but verify that first; omitting it on an unencrypted default silently
   # stores the ledger index in plaintext.
-  storageClassName: <your-encrypted-storageclass>  # UPDATE (see encryption_at_rest.md)
+  # Uncomment and replace with an existing encrypted StorageClass. Leaving this commented uses
+  # the cluster default, which is acceptable only after you verify that default is encrypted.
+  # storageClassName: encrypted-cmk
   resources:
     requests:
       storage: 100Gi  # Postgres data storage
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: canton-data-app-exports
+  namespace: validator  # UPDATE with your namespace
+spec:
+  # ReadWriteOnce matches the supported single backend replica. Use RWX only if a future
+  # multi-replica deployment requires shared filesystem artifact access.
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 200Gi  # Size for peak export volume across the 60-day retention window.

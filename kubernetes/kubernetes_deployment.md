@@ -35,7 +35,7 @@
 
 The Data App consists of three Kubernetes deployments:
 
-- **Database (`data-app-db`)**: Postgres instance that stores all indexed ledger data. This is the only stateful workload and mounts the provided PVC.
+- **Database (`data-app-db`)**: Postgres instance that stores indexed ledger data and job metadata. It mounts the database PVC; the backend also mounts an artifact PVC at `/exports` when S3 is not configured.
 - **Backend (`data-app-backend`)**: Indexes Canton ledger data via gRPC Ledger API, enriches it, persists to the database, and exposes a REST API.
 - **Frontend (`data-app-frontend`)**: UI that authenticates users via Auth0 or Keycloak (OIDC) and displays data from the backend.
 
@@ -192,7 +192,9 @@ We'll create the following manifest files:
 
 ## Storage Configuration
 
-Only the database deployment requires persistent storage.
+The database requires persistent storage for indexed data and job metadata. When S3-compatible export
+storage is not configured, the backend also requires the `canton-data-app-exports` PVC mounted at
+`/exports`; include both stores in capacity planning and backup policy.
 
 See [`manifests/persistentvolumeclaims.yaml`](manifests/persistentvolumeclaims.yaml) for the complete configuration.
 
@@ -221,7 +223,9 @@ See [`manifests/configmaps.yaml`](manifests/configmaps.yaml) and [`manifests/sec
 - **CANTON_NODE_ADDR**: Legacy single-node variable. Still supported when `NODES_CONFIG_FILE_PATH` is not set. Update the namespace portion if different from `validator`.
 - **Database connection**: Confirm `INDEX_DB_HOST`, `INDEX_DB_PORT`, `INDEX_DB_NAME`, and `INDEX_DB_USER` reflect your database deployment details.
 - **Backups (optional)**: Populate `BACKUP_S3_BUCKET`, `BACKUP_S3_PREFIX`, and `BACKUP_S3_ENDPOINT_URL` if you plan to push history snapshots to object storage. Optional.
-- **Exports (optional)**: The asynchronous transaction and cost-basis exports stream their results to an S3-compatible bucket. If the `BACKUP_S3_*` values are set, exports reuse them automatically. To send exports to a separate bucket, set the `EXPORTS_S3_*` variables instead. See [Data Exports](#data-exports) below.
+- **Exports**: Asynchronous transaction, cost-basis, and rollup artifacts use `EXPORTS_S3_*`,
+  then `BACKUP_S3_*`, then the backend PVC mounted at `/exports`. See
+  [Data Exports](#data-exports) below.
 - **Wallet features (optional)**: Set `SCAN_PROXY_URL` to enable wallet functionality (e.g., `http://validator-app.validator.svc.cluster.local:5003/api/validator`). Update the namespace portion if different from `validator`.
 
 **Frontend Auth0 variables:**
@@ -309,6 +313,10 @@ data:
 | `nodes` | Yes | Object mapping node IDs to their configuration. Each key is the node ID (must be unique). |
 | `nodes.<id>.addr` | Yes | gRPC address of the validator participant (`host:port`). |
 | `nodes.<id>.cert_file` | No | Path to the TLS certificate file inside the container. Omit for insecure connections. |
+| `nodes.<id>.expectedParticipantId` | Required for automatic v3 upgrades | Exact participant identity verified before mutation and again on replay resume. |
+| `nodes.<id>.validator_party` | No | Optional validator-party override. Normally omit it: uptime derives the party from the participant namespace and public validator index. |
+| `nodes.<id>.synchronizer_alias` | No | Submission-ready synchronizer alias checked by uptime. Defaults to `global`. |
+| `nodes.<id>.expected_synchronizer_id` | No | Optional exact synchronizer-ID override. |
 
 ### Step 2: Mount the ConfigMap in the backend Deployment
 
@@ -334,6 +342,19 @@ spec:
 If TLS certificates are needed for any node, create a Kubernetes Secret with the certificate files and mount them at the paths referenced in `cert_file` inside the JSON config (same pattern as the TLS section above).
 
 > If `NODES_CONFIG_FILE_PATH` is not set, the app also checks `/config/nodes-config.json` automatically before falling back to the legacy environment variables.
+
+### Enabling validator uptime
+
+The manifests keep uptime enabled by default. Its read endpoint is public and needs no OIDC
+configuration. If throttling is required, configure it at the ingress or API gateway, where the
+original client identity is available.
+
+1. Set `PUBLIC_SCAN_INDEXER_URL` for the on-ledger liveness overlay and automatic validator-party discovery.
+2. Confirm the backend capture worker is authenticated. Uptime reuses that identity and needs no new client or secret.
+3. Apply the ConfigMap and Deployment, then wait for the backend rollout and `/startup-status` readiness.
+
+The backend derives the validator party from the participant ID and public validator index.
+Set per-node `validator_party` only as an override for an unusual mapping.
 
 ### Pre-existing data attribution
 
@@ -374,13 +395,16 @@ See [`manifests/deployments.yaml`](manifests/deployments.yaml) for the complete 
 
 **Key features:**
 - `data-app-db` uses the PVC `data-app-db-pvc`, mounts `/home/postgres/pgdata`, and references the shared secret for credentials.
-- Backend and frontend deployments are stateless. They consume ConfigMaps for configuration and pull the database password from the same Secret.
+- The frontend is stateless. The backend consumes ConfigMaps and Secrets and also mounts the
+  `canton-data-app-exports` PVC for filesystem artifact storage when S3 is not selected.
 
 ## Data Exports
 
-The asynchronous transaction and cost-basis exports (Financial/Activity CSV, Raw JSON, and cost-basis CSV) stream their output to an S3-compatible bucket, and the dashboard downloads the result via a short-lived presigned URL. (The smaller in-browser CSV downloads need no configuration.)
+Asynchronous transaction, cost-basis, and rollup exports stream to the selected artifact provider.
+Downloads use one-hour application tokens whose hashes are stored in PostgreSQL; this contract is the
+same for S3-compatible and filesystem providers.
 
-You have two ways to provide the bucket:
+S3-compatible storage can be configured in either of these ways:
 
 1. **Reuse the backup bucket** — if `BACKUP_S3_*` is already configured (see [Transaction History Backups](#transaction-history-backups-optional)), exports use it automatically with no further changes.
 2. **Dedicated exports bucket** — set the `EXPORTS_S3_*` variables to send exports to a different bucket:
@@ -389,7 +413,7 @@ You have two ways to provide the bucket:
 
 After updating the ConfigMap/Secret, restart the backend so it picks up the new values (`kubectl rollout restart deployment/<backend-deployment>`) — environment variables are read only at startup.
 
-If neither `EXPORTS_S3_*` nor `BACKUP_S3_*` is configured, transaction and cost-basis exports return `501 "exports are not configured (set EXPORTS_S3_BUCKET env var)"`. Export results are retained for 7 days by default (`TRANSACTION_EXPORT_TTL_DAYS` / `COST_BASIS_EXPORT_TTL_DAYS`) and then cleaned up automatically. A mounted-PVC destination is not supported in this release.
+Provider precedence is `EXPORTS_S3_BUCKET`, `BACKUP_S3_BUCKET`, then a writable PVC mounted at `/exports`. The sample `canton-data-app-exports` claim uses `ReadWriteOnce` for the supported single backend pod. Size it for peak output over the default 60-day retention period, include it in backups, ensure the container UID can write it, and choose a storage class that reattaches it after pod rescheduling. Do not use `emptyDir` for production exports. A configured S3 provider that fails its probe returns `503` without falling back to the PVC; no configured provider returns `501` while the rest of the application remains available.
 
 ---
 
@@ -1041,4 +1065,3 @@ kubectl exec -it deploy/data-app-backend -n validator -- curl localhost:5124/que
 - [Splice Validator Documentation](https://docs.dev.sync.global/sv_operator/sv_helm.html) - Canton validator deployment guide
 - [nginx Ingress Controller Documentation](https://kubernetes.github.io/ingress-nginx/) - nginx Ingress setup and configuration
 - [cert-manager Documentation](https://cert-manager.io/docs/) - Automatic TLS certificate management
-

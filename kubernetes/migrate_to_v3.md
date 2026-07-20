@@ -1,6 +1,6 @@
 # Kubernetes Migration Guide – v2.x → v3.0.0
 
-Use this guide if you already run the Noves Data App in Kubernetes using the previous two-deployment layout (frontend + backend with individual PVCs). Version 3.0.0 introduces a dedicated Postgres database deployment as the only stateful component. Follow the steps below to upgrade with minimal effort.
+Use this guide if you already run the Noves Data App in Kubernetes using the previous two-deployment layout (frontend + backend with individual PVCs). Version 3.0.0 introduces a dedicated Postgres database deployment. Current releases also require durable accounting-artifact storage through S3-compatible storage or the backend `/exports` PVC. Follow the steps below to upgrade with minimal effort.
 
 ---
 
@@ -29,7 +29,13 @@ Use this guide if you already run the Noves Data App in Kubernetes using the pre
 
 ### Step 3.1 – Persistent Volume Claim
 
-Open `kubernetes/manifests/persistentvolumeclaims.yaml` and ensure it contains only the `data-app-db-pvc` definition:
+Open `kubernetes/manifests/persistentvolumeclaims.yaml` and ensure it contains both
+`data-app-db-pvc` and `canton-data-app-exports`. The database claim stores PostgreSQL data; the
+exports claim is mounted at `/exports` and is used when S3-compatible artifact storage is not
+configured. Use the checked-in manifest as the canonical definitions and size both claims for your
+retention and transaction volume.
+
+The database portion begins:
 
 ```yaml
 apiVersion: v1
@@ -211,4 +217,3 @@ You should see `data-app-db` enter `Running`, followed by backend logs stating i
    kubectl delete pvc data-app-frontend-pvc -n validator --ignore-not-found
    kubectl delete pvc data-app-frontend-exports-pvc -n validator --ignore-not-found
    ```
-

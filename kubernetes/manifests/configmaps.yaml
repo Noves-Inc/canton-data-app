@@ -24,6 +24,20 @@ data:
   # Optional: Automatic Unclassified Reporting
   # AUTOMATIC_UNCLASSIFIED_REPORTING: "true"  # Default is "false". When enabled, unclassified transactions are automatically included in reporting workflows.
 
+  # Background capture identity. The client secret belongs in data-app-capture-secret.
+  M2M_INDEXER_ENABLED: "true"
+  M2M_TOKEN_ENDPOINT: "https://your-issuer.example/oauth/token"
+  M2M_CLIENT_ID: "replace-with-m2m-client-id"
+  M2M_AUDIENCE: "https://canton.network.global"
+
+  # Validator uptime monitoring is enabled by default. Set false to disable.
+  VALIDATOR_UPTIME_ENABLED: "true"
+  # VALIDATOR_UPTIME_INTERVAL_SECONDS: "30"
+  # VALIDATOR_UPTIME_TIMEOUT_SECONDS: "3"
+  # VALIDATOR_UPTIME_RAW_RETENTION_DAYS: "35"
+  # VALIDATOR_UPTIME_HOURLY_RETENTION_DAYS: "400"
+  # PUBLIC_SCAN_INDEXER_URL: "https://your-public-indexer.example"
+
   # Optional S3 backup configuration (leave empty to disable)
   BACKUP_S3_BUCKET: ""
   BACKUP_S3_PREFIX: ""
@@ -32,9 +46,9 @@ data:
   BACKUP_S3_SECRET_ACCESS_KEY: ""
   BACKUP_S3_SESSION_TOKEN: ""
 
-  # Optional S3 configuration for asynchronous data exports (transaction & cost-basis exports).
-  # If left empty, exports reuse the BACKUP_S3_* values above. If both are empty, those exports
-  # return a 501 "exports are not configured" error. Set these only to use a separate bucket.
+  # Optional S3 configuration for transaction, cost-basis, and rollup artifacts.
+  # If left empty, exports reuse BACKUP_S3_* and then the mounted /exports PVC.
+  # A 501 is returned only when neither S3 nor a valid /exports mount is available.
   # Store credentials in a Secret rather than this ConfigMap. See readme.md -> Data Exports.
   # EXPORTS_S3_BUCKET: ""
   # EXPORTS_S3_ENDPOINT_URL: ""
@@ -55,7 +69,8 @@ data:
     {
       "nodes": {
         "main-node": {
-          "addr": "participant.validator.svc.cluster.local:5001"
+          "addr": "participant.validator.svc.cluster.local:5001",
+          "expectedParticipantId": "REPLACE_WITH_PARTICIPANT_ID"
         }
       }
     }

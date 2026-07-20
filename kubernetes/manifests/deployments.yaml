@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
         - name: postgres
-          image: ghcr.io/noves-inc/canton-translate-db:latest
+          image: ghcr.io/noves-inc/cda-db:v4.0.0@sha256:f1d7a1c1bee3ca64c17a59a76351a5404b975fe0463b354797309321f76440f4
           imagePullPolicy: Always
           ports:
             - containerPort: 5432
@@ -105,12 +105,20 @@ spec:
                 secretKeyRef:
                   name: data-app-db-secret
                   key: postgres-password
+            - name: M2M_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: data-app-capture-secret
+                  key: client-secret
             - name: NODES_CONFIG_FILE_PATH
               value: "/app/config/nodes-config.json"
+            # Validator uptime reuses the existing capture identity and needs no new secret.
           volumeMounts:
             - name: nodes-config
               mountPath: /app/config
               readOnly: true
+            - name: accounting-exports
+              mountPath: /exports
             # Uncomment if using TLS:
             # - name: participant-cert
             #   mountPath: /app/certs
@@ -126,6 +134,9 @@ spec:
         - name: nodes-config
           configMap:
             name: data-app-nodes-config
+        - name: accounting-exports
+          persistentVolumeClaim:
+            claimName: canton-data-app-exports
         # Uncomment if using TLS:
         # - name: participant-cert
         #   secret:

@@ -38,7 +38,8 @@ If the table above already covers you with a ✅ (and your compliance requiremen
 
 ## What Must Be Encrypted
 
-The database container (`canton-data-app-db` / `data-app-db`) is the **only stateful component** — everything sensitive that the Data App persists lives in its Postgres data directory:
+The database is always stateful. The backend is also stateful when filesystem artifact storage is
+selected instead of S3:
 
 | Data | Where it lives | Covered by |
 |---|---|---|
@@ -46,7 +47,7 @@ The database container (`canton-data-app-db` / `data-app-db`) is the **only stat
 | Postgres WAL, temp files, indexes | Same data volume (`PGDATA`) | Encrypted volume — nothing spills outside it |
 | Stored credentials (OAuth secrets, API keys) | Postgres, dedicated columns | Already encrypted by the app (AES-256-GCM) |
 | Transaction history backups | Your `BACKUP_S3_*` bucket | Bucket-side encryption — see [Backups and Exports](#backups-and-exports) |
-| CSV / cost-basis exports | Your `EXPORTS_S3_*` (or backup) bucket | Bucket-side encryption — see [Backups and Exports](#backups-and-exports) |
+| Transaction, cost-basis, and rollup exports | Your `EXPORTS_S3_*`/`BACKUP_S3_*` bucket, or the backend `/exports` mount | Bucket-side encryption or an encrypted persistent volume — see [Backups and Exports](#backups-and-exports) |
 
 The frontend and backend containers are stateless; they hold data only in memory.
 
@@ -152,10 +153,19 @@ To have it available across reboots, add entries to `/etc/crypttab` and `/etc/fs
 canton_encrypted  /dev/sdX  /root/canton_encrypted.key  luks
 
 # /etc/fstab
-/dev/mapper/canton_encrypted  /mnt/canton-encrypted  ext4  defaults,nofail  0 2
+/dev/mapper/canton_encrypted  /mnt/canton-encrypted  ext4  defaults  0 2
 ```
 
-> With `nofail` + Docker's `restart: unless-stopped`, make sure the mount is up before the containers start (e.g. a systemd unit ordering, or simply verify after reboot). If the mount is missing, the bind mount will fail and the database container will not start — which is the safe failure mode (it will not silently write unencrypted data).
+Do not use `nofail` for this mount. A Docker bind-mount source is only a path: if the encrypted
+filesystem is absent and the directory still exists on the root filesystem, Docker can start
+Postgres there and silently write unencrypted data. Make the deployment fail closed:
+
+1. Make the Docker/Compose systemd unit require
+   `mnt-canton\\x2dencrypted.mount` with `RequiresMountsFor=/mnt/canton-encrypted`.
+2. Before every start, verify `findmnt -T /mnt/canton-encrypted/db` reports
+   `/dev/mapper/canton_encrypted`.
+3. Put a marker such as `.cda-encrypted-volume` on the mounted filesystem and have the start
+   procedure refuse to run if it is absent.
 
 ## Kubernetes Deployments
 
@@ -164,7 +174,7 @@ In Kubernetes mode the database mounts `data-app-db-pvc`. Whether that PVC is en
 ```yaml
 # kubernetes/manifests/persistentvolumeclaims.yaml
 spec:
-  storageClassName: <your-encrypted-storageclass>   # REQUIRED for encryption at rest
+  storageClassName: encrypted-cmk   # replace with an existing encrypted StorageClass
 ```
 
 ### Encrypted StorageClass Examples
@@ -202,7 +212,20 @@ allowVolumeExpansion: true
 volumeBindingMode: WaitForFirstConsumer
 ```
 
-> Note: Azure managed disks are always platform-encrypted by default; the Disk Encryption Set adds **your** key. If platform-managed keys satisfy your compliance requirements, the default AKS StorageClasses already qualify.
+Azure managed disks are encrypted at rest with platform-managed keys by default. A Disk Encryption
+Set (DES) adds a customer-managed key. For a DES-backed AKS StorageClass:
+
+1. Keep the Key Vault and DES in the same region. Enable Key Vault soft delete and purge
+   protection.
+2. Give the DES identity `get`, `wrapKey`, and `unwrapKey` permissions on the key (or the
+   equivalent Key Vault RBAC role).
+3. Give the AKS cluster identity—or the AKS service principal on older clusters—`Reader` on the
+   DES resource.
+4. Create the StorageClass and test it with a disposable PVC and pod before creating the
+   database PVC. The StorageClass affects only newly provisioned PVCs.
+
+See Microsoft's [AKS customer-managed Azure Disk guide](https://learn.microsoft.com/azure/aks/azure-disk-customer-managed-keys)
+and [managed disk encryption overview](https://learn.microsoft.com/azure/virtual-machines/disk-encryption).
 
 **GCP (GKE, customer-managed key):**
 
@@ -264,7 +287,8 @@ kubectl delete pvc data-app-db-pvc -n $NS
 
 Volume encryption is defeated if a plaintext copy of the data leaves the encrypted volume:
 
-- **Transaction history backups (`BACKUP_S3_*`)** and **exports (`EXPORTS_S3_*`)**: enable server-side encryption on the destination bucket (all major S3-compatible stores support SSE; use SSE-KMS with your own key where available). Restrict bucket access to the credentials the app uses.
+- **Transaction history backups (`BACKUP_S3_*`)** and **S3 exports (`EXPORTS_S3_*`)**: enable server-side encryption on the destination bucket (all major S3-compatible stores support SSE; use SSE-KMS with your own key where available). Restrict bucket access to the credentials the app uses.
+- **Filesystem exports (`/exports`)**: mount a dedicated durable encrypted filesystem/PVC. Do not rely on the container layer or an unverified host directory. Size and back it up for the configured retention period.
 - **Ad-hoc `pg_dump`s**: treat any manual dump as sensitive — write it only to encrypted storage and delete it when done.
 - **Volume snapshots**: snapshots of an encrypted cloud volume remain encrypted with the same key. Snapshots taken *before* your migration are unencrypted — delete them once the migration is verified.
 
@@ -279,7 +303,9 @@ Where the unlock key lives determines what the encryption is actually worth:
 ## Verification Checklist
 
 - [ ] **Compose:** `CANTON_DATA_APP_DB_DATA` points into the encrypted mount, and `findmnt -T $CANTON_DATA_APP_DB_DATA` shows the encrypted device (`/dev/mapper/...` for LUKS). `lsblk -o NAME,TYPE,FSTYPE,MOUNTPOINT` shows the device as `crypt`.
-- [ ] **Kubernetes:** `kubectl get pvc data-app-db-pvc-encrypted -o jsonpath='{.spec.storageClassName}'` returns your encrypted class, and the volume shows as encrypted in your storage provider's console/CLI (e.g. `aws ec2 describe-volumes --query 'Volumes[].Encrypted'`).
+- [ ] **Kubernetes:** `kubectl get pvc data-app-db-pvc-encrypted -o jsonpath='{.spec.storageClassName}'` returns your encrypted class, and the volume shows as encrypted in your storage provider's console/CLI.
+- [ ] **Azure CMK:** the backing managed disk reports `EncryptionAtRestWithCustomerKey` and the expected DES ID. The AKS identity/service principal has Reader on that DES.
+- [ ] **Filesystem exports:** when S3 is not selected, `/exports` is a durable encrypted mount rather than container-local storage.
 - [ ] The app works: dashboard loads, indexing advances after the migration.
 - [ ] Old unencrypted volume / PVC / pre-migration snapshots **deleted**.
 - [ ] Backup and export buckets have server-side encryption enabled.
