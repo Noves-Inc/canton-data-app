@@ -4,6 +4,19 @@ Starting with v4, deployments of the Data App are expected to keep the indexed l
 
 Because the Data App runs in **your** infrastructure, the encrypted storage is something you configure in your environment. This guide tells you exactly what needs to be encrypted, how to do it in each deployment mode, how to migrate an existing unencrypted deployment, and how to verify the result.
 
+## You May Already Be Done
+
+If your deployment runs on a major cloud, the storage under the database volume is likely **already encrypted at rest by default** — in that case there is nothing to set up, only something to verify:
+
+| Where you run | Default state | How to verify |
+|---|---|---|
+| **GCP** (GKE or VMs) | ✅ All persistent disks always encrypted | Nothing to check — it cannot be disabled. Optionally add a customer-managed key (CMEK). |
+| **Azure** (AKS or VMs) | ✅ All managed disks always encrypted (platform-managed keys) | Nothing to check. Optionally add your own key via a Disk Encryption Set. |
+| **AWS** (EKS or EC2) | ✅ if "EBS encryption by default" is enabled on the account/region (common) | `aws ec2 get-ebs-encryption-by-default`, or check the specific volume: `aws ec2 describe-volumes --query 'Volumes[].Encrypted'` |
+| **Bare metal / own hypervisor** | ❌ Not unless you set it up | `lsblk -o NAME,TYPE,MOUNTPOINT` — the device under the DB volume should show type `crypt` |
+
+If the table above already covers you with a ✅ (and your compliance requirements don't demand customer-managed keys), you can skip straight to [Backups and Exports](#backups-and-exports) and the [Verification Checklist](#verification-checklist). The rest of this guide is for bare-metal deployments and for teams that want their own keys.
+
 ---
 
 ## Table of Contents
