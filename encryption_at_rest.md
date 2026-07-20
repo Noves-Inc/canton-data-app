@@ -49,7 +49,8 @@ selected instead of S3:
 | Transaction history backups | Your `BACKUP_S3_*` bucket | Bucket-side encryption — see [Backups and Exports](#backups-and-exports) |
 | Transaction, cost-basis, and rollup exports | Your `EXPORTS_S3_*`/`BACKUP_S3_*` bucket, or the backend `/exports` mount | Bucket-side encryption or an encrypted persistent volume — see [Backups and Exports](#backups-and-exports) |
 
-The frontend and backend containers are stateless; they hold data only in memory.
+The frontend is stateless. The backend is stateless only when S3 stores export artifacts; with
+filesystem export storage, `/exports` is durable application state.
 
 > **Optional hardening:** container runtime logs (Docker's `json-file` logs, kubelet logs) can occasionally contain fragments of query text from Postgres error messages. If your compliance bar requires it, place the container runtime's log/data directory on encrypted storage as well (on most cloud VMs the OS disk is already encrypted by the platform).
 
