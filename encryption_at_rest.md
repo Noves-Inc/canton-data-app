@@ -204,6 +204,20 @@ volumeBindingMode: WaitForFirstConsumer
 
 > Note: Azure managed disks are always platform-encrypted by default; the Disk Encryption Set adds **your** key. If platform-managed keys satisfy your compliance requirements, the default AKS StorageClasses already qualify.
 
+Two AKS specifics (both verified in a real deployment):
+
+1. **The cluster's identity needs read access to the Disk Encryption Set**, or PVC provisioning fails with `LinkedAuthorizationFailed … does not have permission to perform 'Microsoft.Compute/diskEncryptionSets/read'`. Grant it once (requires Owner or User Access Administrator rights — a plain Contributor cannot create role assignments):
+
+   ```bash
+   az role assignment create --assignee-object-id <cluster-identity-object-id> \
+     --assignee-principal-type ServicePrincipal --role Reader \
+     --scope <disk-encryption-set-resource-id>
+   ```
+
+   Find the identity with `az aks show -g <rg> -n <cluster> --query identity.principalId` (or `servicePrincipalProfile.clientId` for SP-based clusters, then resolve it with `az ad sp show`).
+
+2. **AKS shortcut — no PVC migration needed.** Azure can re-key an existing disk **in place**: scale the database deployment to 0, wait until the disk detaches, then `az disk update --disk-encryption-set <des-id> --encryption-type EncryptionAtRestWithCustomerKey` on the disk behind the PVC (find it via `kubectl get pv <pv-name> -o jsonpath='{.spec.csi.volumeHandle}'`). No data copy, downtime of a few minutes. Caveat: the PVC object still names the old StorageClass — if that PVC is ever deleted and recreated, the new disk silently reverts to platform-managed keys, so still create the encrypted StorageClass for future volumes.
+
 **GCP (GKE, customer-managed key):**
 
 ```yaml
@@ -226,7 +240,11 @@ volumeBindingMode: WaitForFirstConsumer
 
 ### Migrating an Existing PVC
 
-A PVC's StorageClass cannot be changed in place. Migration = copy the data to a new encrypted PVC, then point the deployment at it. Downtime is the duration of the copy.
+A PVC's StorageClass cannot be changed in place. Migration = copy the data to a new encrypted PVC, then point the deployment at it. Downtime is the duration of the copy. (On AKS there is a faster in-place alternative — see the Azure notes above.)
+
+> ⚠️ **If a GitOps controller (Flux, Argo CD) manages these Deployments, pause it first** — otherwise it will revert the `--replicas=0` scale-down and restart Postgres **while the copy is running**, corrupting the copy. Suspend reconciliation for the app's manifests before step 2 and resume after step 5. Watch for parent-level reconcilers too: if a root Kustomization/Application re-applies the child objects from git, suspending only the child gets reverted on the next root sync — suspend the parent for the window as well. **Verify the DB pod actually stays gone** (`kubectl get pods -w`) before starting the copy.
+
+> 💡 Before taking any downtime, smoke-test the encrypted StorageClass with a throwaway 1Gi PVC + pod and confirm the provisioned volume reports as encrypted in your storage provider. This surfaces permission problems (like the AKS `LinkedAuthorizationFailed` above) while everything is still running.
 
 ```bash
 NS=validator   # your namespace
@@ -234,7 +252,7 @@ NS=validator   # your namespace
 # 1. Create the new encrypted PVC (same size or larger), e.g. data-app-db-pvc-encrypted,
 #    with storageClassName set to your encrypted class. Apply it.
 
-# 2. Stop the app so nothing writes during the copy
+# 2. Stop the app so nothing writes during the copy (GitOps paused first — see warning above)
 kubectl scale deploy/data-app-backend -n $NS --replicas=0
 kubectl scale deploy/data-app-db -n $NS --replicas=0
 kubectl wait --for=delete pod -l app=data-app-db -n $NS --timeout=180s
