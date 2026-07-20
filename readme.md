@@ -8,6 +8,7 @@
 3. [Deployment](#deployment)
    - [Initial Considerations](#initial-considerations)
    - [Requirements](#requirements)
+   - [Encryption at Rest](#encryption-at-rest)
    - [Authentication](#authentication)
    - [Ingress](#ingress)
    - [Port Numbers & Networking](#port-numbers--networking)
@@ -100,6 +101,14 @@ Resource usage is driven primarily by the number of transactions in your validat
 - `1 GB` of memory allocated to the backend container, `2 GB` of memory allocated to the database container
 -  The frontend container has minimal requirements, `0.5 CPU` and `512 MB` for memory should be sufficient
 - For storage, plan to be using approximately `70%` of the validator's Postgres volume size. For example, if the validator is using `100 GB` of storage, assume the data app database would use approximately `70 GB`
+
+---
+
+### Encryption at Rest
+
+Starting with v4, the storage backing the database volume is expected to be **encrypted at rest**. The database container is the only stateful component, so this comes down to one thing: the volume it mounts must live on encrypted storage — an encrypted cloud disk, a LUKS filesystem, or an encrypted Kubernetes StorageClass, depending on your environment. Queries, dashboards and performance are unaffected.
+
+See **[encryption_at_rest.md](encryption_at_rest.md)** for the full guide: setup per deployment mode (Docker Compose and Kubernetes), migration of existing unencrypted deployments (a file copy — no re-indexing), backup/export bucket requirements, key management, and a verification checklist.
 
 ---
 

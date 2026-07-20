@@ -99,7 +99,13 @@ services:
       POSTGRES_PASSWORD: ${CANTON_TRANSLATE_DB_PASSWORD:-change-me}
       PGDATA: /home/postgres/pgdata/data
     volumes:
-      - canton-data-app-db-data:/home/postgres/pgdata
+      # Database storage. Default: the named Docker volume below (NOT encrypted at rest
+      # unless /var/lib/docker sits on an encrypted disk).
+      #
+      # ENCRYPTION AT REST (v4): set CANTON_DATA_APP_DB_DATA in .env to an absolute
+      # path on an encrypted filesystem, e.g. CANTON_DATA_APP_DB_DATA=/mnt/canton-encrypted/db
+      # See encryption_at_rest.md for setup, migration of existing data, and verification.
+      - ${CANTON_DATA_APP_DB_DATA:-canton-data-app-db-data}:/home/postgres/pgdata
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 30s
@@ -115,4 +121,7 @@ networks:
     name: splice-validator_splice_validator
 
 volumes:
+  # Used when CANTON_DATA_APP_DB_DATA is not set. For encryption at rest, prefer a
+  # bind mount onto an encrypted filesystem via CANTON_DATA_APP_DB_DATA (see
+  # encryption_at_rest.md).
   canton-data-app-db-data:

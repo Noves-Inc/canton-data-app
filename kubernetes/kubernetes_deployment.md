@@ -199,10 +199,11 @@ See [`manifests/persistentvolumeclaims.yaml`](manifests/persistentvolumeclaims.y
 **What to update:**
 - Namespace (all occurrences)
 - Storage size (defaults to 100Gi—adjust based on expected ledger volume)
-- `storageClassName` if your cluster requires it
+- `storageClassName` — **required in v4**: set it to a StorageClass that provisions **encrypted** volumes. See [Encryption at Rest](../encryption_at_rest.md) for ready-made StorageClass examples (AWS/Azure/GCP/on-prem) and how to migrate an existing unencrypted PVC.
 
 **Storage Considerations:**
 - **Database volume** (`data-app-db-pvc`): Stores all indexed ledger data. Size depends on transaction throughput and number of users and parties indexed.
+- **Encryption at rest (v4)**: the PVC must be provisioned from an encrypted StorageClass — the indexed ledger data lives entirely on this volume. Full guide: [encryption_at_rest.md](../encryption_at_rest.md).
 - **Access Mode**: `ReadWriteOnce` is sufficient because the PVC is mounted by a single pod.
 - Ensure your cluster has capacity for the requested size or adjust accordingly.
 

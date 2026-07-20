@@ -6,6 +6,13 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
+  # ENCRYPTION AT REST (v4): set this to a StorageClass that provisions ENCRYPTED
+  # volumes in your cluster (examples for AWS/Azure/GCP/on-prem, plus how to migrate
+  # an existing unencrypted PVC, are in ../../encryption_at_rest.md).
+  # If your cluster's DEFAULT StorageClass is already encrypted, you may delete this
+  # line — but verify that first; omitting it on an unencrypted default silently
+  # stores the ledger index in plaintext.
+  storageClassName: <your-encrypted-storageclass>  # UPDATE (see encryption_at_rest.md)
   resources:
     requests:
       storage: 100Gi  # Postgres data storage
