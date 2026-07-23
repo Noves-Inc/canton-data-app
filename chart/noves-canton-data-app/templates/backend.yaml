@@ -55,7 +55,7 @@ spec:
               value: /config/nodes-config.json
             - name: CDA_NETWORK
               value: {{ .Values.canton.network | quote }}
-            - name: VALIDATOR_APP_URL
+            - name: SCAN_PROXY_URL
               value: {{ .Values.canton.validatorUrl | quote }}
             - name: PUBLIC_SCAN_INDEXER_URL
               value: {{ .Values.canton.publicScanUrl | quote }}
@@ -83,7 +83,7 @@ spec:
               mountPath: /config
               readOnly: true
             - name: exports
-              mountPath: /app/exports
+              mountPath: /exports
             {{- if .Values.canton.certificateSecret }}
             - name: canton-certificate
               mountPath: /certificates

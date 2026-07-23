@@ -1,0 +1,34 @@
+backend:
+  image:
+    tag: "4.0.0"
+frontend:
+  image:
+    tag: "4.0.0"
+database:
+  image:
+    tag: "4.0.0"
+  existingSecret: noves-canton-data-app-database
+
+capture:
+  existingSecret: noves-canton-data-app-capture-auth
+
+canton:
+  expectedParticipantId: "participant::replace-me"
+
+oidc:
+  provider: auth0
+  appUrl: https://data.example.com
+  auth0:
+    domain: tenant.example.auth0.com
+    clientId: replace-with-browser-client-id
+    audience: https://canton.network.global
+
+routing:
+  enabled: true
+  host: data.example.com
+  istio:
+    enabled: true
+    gateway: cluster-ingress/cn-http-gateway
+
+setupWizard:
+  enabled: false

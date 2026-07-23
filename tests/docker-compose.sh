@@ -29,7 +29,11 @@ docker compose --env-file "$compose_dir/.env.example" \
   -f "$compose_dir/compose.yaml" config >"$scratch/standard.yaml"
 docker compose --env-file "$compose_dir/.env.example" \
   -f "$compose_dir/compose.setup.yaml" config >"$scratch/setup.yaml"
-CDA_DATABASE_VOLUME=cda-v3-data docker compose --env-file "$compose_dir/.env.example" \
+CDA_DATABASE_VOLUME=cda-v3-data \
+CDA_MIGRATION_SOURCE_VERSION=3.16.1 \
+CDA_MIGRATION_BACKUP_CONFIRMED=true \
+CDA_MIGRATION_OLD_WORKLOAD_STOPPED=true \
+docker compose --env-file "$compose_dir/.env.example" \
   -f "$compose_dir/compose.yaml" \
   -f "$compose_dir/compose.migrate-v3.yaml" config >"$scratch/migration.yaml"
 
@@ -40,6 +44,8 @@ assert_contains "$scratch/standard.yaml" 'container_name: noves-canton-backend-v
 assert_contains "$scratch/standard.yaml" 'container_name: noves-canton-frontend-v4'
 assert_contains "$scratch/standard.yaml" 'container_name: noves-canton-database-v4'
 assert_contains "$scratch/standard.yaml" 'name: splice-validator_splice_validator'
+assert_contains "$scratch/standard.yaml" 'SCAN_PROXY_URL: http://validator-app:5003'
+assert_contains "$scratch/standard.yaml" 'target: /exports'
 assert_contains "$compose_dir/config/nodes-config.json" 'participant:5001'
 assert_not_contains "$scratch/standard.yaml" 'externalDatabase'
 
@@ -52,6 +58,9 @@ assert_not_contains "$scratch/setup.yaml" 'M2M_CLIENT_SECRET'
 
 assert_contains "$scratch/migration.yaml" 'name: cda-v3-data'
 assert_contains "$scratch/migration.yaml" 'CDA_SETUP_WIZARD_ENABLED: "false"'
+assert_contains "$scratch/migration.yaml" 'CDA_MIGRATION_SOURCE_VERSION: 3.16.1'
+assert_contains "$scratch/migration.yaml" 'CDA_MIGRATION_BACKUP_CONFIRMED: "true"'
+assert_contains "$scratch/migration.yaml" 'CDA_MIGRATION_OLD_WORKLOAD_STOPPED: "true"'
 assert_not_contains "$scratch/migration.yaml" 'kind: Job'
 
 assert_contains "$compose_dir/.env.example" 'CDA_VERSION=4.0.0'

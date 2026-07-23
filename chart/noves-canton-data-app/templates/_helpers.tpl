@@ -30,6 +30,9 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- if and .Values.routing.enabled (not (or .Values.routing.istio.enabled .Values.routing.ingress.enabled)) -}}
 {{- fail "routing.enabled requires exactly one of routing.istio.enabled or routing.ingress.enabled" -}}
 {{- end -}}
+{{- if and .Values.routing.enabled (not .Values.routing.host) -}}
+{{- fail "routing.host is required when routing.enabled=true" -}}
+{{- end -}}
 {{- if and .Values.setupWizard.enabled .Values.routing.enabled -}}
 {{- fail "public routing is disabled while setupWizard is active; use localhost port-forwarding" -}}
 {{- end -}}
@@ -58,6 +61,12 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 {{- if not .Values.oidc.appUrl -}}
 {{- fail "oidc.appUrl is required when setupWizard.enabled=false" -}}
+{{- end -}}
+{{- if and (eq .Values.oidc.provider "auth0") (or (not .Values.oidc.auth0.domain) (not .Values.oidc.auth0.clientId)) -}}
+{{- fail "oidc.auth0.domain and oidc.auth0.clientId are required for Auth0" -}}
+{{- end -}}
+{{- if and (eq .Values.oidc.provider "keycloak") (or (not .Values.oidc.keycloak.url) (not .Values.oidc.keycloak.realm) (not .Values.oidc.keycloak.clientId)) -}}
+{{- fail "oidc.keycloak.url, oidc.keycloak.realm, and oidc.keycloak.clientId are required for Keycloak" -}}
 {{- end -}}
 {{- if not .Values.canton.expectedParticipantId -}}
 {{- fail "canton.expectedParticipantId is required when setupWizard.enabled=false" -}}

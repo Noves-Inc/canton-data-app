@@ -1,5 +1,8 @@
 # Fluent Bit for Kubernetes
 
+> This legacy add-on has not been validated with Data App v4 and is not supported by the v4
+> Helm chart.
+
 Collect Canton participant logs from Kubernetes pods and send to the Data App backend for traffic cost analysis.
 
 ## Prerequisites

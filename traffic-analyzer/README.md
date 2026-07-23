@@ -1,4 +1,8 @@
 # Traffic Analyzer (Optional Addon)
+
+> This legacy add-on has not been validated with Data App v4 and is not part of the v4
+> deployment contract. Do not enable it on a v4 installation until a v4 release note marks it
+> supported.
 <img width="1491" height="846" alt="image" src="https://github.com/user-attachments/assets/903add9e-3216-4a8d-b8d6-bbdcd9dedb7e" />
 
 

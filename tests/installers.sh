@@ -59,6 +59,16 @@ for script in "$repo_root/install.sh" "$repo_root"/scripts/*.sh "$repo_root"/scr
   bash -n "$script"
 done
 
+if "$repo_root/scripts/migrate-v3.sh" \
+  --source-version 3.16.0 \
+  --backup-confirmed \
+  --old-workload-stopped \
+  --volume old-data >"$scratch/invalid-migration.out" 2>&1; then
+  fail 'migration launcher accepted a source other than Data App v3.16.1.'
+fi
+grep -Fq -- 'Data App v3.16.1' "$scratch/invalid-migration.out" ||
+  fail 'migration launcher did not explain the v3.16.1 prerequisite.'
+
 if grep -RFiq -- 'python' "$repo_root/install.sh" "$repo_root/scripts"; then
   fail 'Customer installer mentions an internal implementation language.'
 fi

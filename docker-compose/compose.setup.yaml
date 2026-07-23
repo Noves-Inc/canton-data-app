@@ -32,13 +32,13 @@ services:
       INDEX_DB_PASSWORD: ${CDA_DATABASE_PASSWORD:?Set CDA_DATABASE_PASSWORD}
       NODES_CONFIG_FILE_PATH: /config/nodes-config.json
       CDA_NETWORK: ${CDA_NETWORK:-mainnet}
-      VALIDATOR_APP_URL: ${CDA_VALIDATOR_URL:-http://validator-app:5003}
+      SCAN_PROXY_URL: ${CDA_VALIDATOR_URL:-http://validator-app:5003}
       CDA_SETUP_WIZARD_ENABLED: "true"
       CDA_SETUP_TOKEN: ${CDA_SETUP_TOKEN:?Set CDA_SETUP_TOKEN}
       M2M_INDEXER_ENABLED: "false"
     volumes:
       - ./.state/nodes-config.json:/config/nodes-config.json:ro
-      - cda-exports:/app/exports
+      - cda-exports:/exports
     depends_on:
       database:
         condition: service_healthy

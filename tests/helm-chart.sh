@@ -28,6 +28,7 @@ assert_not_contains() {
 
 helm lint "$chart" --values "$fixtures/enterprise-values.yaml"
 helm lint "$chart" --values "$fixtures/setup-istio-values.yaml"
+helm lint "$chart" --values "$chart/examples/enterprise-values.yaml"
 
 helm template cda "$chart" \
   --namespace validator \
@@ -53,6 +54,8 @@ assert_not_contains "$chart/values.yaml" 'externalDatabase'
 
 assert_contains "$scratch/enterprise.yaml" 'participant:5001'
 assert_contains "$scratch/enterprise.yaml" 'http://validator-app:5003'
+assert_contains "$scratch/enterprise.yaml" 'name: SCAN_PROXY_URL'
+assert_contains "$scratch/enterprise.yaml" 'mountPath: /exports'
 assert_contains "$scratch/enterprise.yaml" 'name: cda-capture-auth'
 assert_contains "$scratch/enterprise.yaml" 'name: cda-database'
 assert_contains "$scratch/enterprise.yaml" 'kind: VirtualService'

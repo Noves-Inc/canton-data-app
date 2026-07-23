@@ -32,14 +32,14 @@ services:
       INDEX_DB_PASSWORD: ${CDA_DATABASE_PASSWORD:?Set CDA_DATABASE_PASSWORD}
       NODES_CONFIG_FILE_PATH: /config/nodes-config.json
       CDA_NETWORK: ${CDA_NETWORK:-mainnet}
-      VALIDATOR_APP_URL: ${CDA_VALIDATOR_URL:-http://validator-app:5003}
+      SCAN_PROXY_URL: ${CDA_VALIDATOR_URL:-http://validator-app:5003}
       PUBLIC_SCAN_INDEXER_URL: ${CDA_PUBLIC_SCAN_URL:-}
     env_file:
       - path: ./.state/capture.env
         required: false
     volumes:
       - ./.state/nodes-config.json:/config/nodes-config.json:ro
-      - cda-exports:/app/exports
+      - cda-exports:/exports
     ports:
       - "127.0.0.1:${CDA_BACKEND_PORT:-8090}:8090"
     depends_on:

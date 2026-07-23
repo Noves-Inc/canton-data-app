@@ -1,5 +1,8 @@
 # Fluent Bit for Docker Compose
 
+> This legacy add-on has not been validated with Data App v4 and is not supported by the v4
+> Compose bundle.
+
 Collect Canton participant logs from Docker containers and send to the Data App backend for traffic cost analysis.
 
 ## Prerequisites
