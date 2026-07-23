@@ -1,0 +1,23 @@
+{{- if .Values.setupWizard.enabled }}
+The setup wizard is not exposed publicly. Open it through a localhost port-forward:
+
+  kubectl --namespace {{ .Release.Namespace }} port-forward service/{{ include "cda.fullname" . }}-setup-wizard {{ .Values.setupWizard.localPort }}:3000
+
+Then open http://127.0.0.1:{{ .Values.setupWizard.localPort }}.
+{{- else }}
+The Canton Data App is installed.
+{{- if .Values.routing.enabled }}
+
+Open {{ .Values.oidc.appUrl }}.
+{{- else }}
+
+No public route was created. Access the app locally:
+
+  kubectl --namespace {{ .Release.Namespace }} port-forward service/{{ include "cda.fullname" . }}-frontend 3000:3000
+{{- end }}
+
+Check startup and migration progress:
+
+  kubectl --namespace {{ .Release.Namespace }} port-forward service/{{ include "cda.fullname" . }}-backend 8090:8090
+  curl http://127.0.0.1:8090/startup-status
+{{- end }}

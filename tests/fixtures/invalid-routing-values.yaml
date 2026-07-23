@@ -1,0 +1,9 @@
+setupWizard:
+  enabled: true
+routing:
+  enabled: true
+  host: data.example.com
+  istio:
+    enabled: true
+  ingress:
+    enabled: true

@@ -1,0 +1,56 @@
+{{- if and (not .Values.setupWizard.enabled) .Values.routing.enabled .Values.routing.istio.enabled }}
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: {{ include "cda.fullname" . }}
+  labels:
+    {{- include "cda.labels" . | nindent 4 }}
+  {{- with .Values.routing.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  gateways:
+    - {{ .Values.routing.istio.gateway }}
+  hosts:
+    - {{ .Values.routing.host | quote }}
+  http:
+    - route:
+        - destination:
+            host: {{ include "cda.fullname" . }}-frontend
+            port:
+              number: 3000
+{{- end }}
+{{- if and (not .Values.setupWizard.enabled) .Values.routing.enabled .Values.routing.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "cda.fullname" . }}
+  labels:
+    {{- include "cda.labels" . | nindent 4 }}
+  {{- with .Values.routing.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.routing.ingress.className }}
+  ingressClassName: {{ .Values.routing.ingress.className | quote }}
+  {{- end }}
+  {{- if .Values.routing.tlsSecret }}
+  tls:
+    - hosts:
+        - {{ .Values.routing.host | quote }}
+      secretName: {{ .Values.routing.tlsSecret }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.routing.host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "cda.fullname" . }}-frontend
+                port:
+                  number: 3000
+{{- end }}

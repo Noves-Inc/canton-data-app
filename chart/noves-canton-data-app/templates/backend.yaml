@@ -1,0 +1,154 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "cda.fullname" . }}-backend
+  labels:
+    {{- include "cda.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backend
+spec:
+  replicas: {{ .Values.backend.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "cda.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: backend
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/config.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "cda.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: backend
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      automountServiceAccountToken: false
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: backend
+          image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8090
+          env:
+            - name: INDEX_DB_HOST
+              value: {{ printf "%s-database" (include "cda.fullname" .) | quote }}
+            - name: INDEX_DB_PORT
+              value: "5432"
+            - name: INDEX_DB_NAME
+              value: {{ .Values.database.name | quote }}
+            - name: INDEX_DB_USER
+              value: {{ .Values.database.user | quote }}
+            - name: INDEX_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.existingSecret }}
+                  key: {{ .Values.database.passwordKey }}
+            - name: NODES_CONFIG_FILE_PATH
+              value: /config/nodes-config.json
+            - name: CDA_NETWORK
+              value: {{ .Values.canton.network | quote }}
+            - name: VALIDATOR_APP_URL
+              value: {{ .Values.canton.validatorUrl | quote }}
+            - name: PUBLIC_SCAN_INDEXER_URL
+              value: {{ .Values.canton.publicScanUrl | quote }}
+            {{- if .Values.setupWizard.enabled }}
+            - name: CDA_SETUP_WIZARD_ENABLED
+              value: "true"
+            - name: CDA_SETUP_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.setupWizard.setupTokenSecret }}
+                  key: {{ .Values.setupWizard.setupTokenKey }}
+            - name: M2M_INDEXER_ENABLED
+              value: "false"
+            {{- else if .Values.migration.enabled }}
+            - name: CDA_SETUP_WIZARD_ENABLED
+              value: "false"
+            {{- end }}
+          {{- if not .Values.setupWizard.enabled }}
+          envFrom:
+            - secretRef:
+                name: {{ .Values.capture.existingSecret }}
+          {{- end }}
+          volumeMounts:
+            - name: nodes
+              mountPath: /config
+              readOnly: true
+            - name: exports
+              mountPath: /app/exports
+            {{- if .Values.canton.certificateSecret }}
+            - name: canton-certificate
+              mountPath: /certificates
+              readOnly: true
+            {{- end }}
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            failureThreshold: 60
+            periodSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            failureThreshold: 3
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            failureThreshold: 3
+            periodSeconds: 20
+          resources:
+            {{- toYaml .Values.backend.resources | nindent 12 }}
+      volumes:
+        - name: nodes
+          configMap:
+            name: {{ include "cda.fullname" . }}-nodes
+        - name: exports
+          persistentVolumeClaim:
+            claimName: {{ include "cda.fullname" . }}-exports
+        {{- if .Values.canton.certificateSecret }}
+        - name: canton-certificate
+          secret:
+            secretName: {{ .Values.canton.certificateSecret }}
+            items:
+              - key: {{ .Values.canton.certificateKey }}
+                path: ca.crt
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "cda.fullname" . }}-backend
+  labels:
+    {{- include "cda.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backend
+spec:
+  selector:
+    {{- include "cda.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: backend
+  ports:
+    - name: http
+      port: 8090
+      targetPort: http

@@ -1,0 +1,116 @@
+nameOverride: ""
+fullnameOverride: ""
+
+imagePullSecrets: []
+
+backend:
+  replicaCount: 1
+  image:
+    repository: ghcr.io/noves-inc/noves-canton-backend-v4
+    tag: "4.0.0"
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: "2"
+      memory: 4Gi
+
+frontend:
+  replicaCount: 1
+  image:
+    repository: ghcr.io/noves-inc/noves-canton-frontend-v4
+    tag: "4.0.0"
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+database:
+  image:
+    repository: ghcr.io/noves-inc/noves-canton-database-v4
+    tag: "4.0.0"
+    pullPolicy: IfNotPresent
+  existingSecret: noves-canton-data-app-database
+  passwordKey: POSTGRES_PASSWORD
+  name: canton_index
+  user: appuser
+  persistence:
+    size: 100Gi
+    storageClass: ""
+  resources:
+    requests:
+      cpu: "1"
+      memory: 2Gi
+    limits:
+      cpu: "4"
+      memory: 8Gi
+
+exports:
+  persistence:
+    size: 20Gi
+    storageClass: ""
+
+canton:
+  nodeId: main-node
+  participantAddress: participant:5001
+  expectedParticipantId: ""
+  validatorParty: ""
+  synchronizerAlias: global
+  expectedSynchronizerId: ""
+  certificateSecret: ""
+  certificateKey: ca.crt
+  validatorUrl: http://validator-app:5003
+  publicScanUrl: ""
+  network: mainnet
+
+capture:
+  existingSecret: noves-canton-data-app-capture-auth
+
+oidc:
+  provider: ""
+  appUrl: ""
+  auth0:
+    domain: ""
+    clientId: ""
+    audience: ""
+  keycloak:
+    url: ""
+    realm: canton
+    clientId: ""
+
+routing:
+  enabled: false
+  host: ""
+  tlsSecret: ""
+  annotations: {}
+  istio:
+    enabled: false
+    gateway: cluster-ingress/cn-http-gateway
+  ingress:
+    enabled: false
+    className: ""
+
+setupWizard:
+  enabled: false
+  setupTokenSecret: noves-canton-data-app-setup-token
+  setupTokenKey: token
+  localPort: 8099
+
+migration:
+  enabled: false
+  sourceVersion: ""
+  backupConfirmed: false
+  oldWorkloadStopped: false
+  existingClaim: ""
+
+podAnnotations: {}
+podLabels: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}

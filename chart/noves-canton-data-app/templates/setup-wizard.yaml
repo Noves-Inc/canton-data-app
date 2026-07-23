@@ -1,0 +1,148 @@
+{{- if .Values.setupWizard.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "cda.fullname" . }}-setup-results
+  labels:
+    {{- include "cda.labels" . | nindent 4 }}
+data:
+  values.json: '{"completed":false}'
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "cda.fullname" . }}-setup-wizard
+  labels:
+    {{- include "cda.labels" . | nindent 4 }}
+automountServiceAccountToken: true
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "cda.fullname" . }}-setup-wizard
+  labels:
+    {{- include "cda.labels" . | nindent 4 }}
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    resourceNames:
+      - {{ include "cda.fullname" . }}-setup-results
+    verbs:
+      - get
+      - update
+      - patch
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    resourceNames:
+      - {{ .Values.capture.existingSecret }}
+    verbs:
+      - get
+      - update
+      - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "cda.fullname" . }}-setup-wizard
+  labels:
+    {{- include "cda.labels" . | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "cda.fullname" . }}-setup-wizard
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "cda.fullname" . }}-setup-wizard
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "cda.fullname" . }}-setup-wizard
+  labels:
+    {{- include "cda.labels" . | nindent 4 }}
+    app.kubernetes.io/component: setup-wizard
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "cda.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: setup-wizard
+  template:
+    metadata:
+      labels:
+        {{- include "cda.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: setup-wizard
+    spec:
+      serviceAccountName: {{ include "cda.fullname" . }}-setup-wizard
+      automountServiceAccountToken: true
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: setup-wizard
+          image: "{{ .Values.frontend.image.repository }}:{{ .Values.frontend.image.tag }}"
+          imagePullPolicy: {{ .Values.frontend.image.pullPolicy }}
+          command:
+            - npm
+            - run
+            - start:setup
+          ports:
+            - name: http
+              containerPort: 3000
+          env:
+            - name: PORT
+              value: "3000"
+            - name: SETUP_STORAGE_MODE
+              value: kubernetes
+            - name: SETUP_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: SETUP_RESULT_CONFIGMAP
+              value: {{ include "cda.fullname" . }}-setup-results
+            - name: SETUP_CAPTURE_SECRET
+              value: {{ .Values.capture.existingSecret }}
+            - name: CANTON_TRANSLATE_BASE_URL
+              value: {{ printf "http://%s-backend:8090" (include "cda.fullname" .) | quote }}
+            - name: CDA_SETUP_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.setupWizard.setupTokenSecret }}
+                  key: {{ .Values.setupWizard.setupTokenKey }}
+            - name: NODE_EXTRA_CA_CERTS
+              value: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+          readinessProbe:
+            httpGet:
+              path: /setup/api/state
+              port: http
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /setup/api/state
+              port: http
+            periodSeconds: 20
+          resources:
+            {{- toYaml .Values.frontend.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "cda.fullname" . }}-setup-wizard
+  labels:
+    {{- include "cda.labels" . | nindent 4 }}
+    app.kubernetes.io/component: setup-wizard
+spec:
+  selector:
+    {{- include "cda.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: setup-wizard
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http
+{{- end }}
