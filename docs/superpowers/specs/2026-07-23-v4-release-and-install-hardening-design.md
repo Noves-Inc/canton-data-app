@@ -42,6 +42,27 @@ unprotected API.
 Each installation uses a Noves-issued gateway credential. Operators must not
 reuse the Canton capture identity for this purpose.
 
+### Credential source rules
+
+The guided installers use the first available source in this order:
+
+1. A non-blank `CDA_NOVES_GATEWAY_AUTH_TOKEN` value.
+2. The contents of `CDA_NOVES_GATEWAY_AUTH_TOKEN_FILE`.
+3. A hidden prompt read from `/dev/tty`.
+
+An explicit file path must name a readable file whose contents include a
+non-whitespace value. The installer fails if that file is missing, unreadable,
+or blank. If neither variable supplies a value, the installer checks for a
+readable and writable `/dev/tty`. It fails with instructions for the two
+automation variables when no terminal exists. It never reads the prompt from
+standard input because the documented `curl | bash` path consumes that stream.
+
+The application processes follow the same precedence without prompting:
+`NOVES_GATEWAY_AUTH_TOKEN` takes precedence over
+`NOVES_GATEWAY_AUTH_TOKEN_FILE`. A configured file path must resolve to a
+readable, non-blank file or process startup fails. Public standard deployments
+must supply one of these sources.
+
 ### Helm
 
 The chart adds a required `novesGateway` block:
@@ -57,10 +78,8 @@ Secret key. The setup release may start without the credential because it does
 not activate billing-backed features. The final guided upgrade and every
 standard install require the Secret reference.
 
-The guided installer accepts `CDA_NOVES_GATEWAY_AUTH_TOKEN` for automation. If
-the variable is absent, it reads the credential from the terminal without
-echoing it. The installer creates or reuses the installation-specific Secret
-before activating the release.
+The guided installer creates or reuses the installation-specific Secret before
+activating the release.
 
 ### Docker Compose
 
@@ -71,7 +90,7 @@ docker-compose/.secrets/noves-gateway-auth-token
 ```
 
 The backend and frontend support `NOVES_GATEWAY_AUTH_TOKEN_FILE` and read the
-credential at process startup. The guided installer writes the prompted value
+credential at process startup. The guided installer writes the selected value
 with mode `0600`. Standard installs require operators to create the file.
 
 The public docs explain how operators obtain, store, rotate, and verify this
@@ -166,8 +185,24 @@ The backend setup token remains an internal credential shared by the setup
 server and backend. A second random credential protects the browser-facing
 setup API.
 
-The installer creates `CDA_SETUP_SESSION_TOKEN`, reads the same value from an
-existing guided installation, and opens:
+For Helm, the installer stores two independent keys in the existing setup-token
+Secret:
+
+```text
+token
+session-token
+```
+
+`token` protects the backend's internal verification endpoint.
+`session-token` protects the browser-facing setup API. The chart exposes
+`setupWizard.setupTokenKey` and `setupWizard.sessionTokenKey` so operators can
+rename those fixed keys.
+
+For Compose, the installer stores `CDA_SETUP_TOKEN` and
+`CDA_SETUP_SESSION_TOKEN` in the mode-`0600` `.env` file. A resumed guided
+installation reads the same values from its Secret or `.env` file.
+
+The installer opens:
 
 ```text
 http://127.0.0.1:8099/#session=<token>
@@ -176,8 +211,15 @@ http://127.0.0.1:8099/#session=<token>
 The browser moves the fragment value into `sessionStorage`, removes it from the
 visible URL, and sends it in `x-cda-setup-session` for `/api/setup/state`,
 `/api/setup/verify`, and `/api/setup/complete`. The setup server compares the
-value in constant time. It invalidates the session after a successful complete
-request. Health checks use `/health` and require no credential.
+value in constant time. Health checks use `/health` and require no credential.
+
+The completed flag in the setup-result ConfigMap or Compose values file forms
+the durable mutation gate. Before either mutation route performs token exchange,
+participant verification, or Secret writes, the setup server loads that flag
+and returns HTTP 409 when it is true. The persistence implementations also
+refuse to overwrite completed state. The guard survives setup pod and host
+restarts. In-memory session invalidation after a successful completion reduces
+the live process's exposure but does not replace the durable check.
 
 The Helm chart removes the setup wizard Service. The installer runs:
 
@@ -210,6 +252,13 @@ manifest for later image insertion.
 `SetupVerificationService` rethrows `OperationCanceledException` when the
 request token has been canceled. It continues to translate participant
 connection failures into a failed setup check.
+
+Production code defines
+`SetupServiceCollectionExtensions.AddSetupWizardServices(...)` in the setup
+module. `Program.cs` calls that method instead of registering
+`ISetupCantonProbe` and `ISetupVerificationService` itself. The production-path
+test calls the same method, so it cannot reproduce an equivalent registration
+list inside the test.
 
 The HTTP setup test uses the production registrations for:
 
