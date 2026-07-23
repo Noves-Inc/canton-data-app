@@ -119,12 +119,12 @@ spec:
               value: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
           readinessProbe:
             httpGet:
-              path: /setup/api/state
+              path: /api/setup/state
               port: http
             periodSeconds: 5
           livenessProbe:
             httpGet:
-              path: /setup/api/state
+              path: /api/setup/state
               port: http
             periodSeconds: 20
           resources:

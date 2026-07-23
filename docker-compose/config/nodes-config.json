@@ -1,8 +1,12 @@
 {
+  "primaryNodeId": "main-node",
   "nodes": {
     "main-node": {
       "addr": "participant:5001",
-      "expectedParticipantId": "REPLACE_WITH_PARTICIPANT_ID"
+      "expectedParticipantId": "REPLACE_WITH_PARTICIPANT_ID",
+      "validator_party": "",
+      "synchronizer_alias": "global",
+      "expected_synchronizer_id": ""
     }
   }
 }

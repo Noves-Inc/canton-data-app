@@ -1,0 +1,11 @@
+# Use only after completing the v3.16.1 migration checklist and setting
+# CDA_DATABASE_VOLUME to the stopped v3 database volume.
+services:
+  backend:
+    environment:
+      CDA_SETUP_WIZARD_ENABLED: "false"
+
+volumes:
+  cda-database-data:
+    external: true
+    name: ${CDA_DATABASE_VOLUME:?Set CDA_DATABASE_VOLUME to the Data App v3.16.1 volume}
