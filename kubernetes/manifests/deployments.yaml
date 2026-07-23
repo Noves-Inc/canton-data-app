@@ -92,10 +92,12 @@ spec:
           image: ghcr.io/noves-inc/canton-translate:latest
           imagePullPolicy: Always
           ports:
+            # The backend serves API routes and /metrics on 8090.
             - containerPort: 8090
               name: http
+            # Built-in traffic-cost ingestion remains available on 5124 with no feature flag.
             - containerPort: 5124
-              name: traffic
+              name: traffic-cost
           envFrom:
             - configMapRef:
                 name: data-app-backend-config
@@ -107,6 +109,13 @@ spec:
                   key: postgres-password
             - name: NODES_CONFIG_FILE_PATH
               value: "/app/config/nodes-config.json"
+            # Validator uptime and Party Events rehearsal reuse the existing capture identity.
+            # If capture credentials are configured here, keep them in a Secret:
+            # - name: CDA_CAPTURE_CLIENT_SECRET
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: data-app-capture-secret
+            #       key: client-secret
           volumeMounts:
             - name: nodes-config
               mountPath: /app/config

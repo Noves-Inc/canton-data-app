@@ -313,6 +313,9 @@ data:
 | `nodes.<id>.addr` | Yes | gRPC address of the validator participant (`host:port`). |
 | `nodes.<id>.cert_file` | No | Path to the TLS certificate file inside the container. Omit for insecure connections. |
 | `nodes.<id>.expectedParticipantId` | Required for automatic v3 upgrades | Exact participant identity verified before mutation and again on replay resume. |
+| `nodes.<id>.validator_party` | No | Optional validator-party override. Normally omit it: uptime derives the party from the participant namespace and public validator index. |
+| `nodes.<id>.synchronizer_alias` | No | Submission-ready synchronizer alias checked by uptime. Defaults to `global`. |
+| `nodes.<id>.expected_synchronizer_id` | No | Optional exact synchronizer-ID override for deployments that require it. |
 
 ### Step 2: Mount the ConfigMap in the backend Deployment
 
@@ -338,6 +341,24 @@ spec:
 If TLS certificates are needed for any node, create a Kubernetes Secret with the certificate files and mount them at the paths referenced in `cert_file` inside the JSON config (same pattern as the TLS section above).
 
 > If `NODES_CONFIG_FILE_PATH` is not set, the app also checks `/config/nodes-config.json` automatically before falling back to the legacy environment variables.
+
+### Enabling validator uptime
+
+The manifests keep uptime enabled by default. Its read endpoint is public and rate-limited to 60
+requests per client per minute, so it needs no OIDC configuration. For rollout:
+
+1. Set `PUBLIC_SCAN_INDEXER_URL` for the on-ledger liveness overlay and automatic validator-party
+   discovery.
+2. Confirm the backend's existing capture worker is authenticated. Uptime reuses that identity; it does
+   not require a new token, client, or secret. Existing capture credentials should remain in a Secret.
+3. Apply the ConfigMap/Deployment and wait for the backend rollout and `/startup-status` readiness.
+4. Verify aggregate metrics at `/metrics`. Party Events rehearsal and source-commit/read-model gates are
+   exported there from the main backend port.
+5. Set `VALIDATOR_UPTIME_ENABLED: "false"` only if the feature must be suppressed.
+
+The backend derives each validator party from the participant ID and the public validator index.
+Set per-node `validator_party` only as an override for an unusual mapping. Interval, RPC timeout, and
+raw/hourly retention settings are shown beside the enabled default in `manifests/configmaps.yaml`.
 
 ### Pre-existing data attribution
 
@@ -380,6 +401,8 @@ See [`manifests/deployments.yaml`](manifests/deployments.yaml) for the complete 
 - `data-app-db` uses the PVC `data-app-db-pvc`, mounts `/home/postgres/pgdata`, and references the shared secret for credentials.
 - The frontend is stateless. The backend consumes ConfigMaps and Secrets and also mounts the
   `canton-data-app-exports` PVC for filesystem artifact storage when S3 is not selected.
+- The backend serves API routes and `/metrics` on port `8090`. Port `5124` remains the built-in
+  traffic-cost ingestion endpoint and is not controlled by a runtime feature flag.
 
 ## Data Exports
 
@@ -989,54 +1012,13 @@ If you spot any issues or run into a snag during deployment, contact us through 
 
 ---
 
-## Optional: Traffic Analyzer Addon
+## Traffic-Cost Ingestion
 
-The Traffic Analyzer addon enables real-time traffic cost analysis by collecting Canton participant logs and correlating them with transaction data.
+Traffic-cost ingestion is built into the v4 backend. There is no `TRAFFIC_ANALYSIS_ENABLED` flag.
+If you operate an external log collector, point it at the backend's port `5124` ingest endpoint and
+verify the backend remains healthy on `/health` and `/metrics`.
 
-**This is an optional feature.** The main Data App functions fully without it.
-
-### Prerequisites
-
-- Data App backend deployed with `TRAFFIC_ANALYSIS_ENABLED=true` environment variable set
-- Canton participant with `LOG_LEVEL_CANTON=DEBUG` enabled
-
-### Installation
-
-```bash
-cd ../traffic-analyzer/kubernetes
-
-helm repo add fluent https://fluent.github.io/helm-charts
-helm repo update
-
-helm upgrade -i fluent-bit fluent/fluent-bit \
-  -n logging --create-namespace \
-  -f traffic-analyzer/kubernetes/values-fluentbit.yaml
-```
-
-### Configuration
-
-Update the backend service hostname in `values-fluentbit.yaml` to match your deployment:
-
-```ini
-[OUTPUT]
-    Name              http
-    Match             kube.*
-    Host              data-app-backend.YOUR_NAMESPACE.svc.cluster.local
-    Port              5124
-    ...
-```
-
-### Verification
-
-```bash
-# Check Fluent Bit pods
-kubectl -n logging get pods -l app.kubernetes.io/name=fluent-bit
-
-# Verify backend is receiving data
-kubectl exec -it deploy/data-app-backend -n validator -- curl localhost:5124/queue-stats
-```
-
-📄 **For full documentation, see: [../traffic-analyzer/README.md](../traffic-analyzer/README.md)**
+📄 **Collector-specific examples remain in: [../traffic-analyzer/README.md](../traffic-analyzer/README.md)**
 
 ---
 

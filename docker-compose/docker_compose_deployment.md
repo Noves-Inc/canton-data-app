@@ -111,11 +111,38 @@ environment:
 
   # Wallet features (optional - leave empty to disable)
   SCAN_PROXY_URL: "http://validator:5003/api/validator"  # Required to enable wallet features
+
+  # Validator uptime monitoring (enabled by default; set false to disable)
+  VALIDATOR_UPTIME_ENABLED: "true"
+  # CDA_VALIDATOR_UPTIME_INTERVAL_SECONDS: "30"
+  # CDA_VALIDATOR_UPTIME_RPC_TIMEOUT_SECONDS: "3"
+  # CDA_VALIDATOR_UPTIME_RAW_RETENTION_DAYS: "35"
+  # CDA_VALIDATOR_UPTIME_HOURLY_RETENTION_DAYS: "400"
+  # PUBLIC_SCAN_INDEXER_URL: "https://your-public-indexer.example"
 ```
 
 > Define `CANTON_TRANSLATE_DB_PASSWORD` in a `.env` file or export it before running `docker compose` so the password is never checked into source control.
 
 > **Data exports:** Provider precedence is `EXPORTS_S3_BUCKET`, `BACKUP_S3_BUCKET`, then a persistent volume mounted at `/exports`. The sample Compose file includes a named `accounting-exports` volume. Size and back it up for the default 60-day retention window; for bind mounts, ensure the host directory is persistent, writable by the container UID, backed up separately, and not shared by unrelated applications. A configured S3 provider that fails its probe returns `503` without falling back. With no provider, submission is disabled and returns `501 export_storage_not_configured`.
+>
+> **Observability:** The backend serves `/metrics` on port `8090`. Built-in traffic-cost ingestion remains available on port `5124` and is not controlled by a `TRAFFIC_ANALYSIS_ENABLED` flag.
+
+### Enabling validator uptime
+
+Uptime is enabled by default. The endpoint is public and rate-limited to 60 requests per client per
+minute, so it needs no OIDC settings. For rollout:
+
+1. Set `PUBLIC_SCAN_INDEXER_URL` for the on-ledger liveness overlay and automatic validator-party
+   discovery.
+2. Confirm the backend's existing capture worker is authenticated. Uptime reuses that identity; it does
+   not require a new token, client, or secret.
+3. Recreate the backend container and check `/startup-status` before using the Uptime tab.
+4. Verify aggregate metrics at `/metrics`. Party Events rehearsal and source-commit/read-model gates are
+   exported from the main backend port.
+5. Set `VALIDATOR_UPTIME_ENABLED=false` only if the feature must be suppressed.
+
+The backend derives each validator party from the participant ID and the public validator index.
+`validator_party` in the node file is only an optional override for unusual deployments.
 
 ### Frontend Configuration
 
@@ -251,6 +278,10 @@ Starting with v3.12.0, Canton Translate supports connecting to **one or more Can
 | `nodes` | Yes | Object mapping node IDs to their configuration. Each key is the node ID (must be unique). |
 | `nodes.<id>.addr` | Yes | gRPC address of the validator participant (`host:port`). |
 | `nodes.<id>.cert_file` | No | Path to the TLS certificate file inside the container. Omit for insecure connections. |
+| `nodes.<id>.expectedParticipantId` | Required for automatic v3 upgrades | Exact participant identity verified before mutation and on replay resume. |
+| `nodes.<id>.validator_party` | No | Optional validator-party override. Normally omit it: uptime derives the party from the participant namespace and public validator index. |
+| `nodes.<id>.synchronizer_alias` | No | Submission-ready synchronizer alias checked by uptime. Defaults to `global`. |
+| `nodes.<id>.expected_synchronizer_id` | No | Optional exact synchronizer-ID override for deployments that require it. |
 
 ### Mounting the config file
 
@@ -678,35 +709,10 @@ docker compose pull && docker compose up -d --force-recreate
 
 ---
 
-## Optional: Traffic Analyzer Addon
+## Traffic-Cost Ingestion
 
-The Traffic Analyzer addon enables real-time traffic cost analysis by collecting Canton participant logs and correlating them with transaction data.
+Traffic-cost ingestion is built into the v4 backend. There is no `TRAFFIC_ANALYSIS_ENABLED` flag.
+If you operate an external log collector, point it at `http://canton-data-app-backend:5124/ingest`
+and verify the backend remains healthy on `/health` and `/metrics`.
 
-**This is an optional feature.** The main Data App functions fully without it.
-
-### Prerequisites
-
-- Data App backend running with `TRAFFIC_ANALYSIS_ENABLED=true` environment variable set
-- Canton participant with `LOG_LEVEL_CANTON=DEBUG` enabled
-
-### Installation
-
-```bash
-cd ../traffic-analyzer/docker-compose
-docker compose up -d
-```
-
-### Configuration
-
-The Fluent Bit configuration sends logs to the Data App backend at `http://canton-data-app-backend:5124/ingest`. If your backend container has a different name, update `fluent-bit.conf`:
-
-```ini
-[OUTPUT]
-    Name              http
-    Match             docker.*
-    Host              YOUR_BACKEND_CONTAINER_NAME
-    Port              5124
-    ...
-```
-
-📄 **For full documentation, see: [../traffic-analyzer/README.md](../traffic-analyzer/README.md)**
+📄 **Collector-specific examples remain in: [../traffic-analyzer/README.md](../traffic-analyzer/README.md)**

@@ -33,7 +33,7 @@ spec:
     - port: 5124
       targetPort: 5124
       protocol: TCP
-      name: traffic-analysis
+      name: traffic-cost
   selector:
     app: data-app-backend
 

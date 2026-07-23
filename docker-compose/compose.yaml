@@ -53,11 +53,22 @@ services:
       INDEX_DB_NAME: "canton_index"
       INDEX_DB_USER: "appuser"
       INDEX_DB_PASSWORD: ${CANTON_TRANSLATE_DB_PASSWORD:-change-me}
-      # Optional: Traffic Analysis (requires Fluent Bit addon, see traffic-analyzer/)
-      # TRAFFIC_ANALYSIS_ENABLED: "true"  # Default is "false"
+      # The backend always serves built-in traffic-cost ingestion on port 5124.
+      # There is no TRAFFIC_ANALYSIS_ENABLED feature gate in v4.
 
       # Optional: Automatic Unclassified Reporting
       # AUTOMATIC_UNCLASSIFIED_REPORTING: "true"  # Default is "false". When enabled, unclassified transactions are automatically included in reporting workflows.
+
+      # Validator uptime monitoring is enabled by default. Set false to disable.
+      VALIDATOR_UPTIME_ENABLED: "true"
+      # CDA_VALIDATOR_UPTIME_INTERVAL_SECONDS: "30"
+      # CDA_VALIDATOR_UPTIME_RPC_TIMEOUT_SECONDS: "3"
+      # CDA_VALIDATOR_UPTIME_RAW_RETENTION_DAYS: "35"
+      # CDA_VALIDATOR_UPTIME_HOURLY_RETENTION_DAYS: "400"
+      # Public index used for the on-ledger liveness overlay and automatic validator-party discovery.
+      # PUBLIC_SCAN_INDEXER_URL: "https://your-public-indexer.example"
+      # Uptime and Party Events rehearsal both reuse the backend's existing capture identity.
+      # Aggregate Prometheus metrics are available from the backend on http://<backend>:8090/metrics.
 
       # Optional S3 backup configuration
       BACKUP_S3_BUCKET: ""
