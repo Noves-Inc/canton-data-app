@@ -352,8 +352,10 @@ requests per client per minute, so it needs no OIDC configuration. For rollout:
 2. Confirm the backend's existing capture worker is authenticated. Uptime reuses that identity; it does
    not require a new token, client, or secret. Existing capture credentials should remain in a Secret.
 3. Apply the ConfigMap/Deployment and wait for the backend rollout and `/startup-status` readiness.
-4. Verify aggregate metrics at `/metrics`. Party Events rehearsal and source-commit/read-model gates are
-   exported there from the main backend port.
+4. For an authorized Party Events rehearsal, temporarily enable the narrow Party Events diagnostic
+   categories, capture a bounded timestamped `kubectl logs --timestamps --since=...` window, and pass
+   the file (or standard input) to the backend repository's versioned `FactLayerRehearsal` tool.
+   Restore the normal log level after capture.
 5. Set `VALIDATOR_UPTIME_ENABLED: "false"` only if the feature must be suppressed.
 
 The backend derives each validator party from the participant ID and the public validator index.
@@ -401,7 +403,7 @@ See [`manifests/deployments.yaml`](manifests/deployments.yaml) for the complete 
 - `data-app-db` uses the PVC `data-app-db-pvc`, mounts `/home/postgres/pgdata`, and references the shared secret for credentials.
 - The frontend is stateless. The backend consumes ConfigMaps and Secrets and also mounts the
   `canton-data-app-exports` PVC for filesystem artifact storage when S3 is not selected.
-- The backend serves API routes and `/metrics` on port `8090`. Port `5124` remains the built-in
+- The backend serves API and health routes on port `8090`; it does not expose `/metrics`. Port `5124` remains the built-in
   traffic-cost ingestion endpoint and is not controlled by a runtime feature flag.
 
 ## Data Exports
@@ -1016,7 +1018,7 @@ If you spot any issues or run into a snag during deployment, contact us through 
 
 Traffic-cost ingestion is built into the v4 backend. There is no `TRAFFIC_ANALYSIS_ENABLED` flag.
 If you operate an external log collector, point it at the backend's port `5124` ingest endpoint and
-verify the backend remains healthy on `/health` and `/metrics`.
+verify the backend remains healthy on `/health`.
 
 📄 **Collector-specific examples remain in: [../traffic-analyzer/README.md](../traffic-analyzer/README.md)**
 

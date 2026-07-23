@@ -125,7 +125,10 @@ environment:
 
 > **Data exports:** Provider precedence is `EXPORTS_S3_BUCKET`, `BACKUP_S3_BUCKET`, then a persistent volume mounted at `/exports`. The sample Compose file includes a named `accounting-exports` volume. Size and back it up for the default 60-day retention window; for bind mounts, ensure the host directory is persistent, writable by the container UID, backed up separately, and not shared by unrelated applications. A configured S3 provider that fails its probe returns `503` without falling back. With no provider, submission is disabled and returns `501 export_storage_not_configured`.
 >
-> **Observability:** The backend serves `/metrics` on port `8090`. Built-in traffic-cost ingestion remains available on port `5124` and is not controlled by a `TRAFFIC_ANALYSIS_ENABLED` flag.
+> **Observability:** The backend serves API and health routes on port `8090`; it does not expose
+> `/metrics`. An authorized Party Events rehearsal uses a bounded, timestamped Debug-log capture and
+> the backend repository's versioned `FactLayerRehearsal` parser. Built-in traffic-cost ingestion
+> remains available on port `5124` and is not controlled by a `TRAFFIC_ANALYSIS_ENABLED` flag.
 
 ### Enabling validator uptime
 
@@ -137,8 +140,10 @@ minute, so it needs no OIDC settings. For rollout:
 2. Confirm the backend's existing capture worker is authenticated. Uptime reuses that identity; it does
    not require a new token, client, or secret.
 3. Recreate the backend container and check `/startup-status` before using the Uptime tab.
-4. Verify aggregate metrics at `/metrics`. Party Events rehearsal and source-commit/read-model gates are
-   exported from the main backend port.
+4. For an authorized Party Events rehearsal, temporarily enable the narrow Party Events diagnostic
+   categories, capture a bounded timestamped `docker logs --timestamps --since ...` window, and pass
+   the file (or standard input) to the backend repository's `FactLayerRehearsal` tool. Restore the
+   normal log level after capture.
 5. Set `VALIDATOR_UPTIME_ENABLED=false` only if the feature must be suppressed.
 
 The backend derives each validator party from the participant ID and the public validator index.
@@ -713,6 +718,6 @@ docker compose pull && docker compose up -d --force-recreate
 
 Traffic-cost ingestion is built into the v4 backend. There is no `TRAFFIC_ANALYSIS_ENABLED` flag.
 If you operate an external log collector, point it at `http://canton-data-app-backend:5124/ingest`
-and verify the backend remains healthy on `/health` and `/metrics`.
+and verify the backend remains healthy on `/health`.
 
 📄 **Collector-specific examples remain in: [../traffic-analyzer/README.md](../traffic-analyzer/README.md)**

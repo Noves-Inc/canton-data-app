@@ -68,7 +68,8 @@ services:
       # Public index used for the on-ledger liveness overlay and automatic validator-party discovery.
       # PUBLIC_SCAN_INDEXER_URL: "https://your-public-indexer.example"
       # Uptime and Party Events rehearsal both reuse the backend's existing capture identity.
-      # Aggregate Prometheus metrics are available from the backend on http://<backend>:8090/metrics.
+      # Party Events rehearsal uses a bounded, timestamped Debug-log capture; the backend has no
+      # Prometheus exporter or /metrics route.
 
       # Optional S3 backup configuration
       BACKUP_S3_BUCKET: ""

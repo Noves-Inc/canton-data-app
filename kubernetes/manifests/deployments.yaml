@@ -92,7 +92,7 @@ spec:
           image: ghcr.io/noves-inc/canton-translate:latest
           imagePullPolicy: Always
           ports:
-            # The backend serves API routes and /metrics on 8090.
+            # The backend serves API and health routes on 8090; it has no /metrics route.
             - containerPort: 8090
               name: http
             # Built-in traffic-cost ingestion remains available on 5124 with no feature flag.

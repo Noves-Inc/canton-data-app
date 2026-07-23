@@ -289,6 +289,13 @@ The backend has the following user-configurable environment variables:
 | **Wallet Configuration** | | **Required to enable wallet features** |
 | `SCAN_PROXY_URL` | `http://validator:5003/api/validator` | (Optional) URL to the validator's Scan API proxy endpoint. **Required to enable wallet features.** If not set, wallet functionality is disabled. For Docker Compose, use the validator container name (e.g., `http://validator:5003/api/validator`). For Kubernetes, use the fully qualified service name (e.g., `http://validator-app.validator.svc.cluster.local:5003/api/validator`). |
 | `TRAFFIC_ANALYSIS_ENABLED` | `true` or `false` | (Optional) Enable traffic cost analysis. Requires Fluent Bit addon. Default is `false`. See [traffic-analyzer/](traffic-analyzer/) for setup. |
+| **Validator Uptime** | | **Local participant readiness and public on-ledger liveness monitoring. Enabled by default.** |
+| `VALIDATOR_UPTIME_ENABLED` | `true` | Master gate. Set to `false` to suppress the uptime workers, public rate-limited API, and UI feature. |
+| `CDA_VALIDATOR_UPTIME_INTERVAL_SECONDS` | `30` | Probe interval, from 15 through 300 seconds. |
+| `CDA_VALIDATOR_UPTIME_RPC_TIMEOUT_SECONDS` | `3` | Per-probe Ledger API deadline, from 1 through 10 seconds. |
+| `CDA_VALIDATOR_UPTIME_RAW_RETENTION_DAYS` | `35` | Raw sample retention, from 7 through 90 days. |
+| `CDA_VALIDATOR_UPTIME_HOURLY_RETENTION_DAYS` | `400` | Hourly rollup retention; must be at least the raw retention and no more than 1,825 days. |
+| `PUBLIC_SCAN_INDEXER_URL` | `https://indexer.example` | Public validator index used for on-ledger liveness and automatic validator-party discovery. |
 
 **Note:** The backend does not require Auth0 credentials. It receives JWT tokens from the frontend and passes them through to Canton's Ledger API for validation. You can also call the backend's API directly if you generate a valid JWT token on your own.
 

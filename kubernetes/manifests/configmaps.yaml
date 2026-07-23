@@ -24,6 +24,14 @@ data:
   # Optional: Automatic Unclassified Reporting
   # AUTOMATIC_UNCLASSIFIED_REPORTING: "true"  # Default is "false". When enabled, unclassified transactions are automatically included in reporting workflows.
 
+  # Validator uptime monitoring is enabled by default. Set false to disable.
+  VALIDATOR_UPTIME_ENABLED: "true"
+  # CDA_VALIDATOR_UPTIME_INTERVAL_SECONDS: "30"
+  # CDA_VALIDATOR_UPTIME_RPC_TIMEOUT_SECONDS: "3"
+  # CDA_VALIDATOR_UPTIME_RAW_RETENTION_DAYS: "35"
+  # CDA_VALIDATOR_UPTIME_HOURLY_RETENTION_DAYS: "400"
+  # PUBLIC_SCAN_INDEXER_URL: "https://your-public-indexer.example"
+
   # Optional S3 backup configuration (leave empty to disable)
   BACKUP_S3_BUCKET: ""
   BACKUP_S3_PREFIX: ""
