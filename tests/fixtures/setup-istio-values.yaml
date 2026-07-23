@@ -1,0 +1,12 @@
+setupWizard:
+  enabled: true
+  setupTokenSecret: cda-setup-token
+
+database:
+  existingSecret: cda-database
+
+capture:
+  existingSecret: cda-capture-auth
+
+routing:
+  enabled: false

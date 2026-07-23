@@ -58,19 +58,19 @@ filesystem export storage, `/exports` is durable application state.
 
 Transparent volume encryption protects against **offline access to the stored bytes**: stolen or improperly decommissioned disks, leaked volume snapshots, and hosts whose storage is accessed outside the running system. This matches the protection level of the Canton validator node's own database.
 
-It does **not** protect against an attacker who has live access to the running host or valid database credentials — a running system necessarily sees its own data decrypted. Protect that layer operationally: restrict who holds the Postgres password (set via `CANTON_TRANSLATE_DB_PASSWORD` / the `data-app-db-secret`), don't expose port 5432 beyond the app's network, and control host/cluster access.
+It does **not** protect against an attacker who has live access to the running host or valid database credentials — a running system necessarily sees its own data decrypted. Protect that layer operationally: restrict who holds the Postgres password (set via `CDA_DATABASE_PASSWORD` or the chart's database Secret), don't expose port 5432 beyond the app's network, and control host/cluster access.
 
 ---
 
 ## Docker Compose Deployments
 
-In compose mode the database stores its data in the `canton-data-app-db-data` volume. By default that is a named Docker volume under `/var/lib/docker/volumes` — encrypted only if that path happens to sit on an encrypted disk.
+In compose mode the database stores its data in the `noves-canton-data-app-v4-data` volume. By default that is a named Docker volume under `/var/lib/docker/volumes` — encrypted only if that path happens to sit on an encrypted disk.
 
 The v4 compose file makes the data location configurable via the `CANTON_DATA_APP_DB_DATA` variable:
 
 ```yaml
 volumes:
-  - ${CANTON_DATA_APP_DB_DATA:-canton-data-app-db-data}:/home/postgres/pgdata
+  - ${CANTON_DATA_APP_DB_DATA:-cda-database-data}:/home/postgres/pgdata
 ```
 
 - **Unset** (default): behaves exactly as before — the named Docker volume. No action needed for existing deployments until you migrate.
@@ -80,7 +80,7 @@ Set it in a `.env` file next to `compose.yaml` (compose reads it automatically):
 
 ```bash
 # .env
-CANTON_TRANSLATE_DB_PASSWORD=<your-db-password>
+CDA_DATABASE_PASSWORD=<your-db-password>
 CANTON_DATA_APP_DB_DATA=/mnt/canton-encrypted/db
 ```
 
@@ -111,7 +111,7 @@ docker compose down
 # 2. Copy the data from the named volume to the encrypted path (preserves ownership/permissions)
 mkdir -p /mnt/canton-encrypted/db
 docker run --rm \
-  -v canton-data-app-db-data:/from:ro \
+  -v noves-canton-data-app-v4-data:/from:ro \
   -v /mnt/canton-encrypted/db:/to \
   alpine cp -a /from/. /to/
 
@@ -120,13 +120,13 @@ echo 'CANTON_DATA_APP_DB_DATA=/mnt/canton-encrypted/db' >> .env
 
 # 4. Start and verify
 docker compose up -d
-docker compose logs -f canton-data-app-backend   # indexing resumes from where it left off
+docker compose logs -f backend   # indexing resumes from where it left off
 ```
 
 5. Once verified (dashboard loads, indexing advances), delete the old **unencrypted** volume — leaving it around defeats the purpose:
 
 ```bash
-docker volume rm canton-data-app-db-data
+docker volume rm noves-canton-data-app-v4-data
 ```
 
 ### Setting Up an Encrypted Filesystem with LUKS
@@ -170,12 +170,13 @@ Postgres there and silently write unencrypted data. Make the deployment fail clo
 
 ## Kubernetes Deployments
 
-In Kubernetes mode the database mounts `data-app-db-pvc`. Whether that PVC is encrypted is determined entirely by its **StorageClass**. The v4 manifest carries an explicit `storageClassName` field — set it to a StorageClass that provisions encrypted volumes in your cluster:
+In Kubernetes mode, whether the database PVC is encrypted is determined entirely by its
+**StorageClass**. Set the chart value to a StorageClass that provisions encrypted volumes:
 
 ```yaml
-# kubernetes/manifests/persistentvolumeclaims.yaml
-spec:
-  storageClassName: encrypted-cmk   # replace with an existing encrypted StorageClass
+database:
+  persistence:
+    storageClass: encrypted-cmk
 ```
 
 ### Encrypted StorageClass Examples
@@ -272,32 +273,66 @@ A PVC's StorageClass cannot be changed in place. Migration = copy the data to a 
 
 ```bash
 NS=validator   # your namespace
+RELEASE=noves-canton-data-app
+CURRENT_CLAIM=data-${RELEASE}-database-0
+ENCRYPTED_CLAIM=${RELEASE}-database-encrypted
 
-# 1. Create the new encrypted PVC (same size or larger), e.g. data-app-db-pvc-encrypted,
-#    with storageClassName set to your encrypted class. Apply it.
+# 1. Create the new encrypted PVC (same size or larger than the current claim).
+kubectl get pvc "$CURRENT_CLAIM" -n "$NS"
+kubectl apply -n "$NS" -f - <<EOF
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ${ENCRYPTED_CLAIM}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: encrypted-storage
+  resources:
+    requests:
+      storage: 100Gi
+EOF
 
 # 2. Stop the app so nothing writes during the copy (GitOps paused first — see warning above)
-kubectl scale deploy/data-app-backend -n $NS --replicas=0
-kubectl scale deploy/data-app-db -n $NS --replicas=0
-kubectl wait --for=delete pod -l app=data-app-db -n $NS --timeout=180s
+kubectl scale deployment -n "$NS" \
+  -l "app.kubernetes.io/instance=$RELEASE,app.kubernetes.io/component=backend" \
+  --replicas=0
+kubectl scale statefulset -n "$NS" \
+  -l "app.kubernetes.io/instance=$RELEASE,app.kubernetes.io/component=database" \
+  --replicas=0
+kubectl wait --for=delete pod -n "$NS" \
+  -l "app.kubernetes.io/instance=$RELEASE,app.kubernetes.io/component=database" \
+  --timeout=180s
 
 # 3. Copy old PVC -> new PVC with a throwaway pod (exact copy; preserves the capture cursor)
-kubectl run pvc-copy -n $NS --restart=Never --image=alpine \
-  --overrides='{"spec":{"containers":[{"name":"pvc-copy","image":"alpine","command":["sh","-c","cp -a /from/. /to/ && echo DONE"],"volumeMounts":[{"name":"from","mountPath":"/from","readOnly":true},{"name":"to","mountPath":"/to"}]}],"volumes":[{"name":"from","persistentVolumeClaim":{"claimName":"data-app-db-pvc"}},{"name":"to","persistentVolumeClaim":{"claimName":"data-app-db-pvc-encrypted"}}]}}'
-kubectl logs -f pvc-copy -n $NS    # wait for DONE
-kubectl delete pod pvc-copy -n $NS
+kubectl run pvc-copy -n "$NS" --restart=Never --image=alpine \
+  --overrides='{"spec":{"containers":[{"name":"pvc-copy","image":"alpine","command":["sh","-c","cp -a /from/. /to/ && echo DONE"],"volumeMounts":[{"name":"from","mountPath":"/from","readOnly":true},{"name":"to","mountPath":"/to"}]}],"volumes":[{"name":"from","persistentVolumeClaim":{"claimName":"'"$CURRENT_CLAIM"'"}},{"name":"to","persistentVolumeClaim":{"claimName":"'"$ENCRYPTED_CLAIM"'"}}]}}'
+kubectl logs -f pvc-copy -n "$NS"    # wait for DONE
+kubectl delete pod pvc-copy -n "$NS"
 
-# 4. Point the DB deployment at the new claim
-#    (edit deployments.yaml: claimName: data-app-db-pvc-encrypted, then kubectl apply)
+# 4. Add this to the release's values file:
+# database:
+#   persistence:
+#     existingClaim: noves-canton-data-app-database-encrypted
+#
+# A StatefulSet's volume template is immutable. Remove only that controller after
+# the database pod has stopped; its PVC and copied data remain.
+kubectl delete statefulset -n "$NS" \
+  -l "app.kubernetes.io/instance=$RELEASE,app.kubernetes.io/component=database"
+helm upgrade "$RELEASE" ./chart/noves-canton-data-app \
+  --namespace "$NS" \
+  --values values.yaml
 
 # 5. Start and verify
-kubectl scale deploy/data-app-db -n $NS --replicas=1
-kubectl rollout status deploy/data-app-db -n $NS
-kubectl scale deploy/data-app-backend -n $NS --replicas=1
+kubectl rollout status statefulset/"${RELEASE}-database" -n "$NS"
+kubectl scale deployment -n "$NS" \
+  -l "app.kubernetes.io/instance=$RELEASE,app.kubernetes.io/component=backend" \
+  --replicas=1
+kubectl rollout status deployment/"${RELEASE}-backend" -n "$NS"
 
 # 6. After verifying (dashboard loads, indexing advances): delete the old
 #    unencrypted PVC so the plaintext copy does not linger
-kubectl delete pvc data-app-db-pvc -n $NS
+kubectl delete pvc "$CURRENT_CLAIM" -n "$NS"
 ```
 
 > Both PVCs are `ReadWriteOnce`; the copy pod mounts both, which works because it is a single pod. If your storage binds volumes to specific nodes, ensure both PVCs are reachable from one node (with `WaitForFirstConsumer` this is normally automatic).
@@ -322,7 +357,7 @@ Where the unlock key lives determines what the encryption is actually worth:
 ## Verification Checklist
 
 - [ ] **Compose:** `CANTON_DATA_APP_DB_DATA` points into the encrypted mount, and `findmnt -T $CANTON_DATA_APP_DB_DATA` shows the encrypted device (`/dev/mapper/...` for LUKS). `lsblk -o NAME,TYPE,FSTYPE,MOUNTPOINT` shows the device as `crypt`.
-- [ ] **Kubernetes:** `kubectl get pvc data-app-db-pvc-encrypted -o jsonpath='{.spec.storageClassName}'` returns your encrypted class, and the volume shows as encrypted in your storage provider's console/CLI.
+- [ ] **Kubernetes:** `kubectl get pvc noves-canton-data-app-database-encrypted -o jsonpath='{.spec.storageClassName}'` returns your encrypted class, and the volume shows as encrypted in your storage provider's console/CLI.
 - [ ] **Azure CMK:** the backing managed disk reports `EncryptionAtRestWithCustomerKey` and the expected DES ID. The AKS identity/service principal has Reader on that DES.
 - [ ] **Filesystem exports:** when S3 is not selected, `/exports` is a durable encrypted mount rather than container-local storage.
 - [ ] The app works: dashboard loads, indexing advances after the migration.

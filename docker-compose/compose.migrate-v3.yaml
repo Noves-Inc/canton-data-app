@@ -1,0 +1,14 @@
+# Use only after completing the v3.16.1 migration checklist and setting
+# CDA_DATABASE_VOLUME to the stopped v3 database volume.
+services:
+  backend:
+    environment:
+      CDA_SETUP_WIZARD_ENABLED: "false"
+      CDA_MIGRATION_SOURCE_VERSION: ${CDA_MIGRATION_SOURCE_VERSION:?Confirm the source is Data App v3.16.1}
+      CDA_MIGRATION_BACKUP_CONFIRMED: ${CDA_MIGRATION_BACKUP_CONFIRMED:?Confirm a verified backup exists}
+      CDA_MIGRATION_OLD_WORKLOAD_STOPPED: ${CDA_MIGRATION_OLD_WORKLOAD_STOPPED:?Confirm the old workload is stopped}
+
+volumes:
+  cda-database-data:
+    external: true
+    name: ${CDA_DATABASE_VOLUME:?Set CDA_DATABASE_VOLUME to the Data App v3.16.1 volume}

@@ -1,0 +1,23 @@
+oidc:
+  provider: keycloak
+  appUrl: https://data.example.com
+  keycloak:
+    url: https://sso.example.com
+    realm: canton
+    clientId: browser-client
+
+canton:
+  expectedParticipantId: participant::expected
+
+capture:
+  existingSecret: cda-capture-auth
+
+database:
+  existingSecret: cda-database
+
+routing:
+  enabled: true
+  host: data.example.com
+  ingress:
+    enabled: true
+    className: nginx

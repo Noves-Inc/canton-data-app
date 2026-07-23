@@ -1,0 +1,23 @@
+oidc:
+  provider: auth0
+  appUrl: https://data.example.com
+  auth0:
+    domain: tenant.example.auth0.com
+    clientId: browser-client
+    audience: https://ledger-api
+
+canton:
+  expectedParticipantId: participant::expected
+
+capture:
+  existingSecret: cda-capture-auth
+
+database:
+  existingSecret: cda-database
+
+migration:
+  enabled: true
+  sourceVersion: 3.16.1
+  backupConfirmed: true
+  oldWorkloadStopped: true
+  existingClaim: cda-v3-data

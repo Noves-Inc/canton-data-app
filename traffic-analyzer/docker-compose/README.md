@@ -1,5 +1,8 @@
 # Fluent Bit for Docker Compose
 
+> This legacy add-on has not been validated with Data App v4 and is not supported by the v4
+> Compose bundle.
+
 Collect Canton participant logs from Docker containers and send to the Data App backend for traffic cost analysis.
 
 ## Prerequisites
@@ -43,7 +46,7 @@ If your Data App backend container has a different name, update `fluent-bit.conf
     ...
 ```
 
-The default assumes the backend container is named `canton-data-app-backend` and is on the same Docker network.
+The default assumes the backend container is named `noves-canton-backend-v4` and is on the same Docker network.
 
 ### 3. Start Fluent Bit
 
@@ -55,7 +58,7 @@ docker compose up -d
 
 ### Backend Endpoint
 
-Logs are sent to the Data App backend at `http://canton-data-app-backend:5124/ingest`. The backend exposes a Traffic Cost API that:
+Logs are sent to the Data App backend at `http://noves-canton-backend-v4:5124/ingest`. The backend exposes a Traffic Cost API that:
 
 - Accepts JSONL (newline-delimited JSON) log entries
 - Queues entries for processing
@@ -102,7 +105,7 @@ docker compose down
 
 4. Check Fluent Bit can reach the backend:
    ```bash
-   docker compose exec fluent-bit wget -q -O- http://canton-data-app-backend:5124/health
+   docker compose exec fluent-bit wget -q -O- http://noves-canton-backend-v4:5124/health
    ```
 
 5. Temporarily remove grep filter to verify log ingestion

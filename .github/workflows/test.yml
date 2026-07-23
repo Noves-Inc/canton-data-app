@@ -1,0 +1,57 @@
+name: Test and publish v4 deployment
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+    tags:
+      - "v4.*"
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.14.3
+      - name: Run deployment and documentation tests
+        run: tests/all.sh
+      - name: Package chart
+        run: helm package chart/noves-canton-data-app --destination dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: noves-canton-data-app-chart
+          path: dist/*.tgz
+
+  publish-chart:
+    if: startsWith(github.ref, 'refs/tags/v4.')
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.14.3
+      - name: Verify chart and release versions match
+        run: |
+          chart_version="$(sed -n 's/^version: //p' chart/noves-canton-data-app/Chart.yaml)"
+          app_version="$(sed -n 's/^appVersion: "\(.*\)"/\1/p' chart/noves-canton-data-app/Chart.yaml)"
+          test "v${chart_version}" = "${GITHUB_REF_NAME}"
+          test "${app_version}" = "${chart_version}"
+          test "$(grep -c "tag: \"${app_version}\"" chart/noves-canton-data-app/values.yaml)" = 3
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io --username "${{ github.actor }}" --password-stdin
+      - name: Publish chart
+        run: |
+          helm package chart/noves-canton-data-app --destination dist
+          helm push "dist/noves-canton-data-app-${GITHUB_REF_NAME#v}.tgz" oci://ghcr.io/noves-inc/charts

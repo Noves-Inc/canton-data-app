@@ -1,4 +1,4 @@
-name: noves-canton-data-app-v4
+name: noves-canton-data-app-v4-setup
 
 services:
   database:
@@ -10,7 +10,7 @@ services:
       POSTGRES_PASSWORD: ${CDA_DATABASE_PASSWORD:?Set CDA_DATABASE_PASSWORD}
       PGDATA: /home/postgres/pgdata/data
     volumes:
-      - ${CANTON_DATA_APP_DB_DATA:-cda-database-data}:/home/postgres/pgdata
+      - cda-database-data:/home/postgres/pgdata
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U appuser -d canton_index -h 127.0.0.1"]
       interval: 10s
@@ -33,15 +33,12 @@ services:
       NODES_CONFIG_FILE_PATH: /config/nodes-config.json
       CDA_NETWORK: ${CDA_NETWORK:-mainnet}
       SCAN_PROXY_URL: ${CDA_VALIDATOR_URL:-http://validator-app:5003}
-      PUBLIC_SCAN_INDEXER_URL: ${CDA_PUBLIC_SCAN_URL:-}
-    env_file:
-      - path: ./.state/capture.env
-        required: false
+      CDA_SETUP_WIZARD_ENABLED: "true"
+      CDA_SETUP_TOKEN: ${CDA_SETUP_TOKEN:?Set CDA_SETUP_TOKEN}
+      M2M_INDEXER_ENABLED: "false"
     volumes:
       - ./.state/nodes-config.json:/config/nodes-config.json:ro
       - cda-exports:/exports
-    ports:
-      - "127.0.0.1:${CDA_BACKEND_PORT:-8090}:8090"
     depends_on:
       database:
         condition: service_healthy
@@ -49,26 +46,23 @@ services:
       - canton
     restart: unless-stopped
 
-  frontend:
+  setup-wizard:
     image: ghcr.io/noves-inc/noves-canton-frontend-v4:${CDA_VERSION:-4.0.0}
     container_name: noves-canton-frontend-v4
+    user: "${CDA_SETUP_UID:-1000}:${CDA_SETUP_GID:-1000}"
+    command: ["npm", "run", "start:setup"]
     environment:
       PORT: "3000"
       CANTON_TRANSLATE_BASE_URL: http://backend:8090
-      VITE_AUTH0_DOMAIN: ${VITE_AUTH0_DOMAIN:-}
-      VITE_AUTH0_CLIENT_ID: ${VITE_AUTH0_CLIENT_ID:-}
-      VITE_AUTH0_AUDIENCE: ${VITE_AUTH0_AUDIENCE:-}
-      VITE_AUTH0_REDIRECT_URI: ${CDA_APP_URL:?Set CDA_APP_URL}/callback
-      VITE_AUTH0_LOGOUT_URL: ${CDA_APP_URL}
-      VITE_KEYCLOAK_URL: ${VITE_KEYCLOAK_URL:-}
-      VITE_KEYCLOAK_REALM: ${VITE_KEYCLOAK_REALM:-}
-      VITE_KEYCLOAK_CLIENT_ID: ${VITE_KEYCLOAK_CLIENT_ID:-}
-      VITE_KEYCLOAK_REDIRECT_URI: ${CDA_APP_URL}/callback
-      VITE_KEYCLOAK_LOGOUT_URL: ${CDA_APP_URL}
+      CDA_SETUP_TOKEN: ${CDA_SETUP_TOKEN:?Set CDA_SETUP_TOKEN}
+      SETUP_PARTICIPANT_ADDRESS: ${CDA_PARTICIPANT_ADDRESS:-participant:5001}
+      SETUP_STORAGE_MODE: file
+      SETUP_RESULT_PATH: /setup/values.json
+      SETUP_SECRET_PATH: /setup/capture.env
     volumes:
-      - cda-exports:/app/exports
+      - ./.state:/setup
     ports:
-      - "${CDA_FRONTEND_BIND:-127.0.0.1}:${CDA_FRONTEND_PORT:-8091}:3000"
+      - "127.0.0.1:${CDA_SETUP_PORT:-8099}:3000"
     depends_on:
       backend:
         condition: service_started

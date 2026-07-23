@@ -1,0 +1,202 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "nameOverride": { "type": "string" },
+    "fullnameOverride": { "type": "string" },
+    "imagePullSecrets": { "type": "array" },
+    "backend": { "$ref": "#/$defs/workload" },
+    "frontend": { "$ref": "#/$defs/workload" },
+    "database": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["image", "existingSecret", "passwordKey", "name", "user", "persistence", "resources"],
+      "properties": {
+        "image": { "$ref": "#/$defs/image" },
+        "existingSecret": { "type": "string" },
+        "passwordKey": { "type": "string" },
+        "name": { "type": "string" },
+        "user": { "type": "string" },
+        "persistence": { "$ref": "#/$defs/persistence" },
+        "resources": { "type": "object" }
+      }
+    },
+    "exports": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["persistence"],
+      "properties": { "persistence": { "$ref": "#/$defs/persistence" } }
+    },
+    "canton": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["nodeId", "participantAddress", "network"],
+      "properties": {
+        "nodeId": { "type": "string", "minLength": 1 },
+        "participantAddress": { "type": "string", "minLength": 1 },
+        "expectedParticipantId": { "type": "string" },
+        "validatorParty": { "type": "string" },
+        "synchronizerAlias": { "type": "string" },
+        "expectedSynchronizerId": { "type": "string" },
+        "certificateSecret": { "type": "string" },
+        "certificateKey": { "type": "string" },
+        "validatorUrl": { "type": "string" },
+        "publicScanUrl": { "type": "string" },
+        "network": { "enum": ["mainnet", "testnet", "devnet"] }
+      }
+    },
+    "capture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "existingSecret",
+        "ledgerApiUserKey",
+        "tokenEndpointKey",
+        "clientIdKey",
+        "clientSecretKey",
+        "audienceKey",
+        "scopeKey"
+      ],
+      "properties": {
+        "existingSecret": { "type": "string" },
+        "ledgerApiUserKey": { "type": "string" },
+        "tokenEndpointKey": { "type": "string" },
+        "clientIdKey": { "type": "string" },
+        "clientSecretKey": { "type": "string" },
+        "audienceKey": { "type": "string" },
+        "scopeKey": { "type": "string" }
+      }
+    },
+    "oidc": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "appUrl", "auth0", "keycloak"],
+      "properties": {
+        "provider": { "enum": ["", "auth0", "keycloak"] },
+        "appUrl": { "type": "string" },
+        "auth0": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["domain", "clientId", "audience"],
+          "properties": {
+            "domain": { "type": "string" },
+            "clientId": { "type": "string" },
+            "audience": { "type": "string" }
+          }
+        },
+        "keycloak": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["url", "realm", "clientId"],
+          "properties": {
+            "url": { "type": "string" },
+            "realm": { "type": "string" },
+            "clientId": { "type": "string" }
+          }
+        }
+      }
+    },
+    "routing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "host", "tlsSecret", "annotations", "istio", "ingress"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "host": { "type": "string" },
+        "tlsSecret": { "type": "string" },
+        "annotations": { "type": "object" },
+        "istio": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["enabled", "gateway"],
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "gateway": { "type": "string" }
+          }
+        },
+        "ingress": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["enabled", "className"],
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "className": { "type": "string" }
+          }
+        }
+      }
+    },
+    "setupWizard": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "setupTokenSecret", "setupTokenKey", "localPort"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "setupTokenSecret": { "type": "string" },
+        "setupTokenKey": { "type": "string" },
+        "localPort": { "type": "integer", "minimum": 1024, "maximum": 65535 }
+      }
+    },
+    "migration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "sourceVersion", "backupConfirmed", "oldWorkloadStopped", "existingClaim"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "sourceVersion": { "type": "string" },
+        "backupConfirmed": { "type": "boolean" },
+        "oldWorkloadStopped": { "type": "boolean" },
+        "existingClaim": { "type": "string" }
+      }
+    },
+    "podAnnotations": { "type": "object" },
+    "podLabels": { "type": "object" },
+    "nodeSelector": { "type": "object" },
+    "tolerations": { "type": "array" },
+    "affinity": { "type": "object" }
+  },
+  "required": [
+    "backend",
+    "frontend",
+    "database",
+    "exports",
+    "canton",
+    "capture",
+    "oidc",
+    "routing",
+    "setupWizard",
+    "migration"
+  ],
+  "$defs": {
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "tag", "pullPolicy"],
+      "properties": {
+        "repository": { "type": "string", "minLength": 1 },
+        "tag": { "type": "string", "pattern": "^(4\\.[0-9]+\\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?|latest)$" },
+        "pullPolicy": { "enum": ["Always", "IfNotPresent", "Never"] }
+      }
+    },
+    "workload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["replicaCount", "image", "resources"],
+      "properties": {
+        "replicaCount": { "type": "integer", "minimum": 1 },
+        "image": { "$ref": "#/$defs/image" },
+        "resources": { "type": "object" }
+      }
+    },
+    "persistence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["size", "storageClass"],
+      "properties": {
+        "existingClaim": { "type": "string" },
+        "size": { "type": "string", "minLength": 1 },
+        "storageClass": { "type": "string" }
+      }
+    }
+  }
+}

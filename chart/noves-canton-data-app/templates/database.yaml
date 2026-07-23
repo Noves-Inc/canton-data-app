@@ -1,0 +1,142 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "cda.fullname" . }}-database
+  labels:
+    {{- include "cda.labels" . | nindent 4 }}
+    app.kubernetes.io/component: database
+spec:
+  serviceName: {{ include "cda.fullname" . }}-database
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "cda.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: database
+  template:
+    metadata:
+      labels:
+        {{- include "cda.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: database
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      initContainers:
+        - name: validate-postgresql-major
+          image: "{{ .Values.database.image.repository }}:{{ .Values.database.image.tag }}"
+          imagePullPolicy: {{ .Values.database.image.pullPolicy }}
+          command:
+            - sh
+            - -ec
+            - |
+              version_file=/home/postgres/pgdata/data/PG_VERSION
+              if [ -f "$version_file" ] && [ "$(cat "$version_file")" != "18" ]; then
+                echo "The selected database volume is not PostgreSQL 18. Restore or upgrade it before continuing." >&2
+                exit 1
+              fi
+          volumeMounts:
+            - name: data
+              mountPath: /home/postgres/pgdata
+      containers:
+        - name: database
+          image: "{{ .Values.database.image.repository }}:{{ .Values.database.image.tag }}"
+          imagePullPolicy: {{ .Values.database.image.pullPolicy }}
+          ports:
+            - name: postgresql
+              containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: {{ .Values.database.name | quote }}
+            - name: POSTGRES_USER
+              value: {{ .Values.database.user | quote }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.existingSecret }}
+                  key: {{ .Values.database.passwordKey }}
+          volumeMounts:
+            - name: data
+              mountPath: /home/postgres/pgdata
+            - name: dshm
+              mountPath: /dev/shm
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -ec
+                - pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB" -h 127.0.0.1
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -ec
+                - pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB" -h 127.0.0.1
+            periodSeconds: 20
+          resources:
+            {{- toYaml .Values.database.resources | nindent 12 }}
+      volumes:
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 1Gi
+        {{- if .Values.migration.enabled }}
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ .Values.migration.existingClaim }}
+        {{- else if .Values.database.persistence.existingClaim }}
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ .Values.database.persistence.existingClaim }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+  {{- if and (not .Values.migration.enabled) (not .Values.database.persistence.existingClaim) }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        {{- if .Values.database.persistence.storageClass }}
+        storageClassName: {{ .Values.database.persistence.storageClass | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.database.persistence.size }}
+  {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "cda.fullname" . }}-database
+  labels:
+    {{- include "cda.labels" . | nindent 4 }}
+    app.kubernetes.io/component: database
+spec:
+  clusterIP: None
+  selector:
+    {{- include "cda.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: database
+  ports:
+    - name: postgresql
+      port: 5432
+      targetPort: postgresql
