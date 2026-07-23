@@ -65,6 +65,19 @@ if [[ ! -f .env ]]; then
   chmod 600 .env
 fi
 
+setup_uid="$(id -u)"
+setup_gid="$(id -g)"
+for assignment in "CDA_SETUP_UID=$setup_uid" "CDA_SETUP_GID=$setup_gid"; do
+  key="${assignment%%=*}"
+  if grep -q "^${key}=" .env; then
+    sed -i.bak -e "s/^${key}=.*/${assignment}/" .env
+    rm -f .env.bak
+  else
+    printf '%s\n' "$assignment" >>.env
+  fi
+done
+chmod 600 .env
+
 docker compose --env-file .env -f compose.setup.yaml up -d
 setup_port="$(sed -n 's/^CDA_SETUP_PORT=//p' .env | tail -1)"
 setup_port="${setup_port:-8099}"
@@ -78,6 +91,12 @@ while true; do
     break
   fi
   sleep 2
+done
+
+for key in M2M_TOKEN_ENDPOINT M2M_CLIENT_ID M2M_CLIENT_SECRET M2M_AUDIENCE; do
+  if ! grep -Eq "^${key}=(\"[^\"]+\"|[^[:space:]].*)$" .state/capture.env; then
+    die "The dedicated capture credential file is incomplete; rerun the wizard."
+  fi
 done
 
 app_url="$(jq -r '.appUrl' .state/values.json)"

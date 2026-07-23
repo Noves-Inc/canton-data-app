@@ -6,7 +6,8 @@ three-container application.
 
 ## What it verifies
 
-- OIDC discovery and a client-credentials token exchange
+- HTTPS OIDC discovery pinned to the configured issuer
+- a non-interactive browser-client callback check and a client-credentials token exchange
 - the token's exact `sub` against the Canton user ID you entered
 - `CanReadAsAnyParty`
 - absence of participant administration, identity-provider administration, act-as, and
@@ -41,7 +42,10 @@ The Compose wizard binds only to `127.0.0.1:8099`, has no Docker socket, and wri
 - non-secret deployment values to `.state/values.json`;
 - capture credentials to `.state/capture.env` with mode `0600`.
 
-The installer turns off the setup stack before starting the normal application.
+The installer maps the setup process to the invoking host user's UID and GID so the published
+non-root image can write these files on Linux. Credentials are written before the completion
+marker, and both installers validate them before activation. The installer turns off the setup
+stack before starting the normal application.
 
 ## Resume or stop
 

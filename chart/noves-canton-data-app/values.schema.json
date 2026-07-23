@@ -49,8 +49,24 @@
     "capture": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["existingSecret"],
-      "properties": { "existingSecret": { "type": "string" } }
+      "required": [
+        "existingSecret",
+        "ledgerApiUserKey",
+        "tokenEndpointKey",
+        "clientIdKey",
+        "clientSecretKey",
+        "audienceKey",
+        "scopeKey"
+      ],
+      "properties": {
+        "existingSecret": { "type": "string" },
+        "ledgerApiUserKey": { "type": "string" },
+        "tokenEndpointKey": { "type": "string" },
+        "clientIdKey": { "type": "string" },
+        "clientSecretKey": { "type": "string" },
+        "audienceKey": { "type": "string" },
+        "scopeKey": { "type": "string" }
+      }
     },
     "oidc": {
       "type": "object",

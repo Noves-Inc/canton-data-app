@@ -7,7 +7,8 @@ and confirm it is healthy before proceeding.
 
 1. Confirm the running Data App reports version 3.16.1.
 2. Take a database backup and verify that it can be restored.
-3. Record the old image versions, volume name or PVC, participant ID, and OIDC configuration.
+3. Record the old image versions, volume name or PVC, participant ID, OIDC configuration, and
+   the existing `appuser` database password. The initialized database keeps that password.
 4. Stop the complete v3 workload. Do not allow v3 and v4 to write the same database.
 5. Confirm the existing database runs PostgreSQL 18. The v4 database container refuses a
    different major version.
@@ -27,6 +28,9 @@ migration:
   existingClaim: replace-with-v3-database-pvc
 ```
 
+Create the v4 database Secret with the existing `appuser` password under the
+`postgres-password` key. Do not generate a replacement password for the existing PVC.
+
 Install the v4 release with the same commands in [Helm installation](helm.md). The normal backend
 web host performs the upgrade; there is no one-off migration Job. Readiness remains false while
 work is in progress.
@@ -42,6 +46,9 @@ Use the guarded launcher with the stopped v3 volume name:
   --old-workload-stopped \
   --volume replace-with-v3-database-volume
 ```
+
+Set `CDA_DATABASE_PASSWORD` in `docker-compose/.env` to the existing `appuser` password before
+running the launcher. A new password will not be applied to an initialized volume.
 
 Use the shipped v4 database container. Do not copy the database into another runtime.
 

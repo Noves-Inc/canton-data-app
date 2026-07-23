@@ -15,19 +15,19 @@ Create the database Secret:
 
 ```bash
 kubectl --namespace validator create secret generic noves-canton-data-app-database \
-  --from-literal=POSTGRES_PASSWORD='replace-with-a-long-random-value'
+  --from-literal=postgres-password='replace-with-a-long-random-value'
 ```
 
 Create the dedicated capture Secret:
 
 ```bash
 kubectl --namespace validator create secret generic noves-canton-data-app-capture-auth \
-  --from-literal=M2M_INDEXER_ENABLED=true \
-  --from-literal=M2M_TOKEN_ENDPOINT='https://issuer.example.com/oauth/token' \
-  --from-literal=M2M_CLIENT_ID='replace-me' \
-  --from-literal=M2M_CLIENT_SECRET='replace-me' \
-  --from-literal=M2M_AUDIENCE='https://canton.network.global' \
-  --from-literal=M2M_SCOPE=''
+  --from-literal=ledger-api-user='exact-token-subject' \
+  --from-literal=token-endpoint='https://issuer.example.com/oauth/token' \
+  --from-literal=client-id='replace-me' \
+  --from-literal=client-secret='replace-me' \
+  --from-literal=audience='https://canton.network.global' \
+  --from-literal=scope=''
 ```
 
 Use your normal secret manager instead of imperative commands in production. The Secret must

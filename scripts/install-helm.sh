@@ -58,8 +58,6 @@ database_secret="${release}-database"
 capture_secret="${release}-capture-auth"
 setup_token_secret="${release}-setup-token"
 result_configmap="${release}-setup-results"
-database_password="$(random_secret)"
-setup_token="$(random_secret)"
 scratch="$(mktemp -d)"
 port_forward_pid=""
 
@@ -74,18 +72,35 @@ trap cleanup EXIT
 
 kubectl create namespace "$namespace" --dry-run=client -o yaml |
   kubectl apply -f -
-kubectl --namespace "$namespace" create secret generic "$database_secret" \
-  --from-literal="POSTGRES_PASSWORD=$database_password" \
-  --dry-run=client -o yaml |
-  kubectl apply -f -
-kubectl --namespace "$namespace" create secret generic "$capture_secret" \
-  --from-literal="M2M_INDEXER_ENABLED=false" \
-  --dry-run=client -o yaml |
-  kubectl apply -f -
-kubectl --namespace "$namespace" create secret generic "$setup_token_secret" \
-  --from-literal="token=$setup_token" \
-  --dry-run=client -o yaml |
-  kubectl apply -f -
+if ! kubectl --namespace "$namespace" get secret "$database_secret" >/dev/null 2>&1; then
+  database_password="$(random_secret)"
+  kubectl --namespace "$namespace" create secret generic "$database_secret" \
+    --from-literal="postgres-password=$database_password"
+fi
+if ! kubectl --namespace "$namespace" get secret "$capture_secret" >/dev/null 2>&1; then
+  kubectl --namespace "$namespace" create secret generic "$capture_secret" \
+    --from-literal="ledger-api-user=" \
+    --from-literal="token-endpoint=" \
+    --from-literal="client-id=" \
+    --from-literal="client-secret=" \
+    --from-literal="audience=" \
+    --from-literal="scope="
+fi
+if kubectl --namespace "$namespace" get secret "$setup_token_secret" >/dev/null 2>&1; then
+  setup_token="$(
+    kubectl --namespace "$namespace" get secret "$setup_token_secret" \
+      -o jsonpath='{.data.token}' | base64 --decode
+  )"
+else
+  setup_token="$(random_secret)"
+  kubectl --namespace "$namespace" create secret generic "$setup_token_secret" \
+    --from-literal="token=$setup_token"
+fi
+
+result_json="$(
+  kubectl --namespace "$namespace" get configmap "$result_configmap" \
+    -o jsonpath='{.data.values\.json}' 2>/dev/null || true
+)"
 
 helm upgrade --install "$release" "$chart_ref" \
   --version "$chart_constraint" \
@@ -96,28 +111,43 @@ helm upgrade --install "$release" "$chart_ref" \
   --set "capture.existingSecret=$capture_secret" \
   --wait
 
-kubectl --namespace "$namespace" port-forward \
-  "service/${release}-setup-wizard" "$local_port:3000" >"$scratch/port-forward.log" 2>&1 &
-port_forward_pid=$!
-setup_url="http://127.0.0.1:$local_port"
-printf 'Setup is ready at %s\n' "$setup_url"
-open_browser "$setup_url"
+if [[ -z "$result_json" ]] || ! jq -e '.completed == true' >/dev/null 2>&1 <<<"$result_json"; then
+  kubectl --namespace "$namespace" port-forward \
+    "service/${release}-setup-wizard" "$local_port:8080" >"$scratch/port-forward.log" 2>&1 &
+  port_forward_pid=$!
+  setup_url="http://127.0.0.1:$local_port"
+  printf 'Setup is ready at %s\n' "$setup_url"
+  open_browser "$setup_url"
 
-printf 'Waiting for you to finish the setup wizard. Press Ctrl-C to stop safely.\n'
-while true; do
-  result_json="$(
-    kubectl --namespace "$namespace" get configmap "$result_configmap" \
-      -o jsonpath='{.data.values\.json}' 2>/dev/null || true
-  )"
-  if [[ -n "$result_json" ]] && jq -e '.completed == true' >/dev/null 2>&1 <<<"$result_json"; then
-    break
-  fi
-  if ! kill -0 "$port_forward_pid" >/dev/null 2>&1; then
-    sed -n '1,120p' "$scratch/port-forward.log" >&2
-    die "The localhost port-forward stopped before setup completed."
-  fi
-  sleep 2
-done
+  printf 'Waiting for you to finish the setup wizard. Press Ctrl-C to stop safely.\n'
+  while true; do
+    result_json="$(
+      kubectl --namespace "$namespace" get configmap "$result_configmap" \
+        -o jsonpath='{.data.values\.json}' 2>/dev/null || true
+    )"
+    if [[ -n "$result_json" ]] && jq -e '.completed == true' >/dev/null 2>&1 <<<"$result_json"; then
+      break
+    fi
+    if ! kill -0 "$port_forward_pid" >/dev/null 2>&1; then
+      sed -n '1,120p' "$scratch/port-forward.log" >&2
+      die "The localhost port-forward stopped before setup completed."
+    fi
+    sleep 2
+  done
+else
+  printf 'Resuming the completed setup result for release %s.\n' "$release"
+fi
+
+capture_json="$(
+  kubectl --namespace "$namespace" get secret "$capture_secret" -o json
+)" || die "Could not read the dedicated capture Secret."
+if ! jq -e '
+  . as $secret
+  | ["ledger-api-user", "token-endpoint", "client-id", "client-secret", "audience"]
+  | all(. as $key | (($secret.data[$key] // "") | length > 0))
+' >/dev/null <<<"$capture_json"; then
+  die "The dedicated capture Secret is incomplete; rerun the wizard before activation."
+fi
 
 app_url="$(jq -r '.appUrl' <<<"$result_json")"
 route_host="${app_url#*://}"
@@ -135,6 +165,7 @@ jq --arg databaseSecret "$database_secret" \
       participantAddress: .participantAddress,
       expectedParticipantId: .expectedParticipantId,
       validatorUrl: .validatorUrl,
+      publicScanUrl: (.publicScanUrl // ""),
       network: .expectedNetwork
     },
     oidc: {

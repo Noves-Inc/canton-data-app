@@ -49,11 +49,13 @@ services:
   setup-wizard:
     image: ghcr.io/noves-inc/noves-canton-frontend-v4:${CDA_VERSION:-4.0.0}
     container_name: noves-canton-frontend-v4
+    user: "${CDA_SETUP_UID:-1000}:${CDA_SETUP_GID:-1000}"
     command: ["npm", "run", "start:setup"]
     environment:
       PORT: "3000"
       CANTON_TRANSLATE_BASE_URL: http://backend:8090
       CDA_SETUP_TOKEN: ${CDA_SETUP_TOKEN:?Set CDA_SETUP_TOKEN}
+      SETUP_PARTICIPANT_ADDRESS: ${CDA_PARTICIPANT_ADDRESS:-participant:5001}
       SETUP_STORAGE_MODE: file
       SETUP_RESULT_PATH: /setup/values.json
       SETUP_SECRET_PATH: /setup/capture.env

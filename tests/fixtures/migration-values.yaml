@@ -4,6 +4,7 @@ oidc:
   auth0:
     domain: tenant.example.auth0.com
     clientId: browser-client
+    audience: https://ledger-api
 
 canton:
   expectedParticipantId: participant::expected

@@ -7,6 +7,8 @@ metadata:
     app.kubernetes.io/component: backend
 spec:
   replicas: {{ .Values.backend.replicaCount }}
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       {{- include "cda.selectorLabels" . | nindent 6 }}
@@ -26,6 +28,9 @@ spec:
         {{- end }}
     spec:
       automountServiceAccountToken: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
@@ -34,6 +39,11 @@ spec:
         - name: backend
           image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
           imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           ports:
             - name: http
               containerPort: 8090
@@ -59,6 +69,36 @@ spec:
               value: {{ .Values.canton.validatorUrl | quote }}
             - name: PUBLIC_SCAN_INDEXER_URL
               value: {{ .Values.canton.publicScanUrl | quote }}
+            - name: M2M_INDEXER_ENABLED
+              value: {{ ternary "false" "true" .Values.setupWizard.enabled | quote }}
+            {{- if not .Values.setupWizard.enabled }}
+            - name: M2M_TOKEN_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.capture.existingSecret }}
+                  key: {{ .Values.capture.tokenEndpointKey }}
+            - name: M2M_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.capture.existingSecret }}
+                  key: {{ .Values.capture.clientIdKey }}
+            - name: M2M_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.capture.existingSecret }}
+                  key: {{ .Values.capture.clientSecretKey }}
+            - name: M2M_AUDIENCE
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.capture.existingSecret }}
+                  key: {{ .Values.capture.audienceKey }}
+            - name: M2M_SCOPE
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.capture.existingSecret }}
+                  key: {{ .Values.capture.scopeKey }}
+                  optional: true
+            {{- end }}
             {{- if .Values.setupWizard.enabled }}
             - name: CDA_SETUP_WIZARD_ENABLED
               value: "true"
@@ -67,17 +107,10 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.setupWizard.setupTokenSecret }}
                   key: {{ .Values.setupWizard.setupTokenKey }}
-            - name: M2M_INDEXER_ENABLED
-              value: "false"
             {{- else if .Values.migration.enabled }}
             - name: CDA_SETUP_WIZARD_ENABLED
               value: "false"
             {{- end }}
-          {{- if not .Values.setupWizard.enabled }}
-          envFrom:
-            - secretRef:
-                name: {{ .Values.capture.existingSecret }}
-          {{- end }}
           volumeMounts:
             - name: nodes
               mountPath: /config

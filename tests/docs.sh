@@ -59,5 +59,8 @@ fi
 if rg -ni 'tag:[[:space:]]+latest' "$repo_root/chart/noves-canton-data-app"; then
   fail 'the chart defaults to a moving image tag.'
 fi
+if rg -n 'canton-data-app/main/install\.sh' "$repo_root/readme.md" "$repo_root/docs"; then
+  fail 'a v4 quick start downloads an installer from the moving main branch.'
+fi
 
 printf 'documentation tests passed\n'

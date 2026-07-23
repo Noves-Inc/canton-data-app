@@ -45,7 +45,10 @@ jobs:
       - name: Verify chart and release versions match
         run: |
           chart_version="$(sed -n 's/^version: //p' chart/noves-canton-data-app/Chart.yaml)"
+          app_version="$(sed -n 's/^appVersion: "\(.*\)"/\1/p' chart/noves-canton-data-app/Chart.yaml)"
           test "v${chart_version}" = "${GITHUB_REF_NAME}"
+          test "${app_version}" = "${chart_version}"
+          test "$(grep -c "tag: \"${app_version}\"" chart/noves-canton-data-app/values.yaml)" = 3
       - name: Log in to GHCR
         run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io --username "${{ github.actor }}" --password-stdin
       - name: Publish chart

@@ -24,7 +24,7 @@ if [[ -f "$local_installer" ]]; then
   exec "$local_installer" "$@"
 fi
 
-ref="${CDA_INSTALL_REF:-main}"
+ref="${CDA_INSTALL_REF:-v4}"
 raw_base="${CDA_INSTALL_RAW_BASE:-https://raw.githubusercontent.com/Noves-Inc/canton-data-app/$ref}"
 scratch="$(mktemp -d)"
 trap 'rm -rf "$scratch"' EXIT

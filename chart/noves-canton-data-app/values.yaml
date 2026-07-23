@@ -37,7 +37,7 @@ database:
     tag: "4.0.0"
     pullPolicy: IfNotPresent
   existingSecret: noves-canton-data-app-database
-  passwordKey: POSTGRES_PASSWORD
+  passwordKey: postgres-password
   name: canton_index
   user: appuser
   persistence:
@@ -71,6 +71,12 @@ canton:
 
 capture:
   existingSecret: noves-canton-data-app-capture-auth
+  ledgerApiUserKey: ledger-api-user
+  tokenEndpointKey: token-endpoint
+  clientIdKey: client-id
+  clientSecretKey: client-secret
+  audienceKey: audience
+  scopeKey: scope
 
 oidc:
   provider: ""

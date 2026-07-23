@@ -62,8 +62,8 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- if not .Values.oidc.appUrl -}}
 {{- fail "oidc.appUrl is required when setupWizard.enabled=false" -}}
 {{- end -}}
-{{- if and (eq .Values.oidc.provider "auth0") (or (not .Values.oidc.auth0.domain) (not .Values.oidc.auth0.clientId)) -}}
-{{- fail "oidc.auth0.domain and oidc.auth0.clientId are required for Auth0" -}}
+{{- if and (eq .Values.oidc.provider "auth0") (or (not .Values.oidc.auth0.domain) (not .Values.oidc.auth0.clientId) (not .Values.oidc.auth0.audience)) -}}
+{{- fail "oidc.auth0.domain, oidc.auth0.clientId, and oidc.auth0.audience are required for Auth0" -}}
 {{- end -}}
 {{- if and (eq .Values.oidc.provider "keycloak") (or (not .Values.oidc.keycloak.url) (not .Values.oidc.keycloak.realm) (not .Values.oidc.keycloak.clientId)) -}}
 {{- fail "oidc.keycloak.url, oidc.keycloak.realm, and oidc.keycloak.clientId are required for Keycloak" -}}

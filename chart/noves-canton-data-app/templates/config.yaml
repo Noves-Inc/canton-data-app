@@ -45,6 +45,8 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: {{ include "cda.fullname" . }}-exports
+  annotations:
+    helm.sh/resource-policy: keep
   labels:
     {{- include "cda.labels" . | nindent 4 }}
 spec:

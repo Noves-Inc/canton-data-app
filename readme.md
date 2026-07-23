@@ -22,13 +22,13 @@ and then removes itself. It never receives validator credentials or cluster-admi
 Helm:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Noves-Inc/canton-data-app/main/install.sh | bash -s -- helm
+curl -fsSL https://raw.githubusercontent.com/Noves-Inc/canton-data-app/v4/install.sh | bash -s -- helm
 ```
 
 Docker Compose:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Noves-Inc/canton-data-app/main/install.sh | bash -s -- compose
+curl -fsSL https://raw.githubusercontent.com/Noves-Inc/canton-data-app/v4/install.sh | bash -s -- compose
 ```
 
 The wizard walks through the public application URL, Auth0 or Keycloak, and a new dedicated

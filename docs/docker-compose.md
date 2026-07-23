@@ -7,7 +7,7 @@ optional validator API at `http://validator-app:5003`.
 ## Guided localhost setup
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Noves-Inc/canton-data-app/main/install.sh | bash -s -- compose
+curl -fsSL https://raw.githubusercontent.com/Noves-Inc/canton-data-app/v4/install.sh | bash -s -- compose
 ```
 
 The installer creates `noves-canton-data-app-v4/docker-compose`, generates local credentials,

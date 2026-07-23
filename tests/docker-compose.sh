@@ -53,6 +53,7 @@ assert_contains "$scratch/setup.yaml" 'host_ip: 127.0.0.1'
 assert_contains "$scratch/setup.yaml" 'published: "8099"'
 assert_contains "$scratch/setup.yaml" 'start:setup'
 assert_contains "$scratch/setup.yaml" 'SETUP_STORAGE_MODE: file'
+assert_contains "$scratch/setup.yaml" 'user: 1000:1000'
 assert_not_contains "$scratch/setup.yaml" '/var/run/docker.sock'
 assert_not_contains "$scratch/setup.yaml" 'M2M_CLIENT_SECRET'
 
