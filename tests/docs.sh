@@ -18,6 +18,7 @@ required=(
   docs/migrate-v3.16.1.md
   docs/upgrades.md
   docs/security.md
+  docs/streaming.md
   docs/screenshots/README.md
   docs/screenshots/manifest.yaml
 )
@@ -71,7 +72,8 @@ for contract in \
   'session-token' \
   'release-manifest.json' \
   'DATABASE_MAX_PARALLEL_WORKERS_PER_GATHER' \
-  'READ_MODEL_TOTAL_CAPACITY'
+  'READ_MODEL_TOTAL_CAPACITY' \
+  'STREAM_PAGE_SIZE'
 do
   rg -Fq "$contract" "$repo_root/readme.md" "$repo_root/docs" ||
     fail "operator documentation is missing: $contract"

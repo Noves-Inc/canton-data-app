@@ -35,3 +35,9 @@ do
     exit 1
   fi
 done
+
+if grep -RIn 'CANTON_STREAM_URL' "${search_paths[@]}" >"$scratch"; then
+  printf 'Retired streaming sidecar configuration remains:\n' >&2
+  cat "$scratch" >&2
+  exit 1
+fi

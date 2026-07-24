@@ -39,6 +39,15 @@ backend:
       captureLagLimitRecords: 2000
       liveWorkMaxWaitMs: 30000
       processMemoryLimitBytes: 4294967296
+  streaming:
+    pollIntervalMs: 5000
+    pageSize: 100
+    retryDelayMs: 2000
+    websocketBufferLimit: 10000
+    databaseTimeoutSeconds: 60
+    deduplicationWindowRecords: 1000000
+    deliveryRecencyMinutes: 1440
+    allowPrivateWebhookTargets: false
 
 frontend:
   replicaCount: 1

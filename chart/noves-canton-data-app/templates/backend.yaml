@@ -101,6 +101,22 @@ spec:
               value: {{ .Values.backend.performance.readModel.liveWorkMaxWaitMs | quote }}
             - name: PROCESS_MEMORY_LIMIT_BYTES
               value: {{ .Values.backend.performance.readModel.processMemoryLimitBytes | quote }}
+            - name: STREAM_POLL_INTERVAL_MS
+              value: {{ .Values.backend.streaming.pollIntervalMs | quote }}
+            - name: STREAM_PAGE_SIZE
+              value: {{ .Values.backend.streaming.pageSize | quote }}
+            - name: STREAM_RETRY_DELAY_MS
+              value: {{ .Values.backend.streaming.retryDelayMs | quote }}
+            - name: STREAM_WEBSOCKET_BUFFER_LIMIT
+              value: {{ .Values.backend.streaming.websocketBufferLimit | quote }}
+            - name: STREAM_DATABASE_TIMEOUT_SECONDS
+              value: {{ .Values.backend.streaming.databaseTimeoutSeconds | quote }}
+            - name: STREAM_DEDUPLICATION_WINDOW_RECORDS
+              value: {{ .Values.backend.streaming.deduplicationWindowRecords | quote }}
+            - name: STREAM_DELIVERY_RECENCY_MINUTES
+              value: {{ .Values.backend.streaming.deliveryRecencyMinutes | quote }}
+            - name: ALLOW_PRIVATE_WEBHOOK_TARGETS
+              value: {{ .Values.backend.streaming.allowPrivateWebhookTargets | quote }}
             - name: NODES_CONFIG_FILE_PATH
               value: /config/nodes-config.json
             - name: CANTON_NETWORK

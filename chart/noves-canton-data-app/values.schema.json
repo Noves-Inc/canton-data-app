@@ -202,12 +202,37 @@
     "backendWorkload": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["replicaCount", "image", "resources", "performance"],
+      "required": ["replicaCount", "image", "resources", "performance", "streaming"],
       "properties": {
         "replicaCount": { "type": "integer", "const": 1 },
         "image": { "$ref": "#/$defs/image" },
         "resources": { "type": "object" },
-        "performance": { "$ref": "#/$defs/performance" }
+        "performance": { "$ref": "#/$defs/performance" },
+        "streaming": { "$ref": "#/$defs/streaming" }
+      }
+    },
+    "streaming": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pollIntervalMs",
+        "pageSize",
+        "retryDelayMs",
+        "websocketBufferLimit",
+        "databaseTimeoutSeconds",
+        "deduplicationWindowRecords",
+        "deliveryRecencyMinutes",
+        "allowPrivateWebhookTargets"
+      ],
+      "properties": {
+        "pollIntervalMs": { "type": "integer", "minimum": 100, "maximum": 60000 },
+        "pageSize": { "type": "integer", "minimum": 1, "maximum": 1000 },
+        "retryDelayMs": { "type": "integer", "minimum": 100, "maximum": 300000 },
+        "websocketBufferLimit": { "type": "integer", "minimum": 100, "maximum": 100000 },
+        "databaseTimeoutSeconds": { "type": "integer", "minimum": 5, "maximum": 600 },
+        "deduplicationWindowRecords": { "type": "integer", "minimum": 1000, "maximum": 100000000 },
+        "deliveryRecencyMinutes": { "type": "integer", "minimum": 0, "maximum": 525600 },
+        "allowPrivateWebhookTargets": { "type": "boolean" }
       }
     },
     "performance": {

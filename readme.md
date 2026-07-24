@@ -92,6 +92,7 @@ any-party variants. The wizard rejects those broader rights.
 - [Auth0](docs/authentication/auth0.md)
 - [Keycloak](docs/authentication/keycloak.md)
 - [Security model](docs/security.md)
+- [Streams, alerts, connectors, and WebSockets](docs/streaming.md)
 - [Encryption at rest](encryption_at_rest.md)
 - [Migrate from Data App v3.16.1](docs/migrate-v3.16.1.md)
 - [v4 upgrades and future major versions](docs/upgrades.md)

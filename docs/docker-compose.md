@@ -86,6 +86,11 @@ The remaining pressure thresholds let large operators match scheduling to their 
 container limits. Keep the supplied defaults initially. Increase capacity only after increasing
 CPU, memory, and database connections, and observe capture lag and write latency between changes.
 
+The `STREAM_*` variables in `.env.example` retain stream-delivery throughput controls without
+requiring another service. Keep `ALLOW_PRIVATE_WEBHOOK_TARGETS=false` unless callback receivers
+intentionally live on a private network. See
+[Streams, alerts, and connectors](streaming.md).
+
 ## Operations
 
 ```bash

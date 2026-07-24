@@ -83,16 +83,22 @@ backend:
       totalCapacity: 8
       reservedLiveCapacity: 2
       bootstrapBatchSize: 50
+  streaming:
+    pageSize: 250
+    websocketBufferLimit: 25000
 ```
 
 Increase one dimension at a time while observing database CPU, memory, connection utilization,
 write latency, capture lag, and `/startup-status`. The complete typed set is in
 [`values.yaml`](../chart/noves-canton-data-app/values.yaml).
+See [Streams, alerts, and connectors](streaming.md) for every streaming control and the private
+webhook policy.
 
 ## Routing
 
 Only one routing provider may be enabled. The chart routes only
-`noves-canton-data-app-frontend`; the backend and database have cluster-internal Services.
+`noves-canton-data-app-frontend`; the backend and database have cluster-internal Services. Streaming
+REST and WebSocket traffic uses that same route.
 
 For the standard Canton Istio gateway:
 

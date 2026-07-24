@@ -62,6 +62,10 @@ The response reports preparation and replay progress in Data App terms. If the b
 start the same v4 configuration again; work resumes from durable progress. Do not reattach the
 volume to v3 while v4 is running.
 
+Subscriptions, connectors, alert rules, delivery secrets, delivery history, and WebSocket buffers
+are preserved. Streaming delivery resumes at the completed v4 replay boundary rather than sending
+the migrated history again. Verify one preserved stream and alert after readiness succeeds.
+
 ## Rollback
 
 Stop v4 and restore the verified pre-migration backup into a clean v3.16.1 database volume.
