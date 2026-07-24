@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-24  
 **Status:** Approved design  
-**Repositories:** `canton-data-app`, `cda-frontend`, `cda-backend`, `canton-classifier`
+**Repositories:** `canton-data-app`, `cda-frontend`, `cda-backend`
 
 ## Objective
 
@@ -400,12 +400,12 @@ creation -> capture verification -> credential persistence -> final application 
 
 ## Repository changes
 
-### `canton-classifier`
+### Shared Ledger API client
 
 - Add the canonical User Management Service messages and RPCs required by provisioning.
 - Add `CantonNodeClient` methods for authenticated-user lookup, user creation, user lookup, rights
   grant, and rights listing.
-- Keep the classifier revision private and release-pinned through the existing process.
+- Keep internal dependency identity private and release-pinned through the existing process.
 
 ### `cda-backend`
 
