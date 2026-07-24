@@ -18,6 +18,10 @@ guide, and operator documentation.
   durable release ledger.
 - Standard Helm and Compose operation must remain fully supported without the optional localhost
   wizard.
+- Guided setup may use the validator participant-admin credential only through the host
+  installer-to-memory bootstrap. Never mount it, persist it, expose it to the browser, or include
+  it in final Helm/Compose configuration. Automatic Canton mutations may grant only
+  `CanReadAsAnyParty`.
 - Do not add `CDA_*` environment variables. Use direct domain names in project-scoped Compose files,
   `CANTON_*` for Canton integration, `NOVES_*` for Noves services, and `NOVES_DATA_APP_*` only for
   bootstrap-script overrides that need host-shell namespacing.

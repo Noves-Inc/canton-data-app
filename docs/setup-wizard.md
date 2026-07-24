@@ -4,6 +4,48 @@ The wizard is a launch aid, not a different deployment model. It collects the va
 normal Helm or Compose installation needs, verifies them live, and activates the standard
 three-container application.
 
+## Assisted capture-user flow
+
+For a validator installed with the standard conventions, the host installer finds its existing
+participant-admin machine credential:
+
+- Helm reads `splice-app-validator-ledger-api-auth` in the validator namespace.
+- Compose finds one running container labelled
+  `com.docker.compose.service=validator` and reads the documented validator authentication
+  environment.
+
+The installer filters the values and streams them directly to the localhost setup service. The
+credential is held in memory only for up to two hours. It is never mounted into the wizard,
+sent to the browser, written to a file or Kubernetes resource, stored in the database, or
+included in the final deployment. The temporary administrator token is also server-side only.
+
+The wizard uses the validator OIDC URL, audience, and scope to pre-fill safe suggestions. It does
+not create Auth0 applications or Keycloak clients. Create a separate browser client and a
+separate capture client using the linked provider guide, then enter the capture credentials.
+Before any participant mutation, the wizard shows the exact capture token subject and the one
+right it will grant. You must explicitly confirm `CanReadAsAnyParty`.
+
+Automatic setup then authenticates the administrator, confirms `ParticipantAdmin`, and creates
+the capture user with exactly `CanReadAsAnyParty`. An existing active user with no rights receives
+that one right; an exact existing user is unchanged. A deactivated user, identity-provider
+mismatch, or any additional right is refused without broadening access. The capture credential
+must pass the normal live token and rights verification before it is saved or activated.
+
+If discovery or automatic provisioning does not work, installation continues in manual mode.
+The wizard renders copyable commands for create, grant, and rights verification. It uses the
+literal shell variable below and never prints an administrator access token:
+
+```bash
+grpcurl -plaintext -expand-headers \
+  -H 'authorization: Bearer ${PARTICIPANT_ADMIN_TOKEN}' \
+  -d '{"userId":"exact-capture-token-subject"}' \
+  localhost:5001 \
+  com.daml.ledger.api.v2.admin.UserManagementService/ListUserRights
+```
+
+After running the generated commands, choose **Recheck**. Setup still requires the capture user
+to have exactly `CanReadAsAnyParty`.
+
 ## What it verifies
 
 - HTTPS OIDC discovery pinned to the configured issuer
@@ -34,6 +76,9 @@ The wizard service account can only `get`, `update`, or `patch` the first two re
 name. It cannot list Secrets, access Canton Secrets, patch Deployments, or perform cluster
 administration. Public routing is rejected while the wizard is enabled; access is through a
 localhost port-forward only.
+
+The validator administrator Secret is read by the host-side installer with the operator's
+existing Kubernetes access. It is never granted to the setup service account.
 
 After completion, the installer upgrades the release with `setupWizard.enabled=false`. Helm
 removes the wizard Deployment, Service, service account, Role, RoleBinding, and result

@@ -74,6 +74,12 @@ participant.ledger_api.users.create(
 Leave all administration, act-as, execute-as, and per-party rights unset. See
 [Security](../security.md) for the complete boundary.
 
+In guided setup, the installer can detect the Auth0 tenant URL and audience from the validator
+configuration. After you create and enter the dedicated capture application, the wizard asks for
+explicit confirmation and can create this Canton user automatically. It does not create or
+modify the Auth0 application. If automatic participant provisioning is unavailable, use the
+copyable `grpcurl -expand-headers` commands shown by the wizard.
+
 <!-- screenshot-slot: auth0-canton-rights -->
 
 Canton user-rights output showing `CanReadAsAnyParty` and no other rights. Redact participant

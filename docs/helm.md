@@ -65,6 +65,31 @@ helm upgrade --install noves-canton-data-app \
 The version constraint admits compatible v4 chart releases and refuses v5. For fully
 reproducible environments, replace it with an exact chart version.
 
+## Guided localhost install
+
+The guided one-liner keeps the same chart defaults and opens the temporary wizard through a
+localhost port-forward:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Noves-Inc/canton-data-app/v4/install.sh |
+  bash -s -- helm
+```
+
+With a standard validator deployment, the installer reads
+`splice-app-validator-ledger-api-auth` and sends it directly to setup-service memory so the
+wizard can provision the dedicated Canton capture user after your confirmation. The Secret is
+not mounted into the chart and is absent from the final release. For a differently named
+validator Secret:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Noves-Inc/canton-data-app/v4/install.sh |
+  bash -s -- helm --participant-admin-secret my-validator-ledger-api-auth
+```
+
+If that Secret cannot be read or used, the wizard opens normally and provides manual
+`grpcurl -expand-headers` commands. This assisted path does not create the browser or capture
+client in Auth0 or Keycloak.
+
 ## Performance tuning
 
 The chart exposes database and read-model controls under `backend.performance`. Defaults are

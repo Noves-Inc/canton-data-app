@@ -77,11 +77,22 @@ for contract in \
   'release-manifest.json' \
   'DATABASE_MAX_PARALLEL_WORKERS_PER_GATHER' \
   'READ_MODEL_TOTAL_CAPACITY' \
-  'STREAM_PAGE_SIZE'
+  'STREAM_PAGE_SIZE' \
+  'splice-app-validator-ledger-api-auth' \
+  '--participant-admin-secret' \
+  '--validator-container' \
+  'grpcurl -expand-headers' \
+  'memory only' \
+  'final deployment'
 do
-  rg -Fq "$contract" "$repo_root/readme.md" "$repo_root/docs" ||
+  rg -Fq -- "$contract" "$repo_root/readme.md" "$repo_root/docs" ||
     fail "operator documentation is missing: $contract"
 done
+
+if rg -ni 'wizard (creates|will create).*(Auth0|Keycloak).*(client|application)' \
+  "$repo_root/readme.md" "$repo_root/docs"; then
+  fail 'documentation incorrectly claims the wizard creates identity-provider clients.'
+fi
 
 rg -Fq 'Direct values take precedence' "$repo_root/docs" ||
   fail 'secret direct-variable precedence is undocumented.'

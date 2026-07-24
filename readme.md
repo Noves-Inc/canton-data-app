@@ -17,7 +17,9 @@ within v4.
 ## Guided install
 
 The optional setup wizard opens on localhost, verifies the participant and OIDC configuration,
-and then removes itself. It never receives validator credentials or cluster-admin access.
+and then removes itself. The host installer can stream the validator's existing
+participant-admin machine credential into setup-service memory only. The credential never
+reaches the browser, a Data App Secret, a values file, the database, or the final deployment.
 
 Helm:
 
@@ -32,7 +34,10 @@ curl -fsSL https://raw.githubusercontent.com/Noves-Inc/canton-data-app/v4/instal
 ```
 
 The wizard walks through the public application URL, Auth0 or Keycloak, and a new dedicated
-capture identity. See [Setup wizard](docs/setup-wizard.md).
+capture identity. You still create the separate browser and capture clients in Auth0 or
+Keycloak. The installer can pre-fill safe provider values and, after explicit confirmation,
+create the matching Canton user with only `CanReadAsAnyParty`. See
+[Setup wizard](docs/setup-wizard.md).
 
 ## Standard operator install
 

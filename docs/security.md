@@ -11,6 +11,14 @@ Create a Canton user whose ID exactly matches the M2M token's `sub`. Grant only
 `CanReadAsAnyParty`. Leave `participantAdmin`, `identityProviderAdmin`, `actAs`, `readAs`,
 `executeAs`, and `executeAsAnyParty` empty or false.
 
+During a guided installation, the host installer may read the validator's existing
+participant-admin machine credential and stream it to setup-service memory only. The browser
+never receives it. The setup service exchanges it for a short-lived token, verifies the
+administrator subject and `ParticipantAdmin`, and may create or grant only
+`CanReadAsAnyParty`. It clears the credential after completion, shutdown, or two hours. The
+administrator credential and token are absent from the capture Secret, chart values, Compose
+files, logs, database, setup result, and final deployment.
+
 In a Canton console connected with an administrative token, the least-privilege create
 operation is:
 
@@ -61,6 +69,11 @@ Never:
 - publish the backend or database;
 - give the wizard a validator Secret or a broad Kubernetes Role;
 - commit `.env`, `capture.env`, tokens, or client secrets.
+
+The exception to “never reuse an administrator credential” is the transient guided provisioning
+step described above: it uses the existing validator credential as administrator authority, never
+as the Data App capture credential. Standard Helm and Compose installations do not require this
+assisted path.
 
 ## Data
 

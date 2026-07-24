@@ -14,6 +14,21 @@ The installer creates `noves-canton-data-app-v4/docker-compose`, generates local
 opens `http://127.0.0.1:8099`, and waits for the wizard. When verification succeeds, it starts
 the normal three-container deployment.
 
+The installer looks for exactly one running container labelled
+`com.docker.compose.service=validator`, reads its existing participant-admin machine
+configuration, and streams the filtered values directly into setup-service memory. It does not
+run shell commands inside the wizard, mount the Docker socket, add the values to `.env`, or retain
+them in the final deployment. If more than one validator is running, select it explicitly:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Noves-Inc/canton-data-app/v4/install.sh |
+  bash -s -- compose --validator-container my-validator-container
+```
+
+Discovery failure is non-fatal: the wizard opens and shows manual
+`grpcurl -expand-headers` participant commands. Operators still create the separate Auth0 or
+Keycloak browser and capture clients themselves.
+
 ## Standard setup
 
 Prepare the files:

@@ -102,6 +102,12 @@ participant.ledger_api.users.create(
 Grant no other rights. In particular, leave participant administration, identity-provider
 administration, act-as, and execute-as disabled.
 
+In guided setup, the installer can detect the Keycloak URL, realm, Ledger API audience, and scope
+from the validator configuration. After you create and enter the separate capture client, the
+wizard asks for explicit confirmation and can create this Canton user automatically. It does not
+create or modify a Keycloak client. If automatic participant provisioning is unavailable, use
+the copyable `grpcurl -expand-headers` commands shown by the wizard.
+
 <!-- screenshot-slot: keycloak-canton-rights -->
 
 Canton user-rights output showing `CanReadAsAnyParty` and no other rights. Redact participant
