@@ -35,8 +35,10 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       packages: write
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@v4
       - uses: azure/setup-helm@v4
@@ -70,12 +72,43 @@ jobs:
               awk '/^Digest:/ { print $2; exit }'
           }
 
+          read_annotation() {
+            local image="$1"
+            local key="$2"
+            docker buildx imagetools inspect "$image" --raw |
+              jq -er --arg key "$key" '.annotations[$key]'
+          }
+
+          verify_source() {
+            local prefix="$1"
+            local image="$2"
+            local expected_repository="$3"
+            local source revision published_version
+            source="$(read_annotation "$image" org.opencontainers.image.source)"
+            revision="$(read_annotation "$image" org.opencontainers.image.revision)"
+            published_version="$(read_annotation "$image" org.opencontainers.image.version)"
+            [[ "$source" == "$expected_repository" ]]
+            [[ "$revision" =~ ^[0-9a-f]{40}$ ]]
+            [[ "$published_version" == "$version" ]]
+            {
+              echo "${prefix}_SOURCE_REPOSITORY=$source"
+              echo "${prefix}_SOURCE_COMMIT=$revision"
+            } >>"$GITHUB_ENV"
+          }
+
           backend_digest="$(resolve_digest "$backend")"
           frontend_digest="$(resolve_digest "$frontend")"
           database_digest="$(resolve_digest "$database")"
           test -n "$backend_digest"
           test -n "$frontend_digest"
           test -n "$database_digest"
+
+          verify_source BACKEND "$backend:$version" \
+            https://github.com/Noves-Inc/cda-backend
+          verify_source FRONTEND "$frontend:$version" \
+            https://github.com/Noves-Inc/cda-frontend
+          verify_source DATABASE "$database:$version" \
+            https://github.com/Noves-Inc/cda-db
 
           {
             echo "RELEASE_VERSION=$version"
@@ -86,51 +119,86 @@ jobs:
             echo "DATABASE_REPOSITORY=$database"
             echo "DATABASE_DIGEST=$database_digest"
           } >>"$GITHUB_ENV"
-      - name: Refuse an existing chart version
-        run: |
-          if helm show chart oci://ghcr.io/noves-inc/charts/noves-canton-data-app \
-            --version "$RELEASE_VERSION" >/dev/null 2>&1; then
-            echo "Refusing to replace existing chart version $RELEASE_VERSION" >&2
-            exit 1
-          fi
       - name: Create release artifacts
         run: |
           helm package chart/noves-canton-data-app --destination dist
-          jq -n \
-            --arg version "$RELEASE_VERSION" \
-            --arg gitSha "$GITHUB_SHA" \
-            --arg backendRepository "$BACKEND_REPOSITORY" \
-            --arg backendDigest "$BACKEND_DIGEST" \
-            --arg frontendRepository "$FRONTEND_REPOSITORY" \
-            --arg frontendDigest "$FRONTEND_DIGEST" \
-            --arg databaseRepository "$DATABASE_REPOSITORY" \
-            --arg databaseDigest "$DATABASE_DIGEST" \
-            '{
-              chart: {version: $version, gitSha: $gitSha},
-              images: {
-                backend: {
-                  repository: $backendRepository,
-                  tag: $version,
-                  digest: $backendDigest
-                },
-                frontend: {
-                  repository: $frontendRepository,
-                  tag: $version,
-                  digest: $frontendDigest
-                },
-                database: {
-                  repository: $databaseRepository,
-                  tag: $version,
-                  digest: $databaseDigest
-                }
-              }
-            }' >dist/release-manifest.json
+          export CHART_SOURCE_REPOSITORY="https://github.com/${GITHUB_REPOSITORY}"
+          export CHART_SOURCE_COMMIT="$GITHUB_SHA"
+          scripts/create-release-manifest.sh dist/release-manifest.json
+          (
+            cd dist
+            sha256sum \
+              "noves-canton-data-app-${RELEASE_VERSION}.tgz" \
+              release-manifest.json >SHA256SUMS
+          )
+      - name: Inspect durable release state
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          chart_exists=false
+          release_exists=false
+          if helm show chart oci://ghcr.io/noves-inc/charts/noves-canton-data-app \
+            --version "$RELEASE_VERSION" >/dev/null 2>&1; then
+            chart_exists=true
+          fi
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            release_exists=true
+          fi
+
+          if [[ "$chart_exists" == true && "$release_exists" == true ]]; then
+            echo "Refusing duplicate release $RELEASE_VERSION" >&2
+            exit 1
+          fi
+          if [[ "$chart_exists" == true ]]; then
+            echo "OCI chart exists without a durable GitHub Release; refusing unverifiable partial state." >&2
+            exit 1
+          fi
+          if [[ "$release_exists" == true ]]; then
+            echo "RELEASE_MODE=resume" >>"$GITHUB_ENV"
+          else
+            echo "RELEASE_MODE=new" >>"$GITHUB_ENV"
+          fi
+      - name: Verify resumable release artifacts
+        if: env.RELEASE_MODE == 'resume'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p recovered-release
+          gh release download "$GITHUB_REF_NAME" \
+            --dir recovered-release \
+            --pattern "noves-canton-data-app-${RELEASE_VERSION}.tgz" \
+            --pattern release-manifest.json \
+            --pattern SHA256SUMS
+          cmp "dist/noves-canton-data-app-${RELEASE_VERSION}.tgz" \
+            "recovered-release/noves-canton-data-app-${RELEASE_VERSION}.tgz"
+          cmp dist/release-manifest.json recovered-release/release-manifest.json
+          cmp dist/SHA256SUMS recovered-release/SHA256SUMS
       - uses: actions/upload-artifact@v4
         with:
           name: noves-canton-data-app-v4-${{ env.RELEASE_VERSION }}
           path: |
             dist/noves-canton-data-app-${{ env.RELEASE_VERSION }}.tgz
             dist/release-manifest.json
+            dist/SHA256SUMS
+      - name: Attest chart and release manifest
+        if: env.RELEASE_MODE == 'new'
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: |
+            dist/noves-canton-data-app-${{ env.RELEASE_VERSION }}.tgz
+            dist/release-manifest.json
+      - name: Create durable GitHub Release
+        if: env.RELEASE_MODE == 'new'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --verify-tag \
+            --title "Canton Data App ${RELEASE_VERSION}" \
+            --notes "Helm chart and verified v4 image digests for ${RELEASE_VERSION}." \
+            "dist/noves-canton-data-app-${RELEASE_VERSION}.tgz" \
+            dist/release-manifest.json \
+            dist/SHA256SUMS
       - name: Publish chart
         run: |
           helm push "dist/noves-canton-data-app-${RELEASE_VERSION}.tgz" \

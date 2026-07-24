@@ -30,8 +30,24 @@ within those v4 repositories. A future v5 uses `-v5` repositories, so pulling v4
 cannot cross the major-version boundary.
 
 Every chart release publishes `release-manifest.json` beside the packaged chart. It records the
-chart commit and the exact digest of each of the three Data App images. Use those digests as
-release evidence or pin them directly in environments that require digest-only deployment.
+chart commit and the public source repository, commit, and exact digest for each of the three
+Data App images. It contains no internal dependency identity. Use those digests as release evidence
+or pin them directly in environments that require digest-only deployment.
+
+Download and verify a release before promoting it:
+
+```bash
+gh release download v4.0.0 \
+  --repo Noves-Inc/canton-data-app \
+  --pattern 'release-manifest.json' \
+  --pattern 'noves-canton-data-app-4.0.0.tgz' \
+  --pattern 'SHA256SUMS'
+sha256sum --check SHA256SUMS
+gh attestation verify noves-canton-data-app-4.0.0.tgz \
+  --repo Noves-Inc/canton-data-app
+gh attestation verify release-manifest.json \
+  --repo Noves-Inc/canton-data-app
+```
 
 ## Upgrade procedure
 

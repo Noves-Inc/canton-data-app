@@ -12,6 +12,10 @@ guide, and operator documentation.
 - A chart release resolves and records the exact backend, frontend, and database image digests in
   `release-manifest.json`. Do not expose internal component identities in images, charts, manifests,
   runtime configuration, or customer documentation.
+- Each v4 GitHub Release carries the chart, `release-manifest.json`, checksums, and provenance
+  attestations. The manifest names the chart, backend, frontend, and database repositories and
+  commits. It must not contain classifier identity. Actions artifacts are transfer files, not the
+  durable release ledger.
 - Standard Helm and Compose operation must remain fully supported without the optional localhost
   wizard.
 - Do not add `CDA_*` environment variables. Use direct domain names in project-scoped Compose files,
