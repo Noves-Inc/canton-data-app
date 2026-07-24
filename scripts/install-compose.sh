@@ -119,10 +119,13 @@ docker compose --env-file .env -f compose.setup.yaml up -d
 setup_port="$(sed -n 's/^SETUP_PORT=//p' .env | tail -1)"
 setup_port="${setup_port:-8099}"
 setup_origin="http://127.0.0.1:$setup_port"
+canton_docker_network="$(sed -n 's/^CANTON_DOCKER_NETWORK=//p' .env | tail -1)"
+canton_docker_network="${canton_docker_network:-splice-validator_splice_validator}"
 wait_for_setup_health "$setup_origin" ||
   die "The localhost setup service did not become ready."
 if ! bootstrap_compose_setup_admin \
   "$validator_container" \
+  "$canton_docker_network" \
   "$setup_origin" \
   "$setup_token"; then
   printf '%s\n' \

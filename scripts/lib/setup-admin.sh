@@ -48,8 +48,9 @@ bootstrap_helm_setup_admin() (
 bootstrap_compose_setup_admin() (
   set -o pipefail
   local selected_container="$1"
-  local origin="$2"
-  local setup_token="$3"
+  local compose_network="$2"
+  local origin="$3"
+  local setup_token="$4"
   local container="$selected_container"
   local -a matches=()
 
@@ -58,6 +59,7 @@ bootstrap_compose_setup_admin() (
       [[ -n "$candidate" ]] && matches+=("$candidate")
     done < <(
       docker ps \
+        --filter "network=$compose_network" \
         --filter label=com.docker.compose.service=validator \
         --format '{{.ID}}'
     )
@@ -73,8 +75,13 @@ bootstrap_compose_setup_admin() (
   fi
 
   docker inspect "$container" |
-    jq -e '
+    jq -e --arg composeNetwork "$compose_network" '
       .[0] as $container
+      | select($container.State.Running == true)
+      | select(
+          $container.Config.Labels["com.docker.compose.service"] == "validator"
+        )
+      | select($container.NetworkSettings.Networks[$composeNetwork] != null)
       | $container.Config.Env
       | map(
           capture(
@@ -92,7 +99,7 @@ bootstrap_compose_setup_admin() (
           audience: (.AUDIENCE // ""),
           scope: (.SCOPE // ""),
           validatorContainer: ($container.Name // ""),
-          composeNetwork: (($container.NetworkSettings.Networks // {}) | keys | first // "")
+          composeNetwork: $composeNetwork
         }
       | select(
           .discoveryUrl != ""

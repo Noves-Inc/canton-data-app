@@ -36,6 +36,9 @@ The wizard renders copyable commands for create, grant, and rights verification.
 literal shell variable below and never prints an administrator access token:
 
 ```bash
+read -rsp 'Participant admin access token: ' PARTICIPANT_ADMIN_TOKEN
+export PARTICIPANT_ADMIN_TOKEN
+printf '\n'
 grpcurl -plaintext -expand-headers \
   -H 'authorization: Bearer ${PARTICIPANT_ADMIN_TOKEN}' \
   -d '{"userId":"exact-capture-token-subject"}' \
@@ -106,7 +109,8 @@ stack before starting the normal application.
 ## Resume or stop
 
 Re-run the same installer if the terminal closes. Existing generated state is reused. Stopping
-the wizard does not modify participant rights and does not delete database storage.
+the wizard does not delete database storage. If capture-user provisioning already succeeded, the
+dedicated user and its `CanReadAsAnyParty` right remain for a later retry.
 
 For automation, set `NOVES_GATEWAY_AUTH_TOKEN` or
 `NOVES_GATEWAY_AUTH_TOKEN_FILE`. Direct values take precedence over file values. An explicitly

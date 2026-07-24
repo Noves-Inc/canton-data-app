@@ -40,9 +40,18 @@ if [[ "$*" == "compose version" ]]; then
 fi
 printf '%s\n' "$*" >>"$INSTALLER_CALLS"
 if [[ "$1" == ps && "$*" == *"com.docker.compose.service=validator"* ]]; then
-  printf '%s\n' ${DOCKER_VALIDATORS:-validator-one}
+  if [[ -n "${DOCKER_VALIDATORS+x}" ]]; then
+    printf '%s\n' $DOCKER_VALIDATORS
+  else
+    printf '%s\n' validator-one
+  fi
 elif [[ "$1" == inspect ]]; then
-  printf '%s' '[{"Name":"/validator-one","Config":{"Env":["SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_URL=https://tenant.auth0.com/oauth/token","SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_CLIENT_ID=validator-client","SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_CLIENT_SECRET=validator-secret","SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_AUDIENCE=https://ledger-api","SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_SCOPE=daml_ledger_api","SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_USER_NAME=validator-admin"]},"NetworkSettings":{"Networks":{"splice-validator_splice_validator":{}}}}]'
+  container_name="${2:-validator-one}"
+  validator_label="${DOCKER_VALIDATOR_LABEL:-validator}"
+  validator_running="${DOCKER_VALIDATOR_RUNNING:-true}"
+  validator_network="${DOCKER_VALIDATOR_NETWORK:-splice-validator_splice_validator}"
+  printf '[{"Name":"/%s","State":{"Running":%s},"Config":{"Labels":{"com.docker.compose.service":"%s"},"Env":["SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_URL=https://tenant.auth0.com/oauth/token","SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_CLIENT_ID=validator-client","SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_CLIENT_SECRET=validator-secret","SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_AUDIENCE=https://ledger-api","SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_SCOPE=daml_ledger_api","SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_USER_NAME=validator-admin"]},"NetworkSettings":{"Networks":{"%s":{}}}}]' \
+    "$container_name" "$validator_running" "$validator_label" "$validator_network"
 fi
 EOF
 cat >"$fake_bin/curl" <<'EOF'
@@ -63,7 +72,7 @@ if [[ "$*" == *"--data-binary @-"* ]]; then
     and .scope == "daml_ledger_api"
     and (if $mode == "helm"
       then .participantNamespace == "validator"
-      else .validatorContainer == "/validator-one"
+      else (.validatorContainer | startswith("/validator"))
         and .composeNetwork == "splice-validator_splice_validator"
       end)
   ' >/dev/null <<<"$payload" || exit 41
@@ -199,16 +208,30 @@ INSTALLER_CALLS="$bootstrap_calls" BOOTSTRAP_CHECK="$bootstrap_check" PATH="$fak
   fail 'Helm administrator bootstrap did not support default and overridden Secrets.'
 
 INSTALLER_CALLS="$bootstrap_calls" BOOTSTRAP_CHECK="$bootstrap_check" PATH="$fake_bin:$PATH" \
-  bash -c 'source "$1"; bootstrap_compose_setup_admin "" "$2" "$3"' _ \
-  "$repo_root/scripts/lib/setup-admin.sh" http://127.0.0.1:8099 setup-secret
+  bash -c 'source "$1"; bootstrap_compose_setup_admin "" "$2" "$3" "$4"' _ \
+  "$repo_root/scripts/lib/setup-admin.sh" splice-validator_splice_validator \
+  http://127.0.0.1:8099 setup-secret
 grep -Fq $'compose\tvalidator-admin' "$bootstrap_check" ||
   fail 'Compose administrator bootstrap did not discover the validator container.'
+grep -Fq -- '--filter network=splice-validator_splice_validator' "$bootstrap_calls" ||
+  fail 'Compose administrator discovery did not stay on the configured Canton network.'
+
+if INSTALLER_CALLS="$bootstrap_calls" BOOTSTRAP_CHECK="$bootstrap_check" \
+  DOCKER_VALIDATORS='' PATH="$fake_bin:$PATH" \
+  bash -c 'source "$1"; bootstrap_compose_setup_admin "" "$2" "$3" "$4"' _ \
+  "$repo_root/scripts/lib/setup-admin.sh" splice-validator_splice_validator \
+  http://127.0.0.1:8099 setup-secret >"$scratch/no-validator.out" 2>&1; then
+  fail 'Compose administrator discovery accepted zero validator containers.'
+fi
+grep -Fq 'No running Compose validator' "$scratch/no-validator.out" ||
+  fail 'zero-validator discovery did not explain manual fallback.'
 
 if INSTALLER_CALLS="$bootstrap_calls" BOOTSTRAP_CHECK="$bootstrap_check" \
   DOCKER_VALIDATORS='validator-one validator-two' PATH="$fake_bin:$PATH" \
-  bash -c 'source "$1"; bootstrap_compose_setup_admin "" "$2" "$3"' _ \
+  bash -c 'source "$1"; bootstrap_compose_setup_admin "" "$2" "$3" "$4"' _ \
   "$repo_root/scripts/lib/setup-admin.sh" \
-  http://127.0.0.1:8099 setup-secret >"$scratch/multiple-validator.out" 2>&1; then
+  splice-validator_splice_validator http://127.0.0.1:8099 setup-secret \
+  >"$scratch/multiple-validator.out" 2>&1; then
   fail 'Compose administrator discovery accepted multiple validator containers.'
 fi
 grep -Fq -- '--validator-container' "$scratch/multiple-validator.out" ||
@@ -216,9 +239,17 @@ grep -Fq -- '--validator-container' "$scratch/multiple-validator.out" ||
 
 INSTALLER_CALLS="$bootstrap_calls" BOOTSTRAP_CHECK="$bootstrap_check" \
   DOCKER_VALIDATORS='validator-one validator-two' PATH="$fake_bin:$PATH" \
-  bash -c 'source "$1"; bootstrap_compose_setup_admin validator-two "$2" "$3"' _ \
+  bash -c 'source "$1"; bootstrap_compose_setup_admin validator-two "$2" "$3" "$4"' _ \
   "$repo_root/scripts/lib/setup-admin.sh" \
-  http://127.0.0.1:8099 setup-secret
+  splice-validator_splice_validator http://127.0.0.1:8099 setup-secret
+if INSTALLER_CALLS="$bootstrap_calls" BOOTSTRAP_CHECK="$bootstrap_check" \
+  DOCKER_VALIDATOR_LABEL=other PATH="$fake_bin:$PATH" \
+  bash -c 'source "$1"; bootstrap_compose_setup_admin validator-one "$2" "$3" "$4"' _ \
+  "$repo_root/scripts/lib/setup-admin.sh" \
+  splice-validator_splice_validator http://127.0.0.1:8099 setup-secret \
+  >"$scratch/invalid-validator.out" 2>&1; then
+  fail 'Compose administrator discovery accepted a non-validator container override.'
+fi
 if grep -Fq 'validator-secret' "$bootstrap_calls"; then
   fail 'administrator client secret appeared in installer command arguments.'
 fi
