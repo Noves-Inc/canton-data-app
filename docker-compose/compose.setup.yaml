@@ -57,7 +57,7 @@ services:
     image: ghcr.io/noves-inc/noves-canton-frontend-v4:${IMAGE_VERSION:-4.0.0}
     container_name: noves-canton-frontend-v4
     user: "${SETUP_USER:-1000:1000}"
-    command: ["npm", "run", "start:setup"]
+    command: ["node", "runtime/setup.mjs"]
     environment:
       PORT: "3000"
       CANTON_TRANSLATE_BASE_URL: http://backend:8090

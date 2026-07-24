@@ -10,8 +10,13 @@ search_paths=(
   "$repo_root/scripts"
   "$repo_root/docker-compose"
   "$repo_root/chart"
-  "$repo_root/README.md"
   "$repo_root/docs"
+)
+
+while IFS= read -r markdown; do
+  search_paths+=("$markdown")
+done < <(
+  find "$repo_root" -maxdepth 1 -type f -name '*.md' ! -name 'CLAUDE.md' -print
 )
 
 if grep -RInE \

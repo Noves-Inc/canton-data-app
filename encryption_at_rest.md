@@ -58,7 +58,7 @@ filesystem export storage, `/exports` is durable application state.
 
 Transparent volume encryption protects against **offline access to the stored bytes**: stolen or improperly decommissioned disks, leaked volume snapshots, and hosts whose storage is accessed outside the running system. This matches the protection level of the Canton validator node's own database.
 
-It does **not** protect against an attacker who has live access to the running host or valid database credentials — a running system necessarily sees its own data decrypted. Protect that layer operationally: restrict who holds the Postgres password (set via `CDA_DATABASE_PASSWORD` or the chart's database Secret), don't expose port 5432 beyond the app's network, and control host/cluster access.
+It does **not** protect against an attacker who has live access to the running host or valid database credentials — a running system necessarily sees its own data decrypted. Protect that layer operationally: restrict who holds the Postgres password (set via `DATABASE_PASSWORD` or the chart's database Secret), don't expose port 5432 beyond the app's network, and control host/cluster access.
 
 ---
 
@@ -66,11 +66,11 @@ It does **not** protect against an attacker who has live access to the running h
 
 In compose mode the database stores its data in the `noves-canton-data-app-v4-data` volume. By default that is a named Docker volume under `/var/lib/docker/volumes` — encrypted only if that path happens to sit on an encrypted disk.
 
-The v4 compose file makes the data location configurable via the `CANTON_DATA_APP_DB_DATA` variable:
+The v4 compose file makes the data location configurable via the `DATABASE_DATA_PATH` variable:
 
 ```yaml
 volumes:
-  - ${CANTON_DATA_APP_DB_DATA:-cda-database-data}:/home/postgres/pgdata
+  - ${DATABASE_DATA_PATH:-cda-database-data}:/home/postgres/pgdata
 ```
 
 - **Unset** (default): behaves exactly as before — the named Docker volume. No action needed for existing deployments until you migrate.
@@ -80,8 +80,8 @@ Set it in a `.env` file next to `compose.yaml` (compose reads it automatically):
 
 ```bash
 # .env
-CDA_DATABASE_PASSWORD=<your-db-password>
-CANTON_DATA_APP_DB_DATA=/mnt/canton-encrypted/db
+DATABASE_PASSWORD=<your-db-password>
+DATABASE_DATA_PATH=/mnt/canton-encrypted/db
 ```
 
 There are two equally valid ways to get an encrypted filesystem under that path — pick whichever fits your environment:
@@ -93,7 +93,7 @@ There are two equally valid ways to get an encrypted filesystem under that path 
 
 1. Prepare the encrypted filesystem and mount it (e.g. at `/mnt/canton-encrypted`).
 2. Create the data directory: `mkdir -p /mnt/canton-encrypted/db`
-3. Set `CANTON_DATA_APP_DB_DATA=/mnt/canton-encrypted/db` in `.env`.
+3. Set `DATABASE_DATA_PATH=/mnt/canton-encrypted/db` in `.env`.
 4. `docker compose up -d` — the database initializes directly onto encrypted storage.
 
 > If Postgres fails to start with a permissions error on first boot, give the postgres user in the container ownership of the directory: check the uid in the error message and `chown -R <uid> /mnt/canton-encrypted/db`.
@@ -116,7 +116,7 @@ docker run --rm \
   alpine cp -a /from/. /to/
 
 # 3. Point the deployment at the new location
-echo 'CANTON_DATA_APP_DB_DATA=/mnt/canton-encrypted/db' >> .env
+echo 'DATABASE_DATA_PATH=/mnt/canton-encrypted/db' >> .env
 
 # 4. Start and verify
 docker compose up -d
@@ -356,7 +356,7 @@ Where the unlock key lives determines what the encryption is actually worth:
 
 ## Verification Checklist
 
-- [ ] **Compose:** `CANTON_DATA_APP_DB_DATA` points into the encrypted mount, and `findmnt -T $CANTON_DATA_APP_DB_DATA` shows the encrypted device (`/dev/mapper/...` for LUKS). `lsblk -o NAME,TYPE,FSTYPE,MOUNTPOINT` shows the device as `crypt`.
+- [ ] **Compose:** `DATABASE_DATA_PATH` points into the encrypted mount, and `findmnt -T $DATABASE_DATA_PATH` shows the encrypted device (`/dev/mapper/...` for LUKS). `lsblk -o NAME,TYPE,FSTYPE,MOUNTPOINT` shows the device as `crypt`.
 - [ ] **Kubernetes:** `kubectl get pvc noves-canton-data-app-database-encrypted -o jsonpath='{.spec.storageClassName}'` returns your encrypted class, and the volume shows as encrypted in your storage provider's console/CLI.
 - [ ] **Azure CMK:** the backing managed disk reports `EncryptionAtRestWithCustomerKey` and the expected DES ID. The AKS identity/service principal has Reader on that DES.
 - [ ] **Filesystem exports:** when S3 is not selected, `/exports` is a durable encrypted mount rather than container-local storage.

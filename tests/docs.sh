@@ -43,10 +43,14 @@ while IFS= read -r slot; do
   grep -Fq -- "id: $slot" "$repo_root/docs/screenshots/manifest.yaml" ||
     fail "screenshot slot is missing from manifest: $slot"
 done < <(
-  rg -o 'Screenshot slot `[^`]+`' "$repo_root/docs/authentication" |
-    sed -E 's/.*`([^`]+)`.*/\1/' |
+  rg -o '<!-- screenshot-slot: [a-z0-9-]+ -->' "$repo_root/docs/authentication" |
+    sed -E 's/.*screenshot-slot: ([a-z0-9-]+).*/\1/' |
     sort -u
 )
+
+if rg -n 'Screenshot slot' "$repo_root/docs/authentication"; then
+  fail 'authentication guides expose screenshot authoring labels.'
+fi
 
 internal_language='py''thon'
 if rg -ni "$internal_language|3\\.15\\.0" \

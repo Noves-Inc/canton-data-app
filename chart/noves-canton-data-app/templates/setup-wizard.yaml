@@ -104,9 +104,9 @@ spec:
               drop:
                 - ALL
           command:
-            - npm
-            - run
-            - start:setup
+            - node
+          args:
+            - runtime/setup.mjs
           ports:
             - name: http
               containerPort: 3000

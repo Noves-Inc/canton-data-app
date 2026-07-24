@@ -20,7 +20,7 @@ realm.
 6. Require PKCE with `S256` when that option is available.
 7. Add the validator's `daml_ledger_api` client scope as a default scope.
 
-### Screenshot slot `keycloak-public-client`
+<!-- screenshot-slot: keycloak-public-client -->
 
 Keycloak browser-client capability settings and access fields. Show Standard flow,
 public-client status, redirect URI, and web origin. Redact realm-specific identifiers.
@@ -52,12 +52,12 @@ For Compose, use the equivalent `VITE_KEYCLOAK_*` values in `.env`.
    KEYCLOAK_URL/realms/REALM/protocol/openid-connect/token
    ```
 
-### Screenshot slot `keycloak-service-account`
+<!-- screenshot-slot: keycloak-service-account -->
 
 Keycloak capture-client capability settings showing Client authentication and Service accounts
 roles. Do not show the Credentials tab or secret.
 
-### Screenshot slot `keycloak-ledger-scope`
+<!-- screenshot-slot: keycloak-ledger-scope -->
 
 Assigned default client scopes and audience mapper showing `daml_ledger_api` and the Canton
 Ledger API audience. Redact internal hostnames if required.
@@ -83,7 +83,7 @@ unset TOKEN TOKEN_RESPONSE PAYLOAD
 Copy the exact, case-sensitive `sub`. Do not assume it is the client ID or service-account
 display name.
 
-### Screenshot slot `keycloak-token-subject`
+<!-- screenshot-slot: keycloak-token-subject -->
 
 Locally decoded token claims showing only `sub`, `iss`, and `aud`. Never capture the access
 token or client secret.
@@ -102,7 +102,7 @@ participant.ledger_api.users.create(
 Grant no other rights. In particular, leave participant administration, identity-provider
 administration, act-as, and execute-as disabled.
 
-### Screenshot slot `keycloak-canton-rights`
+<!-- screenshot-slot: keycloak-canton-rights -->
 
 Canton user-rights output showing `CanReadAsAnyParty` and no other rights. Redact participant
 and party identifiers.

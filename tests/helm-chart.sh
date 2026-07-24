@@ -132,6 +132,11 @@ if grep -Eq '^kind: Service$' "$chart/templates/setup-wizard.yaml"; then
 fi
 assert_contains "$scratch/setup.yaml" 'name: SETUP_SESSION_TOKEN'
 assert_contains "$scratch/setup.yaml" 'path: /health'
+assert_contains "$scratch/setup.yaml" 'command:'
+assert_contains "$scratch/setup.yaml" '- node'
+assert_contains "$scratch/setup.yaml" 'args:'
+assert_contains "$scratch/setup.yaml" '- runtime/setup.mjs'
+assert_not_contains "$scratch/setup.yaml" 'start:setup'
 assert_contains "$chart/templates/setup-wizard.yaml" 'lookup "v1" "ConfigMap"'
 
 assert_contains "$scratch/ingress.yaml" 'kind: Ingress'

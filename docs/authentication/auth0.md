@@ -18,7 +18,7 @@ In the examples below, `APP_URL` is the exact public URL, such as
 5. Save and record the tenant domain and Client ID. A browser client has no client secret in the
    Data App configuration.
 
-### Screenshot slot `auth0-spa-callbacks`
+<!-- screenshot-slot: auth0-spa-callbacks -->
 
 Auth0 application settings showing the three Application URI fields. Capture only the field
 labels and example-host values; redact tenant identifiers.
@@ -46,7 +46,7 @@ For Compose, use the equivalent `VITE_AUTH0_*` values in `.env`.
    normally `https://TENANT_DOMAIN/oauth/token`.
 5. Do not authorize the M2M application for unrelated APIs.
 
-### Screenshot slot `auth0-m2m-api-grant`
+<!-- screenshot-slot: auth0-m2m-api-grant -->
 
 Auth0 M2M API authorization page showing the selected Canton API and its minimal grant. Redact
 the client ID, tenant name, and any secrets.
@@ -54,7 +54,7 @@ the client ID, tenant name, and any secrets.
 Auth0 client-credentials tokens normally use `<client-id>@clients` as `sub`. Request a token and
 confirm the actual claim for your tenant; the value is case-sensitive.
 
-### Screenshot slot `auth0-token-subject`
+<!-- screenshot-slot: auth0-token-subject -->
 
 Auth0 token inspection showing only the `sub`, `iss`, and `aud` claims. Never include the
 access token or client secret.
@@ -74,7 +74,7 @@ participant.ledger_api.users.create(
 Leave all administration, act-as, execute-as, and per-party rights unset. See
 [Security](../security.md) for the complete boundary.
 
-### Screenshot slot `auth0-canton-rights`
+<!-- screenshot-slot: auth0-canton-rights -->
 
 Canton user-rights output showing `CanReadAsAnyParty` and no other rights. Redact participant
 and party identifiers.
