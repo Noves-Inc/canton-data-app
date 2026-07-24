@@ -2,12 +2,12 @@ name: noves-canton-data-app-v4-setup
 
 services:
   database:
-    image: ghcr.io/noves-inc/noves-canton-database-v4:${CDA_VERSION:-4.0.0}
+    image: ghcr.io/noves-inc/noves-canton-database-v4:${IMAGE_VERSION:-4.0.0}
     container_name: noves-canton-database-v4
     environment:
       POSTGRES_USER: appuser
       POSTGRES_DB: canton_index
-      POSTGRES_PASSWORD: ${CDA_DATABASE_PASSWORD:?Set CDA_DATABASE_PASSWORD}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:?Set DATABASE_PASSWORD}
       PGDATA: /home/postgres/pgdata/data
     volumes:
       - cda-database-data:/home/postgres/pgdata
@@ -22,23 +22,30 @@ services:
     restart: unless-stopped
 
   backend:
-    image: ghcr.io/noves-inc/noves-canton-backend-v4:${CDA_VERSION:-4.0.0}
+    image: ghcr.io/noves-inc/noves-canton-backend-v4:${IMAGE_VERSION:-4.0.0}
     container_name: noves-canton-backend-v4
     environment:
       INDEX_DB_HOST: database
       INDEX_DB_PORT: "5432"
       INDEX_DB_NAME: canton_index
       INDEX_DB_USER: appuser
-      INDEX_DB_PASSWORD: ${CDA_DATABASE_PASSWORD:?Set CDA_DATABASE_PASSWORD}
+      INDEX_DB_PASSWORD: ${DATABASE_PASSWORD:?Set DATABASE_PASSWORD}
+      INDEX_DB_WRITE_BATCH_SIZE: ${INDEX_DB_WRITE_BATCH_SIZE:-250}
+      DATABASE_MAX_PARALLEL_WORKERS_PER_GATHER: ${DATABASE_MAX_PARALLEL_WORKERS_PER_GATHER:-0}
+      DATABASE_SYNCHRONOUS_COMMIT: ${DATABASE_SYNCHRONOUS_COMMIT:-off}
+      DATABASE_MAX_WAL_SIZE: ${DATABASE_MAX_WAL_SIZE:-8GB}
       NODES_CONFIG_FILE_PATH: /config/nodes-config.json
-      CDA_NETWORK: ${CDA_NETWORK:-mainnet}
-      SCAN_PROXY_URL: ${CDA_VALIDATOR_URL:-http://validator-app:5003}
-      CDA_SETUP_WIZARD_ENABLED: "true"
-      CDA_SETUP_TOKEN: ${CDA_SETUP_TOKEN:?Set CDA_SETUP_TOKEN}
+      CANTON_NETWORK: ${CANTON_NETWORK:-mainnet}
+      SCAN_PROXY_URL: ${CANTON_VALIDATOR_URL:-http://validator-app:5003}
+      SETUP_ENABLED: "true"
+      SETUP_TOKEN: ${SETUP_TOKEN:?Set SETUP_TOKEN}
       M2M_INDEXER_ENABLED: "false"
+      NOVES_GATEWAY_AUTH_TOKEN_FILE: /run/secrets/noves-gateway-auth-token
     volumes:
       - ./.state/nodes-config.json:/config/nodes-config.json:ro
       - cda-exports:/exports
+    secrets:
+      - noves-gateway-auth-token
     depends_on:
       database:
         condition: service_healthy
@@ -47,22 +54,23 @@ services:
     restart: unless-stopped
 
   setup-wizard:
-    image: ghcr.io/noves-inc/noves-canton-frontend-v4:${CDA_VERSION:-4.0.0}
+    image: ghcr.io/noves-inc/noves-canton-frontend-v4:${IMAGE_VERSION:-4.0.0}
     container_name: noves-canton-frontend-v4
-    user: "${CDA_SETUP_UID:-1000}:${CDA_SETUP_GID:-1000}"
+    user: "${SETUP_USER:-1000:1000}"
     command: ["npm", "run", "start:setup"]
     environment:
       PORT: "3000"
       CANTON_TRANSLATE_BASE_URL: http://backend:8090
-      CDA_SETUP_TOKEN: ${CDA_SETUP_TOKEN:?Set CDA_SETUP_TOKEN}
-      SETUP_PARTICIPANT_ADDRESS: ${CDA_PARTICIPANT_ADDRESS:-participant:5001}
+      SETUP_TOKEN: ${SETUP_TOKEN:?Set SETUP_TOKEN}
+      SETUP_SESSION_TOKEN: ${SETUP_SESSION_TOKEN:?Set SETUP_SESSION_TOKEN}
+      SETUP_PARTICIPANT_ADDRESS: ${CANTON_PARTICIPANT_ADDRESS:-participant:5001}
       SETUP_STORAGE_MODE: file
       SETUP_RESULT_PATH: /setup/values.json
       SETUP_SECRET_PATH: /setup/capture.env
     volumes:
       - ./.state:/setup
     ports:
-      - "127.0.0.1:${CDA_SETUP_PORT:-8099}:3000"
+      - "127.0.0.1:${SETUP_PORT:-8099}:3000"
     depends_on:
       backend:
         condition: service_started
@@ -77,6 +85,10 @@ networks:
 
 volumes:
   cda-database-data:
-    name: ${CDA_DATABASE_VOLUME:-noves-canton-data-app-v4-data}
+    name: ${DATABASE_VOLUME:-noves-canton-data-app-v4-data}
   cda-exports:
-    name: ${CDA_EXPORTS_VOLUME:-noves-canton-data-app-v4-exports}
+    name: ${EXPORTS_VOLUME:-noves-canton-data-app-v4-exports}
+
+secrets:
+  noves-gateway-auth-token:
+    file: ./.secrets/noves-gateway-auth-token

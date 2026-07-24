@@ -54,6 +54,7 @@ assert_contains "$chart/values.yaml" 'repository: ghcr.io/noves-inc/noves-canton
 assert_contains "$chart/values.yaml" 'repository: ghcr.io/noves-inc/noves-canton-database-v4'
 assert_contains "$chart/values.yaml" 'tag: "4.0.0"'
 assert_contains "$chart/values.yaml" 'passwordKey: postgres-password'
+assert_contains "$chart/values.schema.json" '"const": 1'
 assert_not_contains "$chart/values.yaml" 'tag: latest'
 assert_not_contains "$chart/values.yaml" 'externalDatabase'
 app_version="$(sed -n 's/^appVersion: "\(.*\)"/\1/p' "$chart/Chart.yaml")"
@@ -77,11 +78,27 @@ assert_contains "$scratch/enterprise.yaml" 'key: token-endpoint'
 assert_contains "$scratch/enterprise.yaml" 'key: client-id'
 assert_contains "$scratch/enterprise.yaml" 'key: client-secret'
 assert_contains "$scratch/enterprise.yaml" 'name: M2M_INDEXER_ENABLED'
+assert_contains "$scratch/enterprise.yaml" 'name: DATABASE_MAX_PARALLEL_WORKERS_PER_GATHER'
+assert_contains "$scratch/enterprise.yaml" 'name: DATABASE_SYNCHRONOUS_COMMIT'
+assert_contains "$scratch/enterprise.yaml" 'name: DATABASE_MAX_WAL_SIZE'
+assert_contains "$scratch/enterprise.yaml" 'name: INDEX_DB_WRITE_BATCH_SIZE'
+assert_contains "$scratch/enterprise.yaml" 'name: READ_MODEL_TOTAL_CAPACITY'
+assert_contains "$scratch/enterprise.yaml" 'name: READ_MODEL_BOOTSTRAP_BATCH_SIZE'
+assert_contains "$chart/values.schema.json" '"maxParallelWorkersPerGather"'
+assert_contains "$chart/values.schema.json" '"synchronousCommit"'
+assert_contains "$chart/values.schema.json" '"maxWalSize"'
+assert_contains "$chart/values.schema.json" '"writeBatchSize"'
+[[ "$(grep -c 'name: NOVES_GATEWAY_AUTH_TOKEN' "$scratch/enterprise.yaml")" == 2 ]] ||
+  fail 'gateway credential must be injected into backend and frontend'
+[[ "$(grep -c 'name: cda-noves-gateway' "$scratch/enterprise.yaml")" == 2 ]] ||
+  fail 'backend and frontend must use the configured gateway Secret'
+[[ "$(grep -c 'key: gateway-token' "$scratch/enterprise.yaml")" == 2 ]] ||
+  fail 'backend and frontend must use the configured gateway Secret key'
 assert_contains "$scratch/enterprise.yaml" 'helm.sh/resource-policy: keep'
 assert_contains "$scratch/enterprise.yaml" 'kind: VirtualService'
 assert_contains "$scratch/enterprise.yaml" 'cluster-ingress/cn-http-gateway'
 assert_not_contains "$scratch/enterprise.yaml" 'kind: Role'
-assert_not_contains "$scratch/enterprise.yaml" 'CDA_SETUP_WIZARD_ENABLED'
+assert_not_contains "$scratch/enterprise.yaml" 'SETUP_ENABLED'
 
 assert_not_contains "$scratch/setup.yaml" 'kind: VirtualService'
 assert_not_contains "$scratch/setup.yaml" 'kind: Ingress'
@@ -96,14 +113,21 @@ assert_contains "$scratch/setup.yaml" '- patch'
 assert_not_contains "$scratch/setup.yaml" '- list'
 assert_not_contains "$scratch/setup.yaml" '- deployments'
 assert_not_contains "$scratch/setup.yaml" '/var/run/docker.sock'
-assert_contains "$scratch/setup.yaml" 'port: 8080'
+assert_contains "$scratch/setup.yaml" 'kind: NetworkPolicy'
+assert_contains "$scratch/setup.yaml" 'policyTypes:'
+assert_contains "$scratch/setup.yaml" '- Ingress'
+if grep -Eq '^kind: Service$' "$chart/templates/setup-wizard.yaml"; then
+  fail 'setup wizard template still exposes a Kubernetes Service'
+fi
+assert_contains "$scratch/setup.yaml" 'name: SETUP_SESSION_TOKEN'
+assert_contains "$scratch/setup.yaml" 'path: /health'
 assert_contains "$chart/templates/setup-wizard.yaml" 'lookup "v1" "ConfigMap"'
 
 assert_contains "$scratch/ingress.yaml" 'kind: Ingress'
 assert_not_contains "$scratch/ingress.yaml" 'kind: VirtualService'
 assert_contains "$scratch/migration.yaml" 'claimName: cda-v3-data'
 assert_contains "$scratch/existing-database-claim.yaml" 'claimName: cda-encrypted-data'
-assert_contains "$scratch/migration.yaml" 'CDA_SETUP_WIZARD_ENABLED'
+assert_contains "$scratch/migration.yaml" 'SETUP_ENABLED'
 assert_contains "$scratch/migration.yaml" 'value: "false"'
 assert_not_contains "$scratch/migration.yaml" 'kind: Job'
 
@@ -125,5 +149,15 @@ if helm template cda "$chart" --namespace validator \
   fail 'v4 chart accepted a v5 backend image'
 fi
 assert_contains "$scratch/invalid-major.out" 'backend.image.tag'
+
+replica_chart="$scratch/chart-without-schema"
+cp -R "$chart" "$replica_chart"
+rm "$replica_chart/values.schema.json"
+if helm template cda "$replica_chart" --namespace validator \
+  --set backend.replicaCount=2 \
+  --values "$fixtures/enterprise-values.yaml" >"$scratch/invalid-replicas.out" 2>&1; then
+  fail 'chart accepted more than one backend replica'
+fi
+assert_contains "$scratch/invalid-replicas.out" 'backend.replicaCount must be 1'
 
 printf 'helm chart tests passed\n'

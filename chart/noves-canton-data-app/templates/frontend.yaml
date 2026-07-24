@@ -50,6 +50,12 @@ spec:
           envFrom:
             - configMapRef:
                 name: {{ include "cda.fullname" . }}-frontend
+          env:
+            - name: NOVES_GATEWAY_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.novesGateway.existingSecret }}
+                  key: {{ .Values.novesGateway.tokenKey }}
           volumeMounts:
             - name: exports
               mountPath: /app/exports

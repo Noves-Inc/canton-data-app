@@ -5,11 +5,11 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/common.sh
 source "$script_dir/lib/common.sh"
 
-chart_ref="${CDA_CHART_REF:-oci://ghcr.io/noves-inc/charts/noves-canton-data-app}"
+chart_ref="oci://ghcr.io/noves-inc/charts/noves-canton-data-app"
 chart_constraint='>=4.0.0 <5.0.0'
-namespace="${CDA_NAMESPACE:-validator}"
-release="${CDA_RELEASE:-noves-canton-data-app}"
-local_port="${CDA_SETUP_PORT:-8099}"
+namespace="validator"
+release="noves-canton-data-app"
+local_port="8099"
 mode=guided
 values_file=""
 
@@ -22,6 +22,7 @@ Usage:
 Options:
   --namespace NAME   Kubernetes namespace (default: validator)
   --release NAME     Helm release name (default: noves-canton-data-app)
+  --setup-port PORT  Local wizard port (default: 8099)
   --values FILE      Operator-maintained values file
   --standard         Skip the wizard and perform a conventional Helm install
 EOF
@@ -31,6 +32,7 @@ while (($#)); do
   case "$1" in
     --namespace) namespace="${2:?Missing namespace}"; shift 2 ;;
     --release) release="${2:?Missing release}"; shift 2 ;;
+    --setup-port) local_port="${2:?Missing setup port}"; shift 2 ;;
     --values) values_file="${2:?Missing values file}"; shift 2 ;;
     --standard) mode=standard; shift ;;
     -h|--help) usage; exit 0 ;;
@@ -56,6 +58,7 @@ require_command openssl
 
 database_secret="${release}-database"
 capture_secret="${release}-capture-auth"
+gateway_secret="${release}-gateway"
 setup_token_secret="${release}-setup-token"
 result_configmap="${release}-setup-results"
 scratch="$(mktemp -d)"
@@ -86,16 +89,31 @@ if ! kubectl --namespace "$namespace" get secret "$capture_secret" >/dev/null 2>
     --from-literal="audience=" \
     --from-literal="scope="
 fi
+if ! kubectl --namespace "$namespace" get secret "$gateway_secret" >/dev/null 2>&1; then
+  noves_gateway_token="$(resolve_noves_gateway_token)"
+  kubectl --namespace "$namespace" create secret generic "$gateway_secret" \
+    --from-literal="token=$noves_gateway_token"
+fi
 if kubectl --namespace "$namespace" get secret "$setup_token_secret" >/dev/null 2>&1; then
   setup_token="$(
     kubectl --namespace "$namespace" get secret "$setup_token_secret" \
       -o jsonpath='{.data.token}' | base64 --decode
   )"
+  setup_session_token="$(
+    kubectl --namespace "$namespace" get secret "$setup_token_secret" \
+      -o jsonpath='{.data.session-token}' | base64 --decode
+  )"
 else
   setup_token="$(random_secret)"
-  kubectl --namespace "$namespace" create secret generic "$setup_token_secret" \
-    --from-literal="token=$setup_token"
+  setup_session_token="$(random_secret)"
 fi
+setup_token="${setup_token:-$(random_secret)}"
+setup_session_token="${setup_session_token:-$(random_secret)}"
+kubectl --namespace "$namespace" create secret generic "$setup_token_secret" \
+  --from-literal="token=$setup_token" \
+  --from-literal="session-token=$setup_session_token" \
+  --dry-run=client -o yaml |
+  kubectl --namespace "$namespace" apply -f -
 
 result_json="$(
   kubectl --namespace "$namespace" get configmap "$result_configmap" \
@@ -107,15 +125,16 @@ helm upgrade --install "$release" "$chart_ref" \
   --namespace "$namespace" \
   --set setupWizard.enabled=true \
   --set "setupWizard.setupTokenSecret=$setup_token_secret" \
+  --set "novesGateway.existingSecret=$gateway_secret" \
   --set "database.existingSecret=$database_secret" \
   --set "capture.existingSecret=$capture_secret" \
   --wait
 
 if [[ -z "$result_json" ]] || ! jq -e '.completed == true' >/dev/null 2>&1 <<<"$result_json"; then
   kubectl --namespace "$namespace" port-forward \
-    "service/${release}-setup-wizard" "$local_port:8080" >"$scratch/port-forward.log" 2>&1 &
+    "deployment/${release}-setup-wizard" "$local_port:3000" >"$scratch/port-forward.log" 2>&1 &
   port_forward_pid=$!
-  setup_url="http://127.0.0.1:$local_port"
+  setup_url="http://127.0.0.1:$local_port/#session=$setup_session_token"
   printf 'Setup is ready at %s\n' "$setup_url"
   open_browser "$setup_url"
 
@@ -150,16 +169,17 @@ if ! jq -e '
 fi
 
 app_url="$(jq -r '.appUrl' <<<"$result_json")"
-route_host="${app_url#*://}"
-route_host="${route_host%%/*}"
+route_host="$(jq -er '.routingHost' <<<"$result_json")"
 final_values="$scratch/final-values.json"
 jq --arg databaseSecret "$database_secret" \
   --arg captureSecret "$capture_secret" \
+  --arg gatewaySecret "$gateway_secret" \
   --arg routeHost "$route_host" \
   '{
     setupWizard: {enabled: false},
     database: {existingSecret: $databaseSecret},
     capture: {existingSecret: $captureSecret},
+    novesGateway: {existingSecret: $gatewaySecret},
     canton: {
       nodeId: .nodeId,
       participantAddress: .participantAddress,

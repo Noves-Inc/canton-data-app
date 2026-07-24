@@ -48,10 +48,7 @@ done
 
 require_command docker
 cd "$compose_dir"
-CDA_DATABASE_VOLUME="$database_volume" \
-CDA_MIGRATION_SOURCE_VERSION="$source_version" \
-CDA_MIGRATION_BACKUP_CONFIRMED=true \
-CDA_MIGRATION_OLD_WORKLOAD_STOPPED=true \
+DATABASE_VOLUME="$database_volume" \
 exec docker compose --env-file .env \
   -f compose.yaml \
   -f compose.migrate-v3.yaml up -d

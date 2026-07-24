@@ -16,6 +16,29 @@ backend:
     limits:
       cpu: "2"
       memory: 4Gi
+  performance:
+    database:
+      writeBatchSize: 250
+      maxParallelWorkersPerGather: 0
+      synchronousCommit: "off"
+      maxWalSize: 8GB
+      deadTupleRatioLimit: 0.30
+      deadTupleMinimum: 1000
+      transactionAgeLimit: 100000
+      writeIoUtilizationLimit: 0.90
+      connectionUtilizationLimit: 0.85
+      commitP95LimitMs: 250
+    readModel:
+      totalCapacity: 4
+      reservedLiveCapacity: 1
+      liveWeight: 4
+      bootstrapWeight: 1
+      bootstrapBatchSize: 25
+      pressureCheckIntervalMs: 5000
+      pressureResumeRatio: 0.80
+      captureLagLimitRecords: 2000
+      liveWorkMaxWaitMs: 30000
+      processMemoryLimitBytes: 4294967296
 
 frontend:
   replicaCount: 1
@@ -79,6 +102,10 @@ capture:
   audienceKey: audience
   scopeKey: scope
 
+novesGateway:
+  existingSecret: noves-canton-data-app-gateway
+  tokenKey: token
+
 oidc:
   provider: ""
   appUrl: ""
@@ -107,6 +134,7 @@ setupWizard:
   enabled: false
   setupTokenSecret: noves-canton-data-app-setup-token
   setupTokenKey: token
+  sessionTokenKey: session-token
   localPort: 8099
 
 migration:

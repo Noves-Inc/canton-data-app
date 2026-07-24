@@ -47,7 +47,7 @@ Use the guarded launcher with the stopped v3 volume name:
   --volume replace-with-v3-database-volume
 ```
 
-Set `CDA_DATABASE_PASSWORD` in `docker-compose/.env` to the existing `appuser` password before
+Set `DATABASE_PASSWORD` in `docker-compose/.env` to the existing `appuser` password before
 running the launcher. A new password will not be applied to an initialized volume.
 
 Use the shipped v4 database container. Do not copy the database into another runtime.

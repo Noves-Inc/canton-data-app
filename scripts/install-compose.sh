@@ -6,7 +6,7 @@ repo_root="$(cd "$script_dir/.." && pwd)"
 # shellcheck source=lib/common.sh
 source "$script_dir/lib/common.sh"
 
-install_dir="${CDA_INSTALL_DIR:-$PWD/noves-canton-data-app-v4}"
+install_dir="$PWD/noves-canton-data-app-v4"
 mode=guided
 
 usage() {
@@ -37,13 +37,25 @@ mkdir -p "$install_dir/docker-compose"
 for file in compose.yaml compose.setup.yaml compose.migrate-v3.yaml .env.example; do
   cp "$repo_root/docker-compose/$file" "$install_dir/docker-compose/$file"
 done
-mkdir -p "$install_dir/docker-compose/.state"
+mkdir -p "$install_dir/docker-compose/.state" "$install_dir/docker-compose/.secrets"
 if [[ ! -f "$install_dir/docker-compose/.state/nodes-config.json" ]]; then
   cp "$repo_root/docker-compose/config/nodes-config.json" \
     "$install_dir/docker-compose/.state/nodes-config.json"
 fi
 
 cd "$install_dir/docker-compose"
+gateway_secret_file=".secrets/noves-gateway-auth-token"
+if [[ -f "$gateway_secret_file" ]]; then
+  gateway_token="$(<"$gateway_secret_file")"
+  [[ "$gateway_token" =~ [^[:space:]] ]] ||
+    die "The existing Noves gateway credential file is blank: $gateway_secret_file"
+else
+  gateway_token="$(resolve_noves_gateway_token)"
+  write_private_file "$gateway_secret_file"
+  printf '%s\n' "$gateway_token" >"$gateway_secret_file"
+fi
+chmod 600 "$gateway_secret_file"
+
 if [[ "$mode" == standard ]]; then
   [[ -f .env ]] || die "Create .env from .env.example before a standard install."
   [[ -f .state/capture.env ]] || die "Create .state/capture.env with dedicated M2M credentials."
@@ -57,31 +69,46 @@ require_command openssl
 if [[ ! -f .env ]]; then
   database_password="$(random_secret)"
   setup_token="$(random_secret)"
+  setup_session_token="$(random_secret)"
   umask 077
   sed \
-    -e "s/^CDA_DATABASE_PASSWORD=.*/CDA_DATABASE_PASSWORD=$database_password/" \
-    -e "s/^CDA_SETUP_TOKEN=.*/CDA_SETUP_TOKEN=$setup_token/" \
+    -e "s/^DATABASE_PASSWORD=.*/DATABASE_PASSWORD=$database_password/" \
     .env.example >.env
   chmod 600 .env
 fi
 
-setup_uid="$(id -u)"
-setup_gid="$(id -g)"
-for assignment in "CDA_SETUP_UID=$setup_uid" "CDA_SETUP_GID=$setup_gid"; do
-  key="${assignment%%=*}"
-  if grep -q "^${key}=" .env; then
-    sed -i.bak -e "s/^${key}=.*/${assignment}/" .env
-    rm -f .env.bak
-  else
-    printf '%s\n' "$assignment" >>.env
+ensure_setup_secret() {
+  local key="$1"
+  local value
+  value="$(sed -n "s/^${key}=//p" .env | tail -1)"
+  if [[ -z "$value" || "$value" == replace-with-* ]]; then
+    value="$(random_secret)"
+    if grep -q "^${key}=" .env; then
+      sed -i.bak -e "s/^${key}=.*/${key}=${value}/" .env
+      rm -f .env.bak
+    else
+      printf '%s=%s\n' "$key" "$value" >>.env
+    fi
   fi
-done
+  printf '%s' "$value"
+}
+
+setup_token="$(ensure_setup_secret SETUP_TOKEN)"
+setup_session_token="$(ensure_setup_secret SETUP_SESSION_TOKEN)"
+
+setup_user="$(id -u):$(id -g)"
+if grep -q '^SETUP_USER=' .env; then
+  sed -i.bak -e "s/^SETUP_USER=.*/SETUP_USER=$setup_user/" .env
+  rm -f .env.bak
+else
+  printf 'SETUP_USER=%s\n' "$setup_user" >>.env
+fi
 chmod 600 .env
 
 docker compose --env-file .env -f compose.setup.yaml up -d
-setup_port="$(sed -n 's/^CDA_SETUP_PORT=//p' .env | tail -1)"
+setup_port="$(sed -n 's/^SETUP_PORT=//p' .env | tail -1)"
 setup_port="${setup_port:-8099}"
-setup_url="http://127.0.0.1:$setup_port"
+setup_url="http://127.0.0.1:$setup_port/#session=$setup_session_token"
 printf 'Setup is ready at %s\n' "$setup_url"
 open_browser "$setup_url"
 printf 'Waiting for you to finish the setup wizard. Press Ctrl-C to stop safely.\n'
@@ -125,10 +152,10 @@ jq -n \
   }' >.state/nodes-config.json
 
 sed -i.bak \
-  -e "s|^CDA_APP_URL=.*|CDA_APP_URL=$app_url|" \
-  -e "s|^CDA_NETWORK=.*|CDA_NETWORK=$expected_network|" \
-  -e "s|^CDA_VALIDATOR_URL=.*|CDA_VALIDATOR_URL=$validator_url|" \
-  -e "s|^CDA_PUBLIC_SCAN_URL=.*|CDA_PUBLIC_SCAN_URL=$public_scan_url|" \
+  -e "s|^APP_URL=.*|APP_URL=$app_url|" \
+  -e "s|^CANTON_NETWORK=.*|CANTON_NETWORK=$expected_network|" \
+  -e "s|^CANTON_VALIDATOR_URL=.*|CANTON_VALIDATOR_URL=$validator_url|" \
+  -e "s|^CANTON_PUBLIC_SCAN_URL=.*|CANTON_PUBLIC_SCAN_URL=$public_scan_url|" \
   .env
 rm -f .env.bak
 
@@ -137,7 +164,7 @@ if [[ "$provider" == auth0 ]]; then
   browser_client_id="$(jq -r '.browserClientId' .state/values.json)"
   browser_audience="$(jq -r '.browserAudience' .state/values.json)"
   sed -i.bak \
-    -e "s|^CDA_APP_URL=.*|CDA_APP_URL=$app_url|" \
+    -e "s|^APP_URL=.*|APP_URL=$app_url|" \
     -e "s|^VITE_AUTH0_DOMAIN=.*|VITE_AUTH0_DOMAIN=$auth0_domain|" \
     -e "s|^VITE_AUTH0_CLIENT_ID=.*|VITE_AUTH0_CLIENT_ID=$browser_client_id|" \
     -e "s|^VITE_AUTH0_AUDIENCE=.*|VITE_AUTH0_AUDIENCE=$browser_audience|" \
@@ -147,7 +174,7 @@ else
   keycloak_realm="$(jq -r '.keycloakRealm' .state/values.json)"
   browser_client_id="$(jq -r '.browserClientId' .state/values.json)"
   sed -i.bak \
-    -e "s|^CDA_APP_URL=.*|CDA_APP_URL=$app_url|" \
+    -e "s|^APP_URL=.*|APP_URL=$app_url|" \
     -e "s|^VITE_AUTH0_DOMAIN=.*|VITE_AUTH0_DOMAIN=|" \
     -e "s|^VITE_KEYCLOAK_URL=.*|VITE_KEYCLOAK_URL=$keycloak_url|" \
     -e "s|^VITE_KEYCLOAK_REALM=.*|VITE_KEYCLOAK_REALM=$keycloak_realm|" \
