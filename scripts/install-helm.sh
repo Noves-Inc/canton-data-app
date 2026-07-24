@@ -4,6 +4,8 @@ set -euo pipefail
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/common.sh
 source "$script_dir/lib/common.sh"
+# shellcheck source=lib/setup-admin.sh
+source "$script_dir/lib/setup-admin.sh"
 
 chart_ref="oci://ghcr.io/noves-inc/charts/noves-canton-data-app"
 chart_constraint='>=4.0.0 <5.0.0'
@@ -12,6 +14,7 @@ release="noves-canton-data-app"
 local_port="8099"
 mode=guided
 values_file=""
+participant_admin_secret="splice-app-validator-ledger-api-auth"
 
 usage() {
   cat <<'EOF'
@@ -24,6 +27,8 @@ Options:
   --release NAME     Helm release name (default: noves-canton-data-app)
   --setup-port PORT  Local wizard port (default: 8099)
   --values FILE      Operator-maintained values file
+  --participant-admin-secret NAME
+                       Validator participant-admin Secret used transiently by guided setup
   --standard         Skip the wizard and perform a conventional Helm install
 EOF
 }
@@ -34,6 +39,10 @@ while (($#)); do
     --release) release="${2:?Missing release}"; shift 2 ;;
     --setup-port) local_port="${2:?Missing setup port}"; shift 2 ;;
     --values) values_file="${2:?Missing values file}"; shift 2 ;;
+    --participant-admin-secret)
+      participant_admin_secret="${2:?Missing Secret name}"
+      shift 2
+      ;;
     --standard) mode=standard; shift ;;
     -h|--help) usage; exit 0 ;;
     *) die "Unknown option: $1" ;;
@@ -55,6 +64,7 @@ fi
 
 require_command jq
 require_command openssl
+require_command curl
 
 database_secret="${release}-database"
 capture_secret="${release}-capture-auth"
@@ -134,6 +144,17 @@ if [[ -z "$result_json" ]] || ! jq -e '.completed == true' >/dev/null 2>&1 <<<"$
   kubectl --namespace "$namespace" port-forward \
     "deployment/${release}-setup-wizard" "$local_port:3000" >"$scratch/port-forward.log" 2>&1 &
   port_forward_pid=$!
+  setup_origin="http://127.0.0.1:$local_port"
+  wait_for_setup_health "$setup_origin" ||
+    die "The localhost setup service did not become ready."
+  if ! bootstrap_helm_setup_admin \
+    "$namespace" \
+    "$participant_admin_secret" \
+    "$setup_origin" \
+    "$setup_token"; then
+    printf '%s\n' \
+      'Warning: validator administrator discovery failed; the wizard will show manual participant commands.' >&2
+  fi
   setup_url="http://127.0.0.1:$local_port/#session=$setup_session_token"
   printf 'Setup is ready at %s\n' "$setup_url"
   open_browser "$setup_url"

@@ -19,7 +19,10 @@ EOF
 cat >"$fake_bin/kubectl" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >>"$INSTALLER_CALLS"
-if [[ -n "${GUIDED_RESULT:-}" && "$*" == *"get secret"*"setup-token"*"-o jsonpath={.data.token}"* ]]; then
+if [[ "$*" == *"get secret"*"splice-app-validator-ledger-api-auth"*"-o json"* ]] \
+  || [[ "$*" == *"get secret"*"custom-admin-secret"*"-o json"* ]]; then
+  printf '%s' '{"data":{"url":"aHR0cHM6Ly9zc28uZXhhbXBsZS5jb20vcmVhbG1zL2NhbnRvbi9wcm90b2NvbC9vcGVuaWQtY29ubmVjdC90b2tlbg==","ledger-api-user":"dmFsaWRhdG9yLWFkbWlu","client-id":"dmFsaWRhdG9yLWNsaWVudA==","client-secret":"dmFsaWRhdG9yLXNlY3JldA==","audience":"aHR0cHM6Ly9sZWRnZXItYXBp","scope":"ZGFtbF9sZWRnZXJfYXBp"}}'
+elif [[ -n "${GUIDED_RESULT:-}" && "$*" == *"get secret"*"setup-token"*"-o jsonpath={.data.token}"* ]]; then
   printf 'c2V0dXAtc2VjcmV0'
 elif [[ -n "${GUIDED_RESULT:-}" && "$*" == *"get secret"*"setup-token"*"-o jsonpath={.data.session-token}"* ]]; then
   printf 'YnJvd3Nlci1zZWNyZXQ='
@@ -36,8 +39,35 @@ if [[ "$*" == "compose version" ]]; then
   exit 0
 fi
 printf '%s\n' "$*" >>"$INSTALLER_CALLS"
+if [[ "$1" == ps && "$*" == *"com.docker.compose.service=validator"* ]]; then
+  printf '%s\n' ${DOCKER_VALIDATORS:-validator-one}
+elif [[ "$1" == inspect ]]; then
+  printf '%s' '[{"Config":{"Env":["SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_URL=https://tenant.auth0.com/oauth/token","SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_CLIENT_ID=validator-client","SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_CLIENT_SECRET=validator-secret","SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_AUDIENCE=https://ledger-api","SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_SCOPE=daml_ledger_api","SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_USER_NAME=validator-admin"]}}]'
+fi
 EOF
-chmod +x "$fake_bin/helm" "$fake_bin/kubectl" "$fake_bin/docker"
+cat >"$fake_bin/curl" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >>"$INSTALLER_CALLS"
+if [[ "$*" == *"--data-binary @-"* ]]; then
+  payload="$(cat)"
+  jq -e '
+    .sourceMode as $mode
+    | ($mode == "helm" or $mode == "compose")
+    and .discoveryUrl == (if $mode == "helm"
+      then "https://sso.example.com/realms/canton/protocol/openid-connect/token"
+      else "https://tenant.auth0.com/oauth/token" end)
+    and .expectedAdministratorUserId == "validator-admin"
+    and .clientId == "validator-client"
+    and .clientSecret == "validator-secret"
+    and .audience == "https://ledger-api"
+    and .scope == "daml_ledger_api"
+  ' >/dev/null <<<"$payload" || exit 41
+  jq -r '[.sourceMode,.expectedAdministratorUserId] | @tsv' <<<"$payload" \
+    >>"$BOOTSTRAP_CHECK"
+  printf '%s' '{"status":"stored"}'
+fi
+EOF
+chmod +x "$fake_bin/helm" "$fake_bin/kubectl" "$fake_bin/docker" "$fake_bin/curl"
 
 gateway_file="$scratch/gateway-token"
 printf 'file-token\n' >"$gateway_file"
@@ -149,6 +179,50 @@ grep -Fq -- 'M2M_TOKEN_ENDPOINT M2M_CLIENT_ID M2M_CLIENT_SECRET M2M_AUDIENCE' \
   fail 'Compose installer does not validate capture credentials before activation.'
 grep -Fq -- 'SETUP_SESSION_TOKEN' "$repo_root/scripts/install-compose.sh" ||
   fail 'Compose installer does not persist a separate browser session token.'
+
+bootstrap_calls="$scratch/bootstrap.calls"
+bootstrap_check="$scratch/bootstrap.check"
+INSTALLER_CALLS="$bootstrap_calls" BOOTSTRAP_CHECK="$bootstrap_check" PATH="$fake_bin:$PATH" \
+  bash -c 'source "$1"; bootstrap_helm_setup_admin validator "$2" "$3" "$4"' _ \
+  "$repo_root/scripts/lib/setup-admin.sh" \
+  splice-app-validator-ledger-api-auth http://127.0.0.1:8099 setup-secret
+INSTALLER_CALLS="$bootstrap_calls" BOOTSTRAP_CHECK="$bootstrap_check" PATH="$fake_bin:$PATH" \
+  bash -c 'source "$1"; bootstrap_helm_setup_admin validator "$2" "$3" "$4"' _ \
+  "$repo_root/scripts/lib/setup-admin.sh" \
+  custom-admin-secret http://127.0.0.1:8099 setup-secret
+[[ "$(grep -c $'^helm\tvalidator-admin$' "$bootstrap_check")" == 2 ]] ||
+  fail 'Helm administrator bootstrap did not support default and overridden Secrets.'
+
+INSTALLER_CALLS="$bootstrap_calls" BOOTSTRAP_CHECK="$bootstrap_check" PATH="$fake_bin:$PATH" \
+  bash -c 'source "$1"; bootstrap_compose_setup_admin "" "$2" "$3"' _ \
+  "$repo_root/scripts/lib/setup-admin.sh" http://127.0.0.1:8099 setup-secret
+grep -Fq $'compose\tvalidator-admin' "$bootstrap_check" ||
+  fail 'Compose administrator bootstrap did not discover the validator container.'
+
+if INSTALLER_CALLS="$bootstrap_calls" BOOTSTRAP_CHECK="$bootstrap_check" \
+  DOCKER_VALIDATORS='validator-one validator-two' PATH="$fake_bin:$PATH" \
+  bash -c 'source "$1"; bootstrap_compose_setup_admin "" "$2" "$3"' _ \
+  "$repo_root/scripts/lib/setup-admin.sh" \
+  http://127.0.0.1:8099 setup-secret >"$scratch/multiple-validator.out" 2>&1; then
+  fail 'Compose administrator discovery accepted multiple validator containers.'
+fi
+grep -Fq -- '--validator-container' "$scratch/multiple-validator.out" ||
+  fail 'multiple validator discovery did not explain the override.'
+
+INSTALLER_CALLS="$bootstrap_calls" BOOTSTRAP_CHECK="$bootstrap_check" \
+  DOCKER_VALIDATORS='validator-one validator-two' PATH="$fake_bin:$PATH" \
+  bash -c 'source "$1"; bootstrap_compose_setup_admin validator-two "$2" "$3"' _ \
+  "$repo_root/scripts/lib/setup-admin.sh" \
+  http://127.0.0.1:8099 setup-secret
+if grep -Fq 'validator-secret' "$bootstrap_calls"; then
+  fail 'administrator client secret appeared in installer command arguments.'
+fi
+grep -Fq -- '--participant-admin-secret NAME' "$repo_root/scripts/install-helm.sh" ||
+  fail 'Helm installer does not document the participant administrator Secret override.'
+grep -Fq -- '--validator-container NAME' "$repo_root/scripts/install-compose.sh" ||
+  fail 'Compose installer does not document the validator container override.'
+grep -Fq -- 'scripts/lib/setup-admin.sh' "$repo_root/install.sh" ||
+  fail 'remote installer does not download the administrator bootstrap library.'
 
 for script in "$repo_root/install.sh" "$repo_root"/scripts/*.sh "$repo_root"/scripts/lib/*.sh; do
   bash -n "$script"

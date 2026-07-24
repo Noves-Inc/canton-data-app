@@ -5,9 +5,12 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/.." && pwd)"
 # shellcheck source=lib/common.sh
 source "$script_dir/lib/common.sh"
+# shellcheck source=lib/setup-admin.sh
+source "$script_dir/lib/setup-admin.sh"
 
 install_dir="$PWD/noves-canton-data-app-v4"
 mode=guided
+validator_container=""
 
 usage() {
   cat <<'EOF'
@@ -17,6 +20,8 @@ Usage:
 
 Options:
   --directory DIR   Installation directory
+  --validator-container NAME
+                    Running validator container when more than one is detected
   --standard        Start from existing .env, .state/capture.env, and nodes config
 EOF
 }
@@ -24,6 +29,10 @@ EOF
 while (($#)); do
   case "$1" in
     --directory) install_dir="${2:?Missing directory}"; shift 2 ;;
+    --validator-container)
+      validator_container="${2:?Missing container name}"
+      shift 2
+      ;;
     --standard) mode=standard; shift ;;
     -h|--help) usage; exit 0 ;;
     *) die "Unknown option: $1" ;;
@@ -65,6 +74,7 @@ fi
 
 require_command jq
 require_command openssl
+require_command curl
 
 if [[ ! -f .env ]]; then
   database_password="$(random_secret)"
@@ -108,6 +118,16 @@ chmod 600 .env
 docker compose --env-file .env -f compose.setup.yaml up -d
 setup_port="$(sed -n 's/^SETUP_PORT=//p' .env | tail -1)"
 setup_port="${setup_port:-8099}"
+setup_origin="http://127.0.0.1:$setup_port"
+wait_for_setup_health "$setup_origin" ||
+  die "The localhost setup service did not become ready."
+if ! bootstrap_compose_setup_admin \
+  "$validator_container" \
+  "$setup_origin" \
+  "$setup_token"; then
+  printf '%s\n' \
+    'Warning: validator administrator discovery failed; the wizard will show manual participant commands.' >&2
+fi
 setup_url="http://127.0.0.1:$setup_port/#session=$setup_session_token"
 printf 'Setup is ready at %s\n' "$setup_url"
 open_browser "$setup_url"
