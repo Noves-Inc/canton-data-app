@@ -42,7 +42,7 @@ printf '%s\n' "$*" >>"$INSTALLER_CALLS"
 if [[ "$1" == ps && "$*" == *"com.docker.compose.service=validator"* ]]; then
   printf '%s\n' ${DOCKER_VALIDATORS:-validator-one}
 elif [[ "$1" == inspect ]]; then
-  printf '%s' '[{"Config":{"Env":["SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_URL=https://tenant.auth0.com/oauth/token","SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_CLIENT_ID=validator-client","SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_CLIENT_SECRET=validator-secret","SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_AUDIENCE=https://ledger-api","SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_SCOPE=daml_ledger_api","SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_USER_NAME=validator-admin"]}}]'
+  printf '%s' '[{"Name":"/validator-one","Config":{"Env":["SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_URL=https://tenant.auth0.com/oauth/token","SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_CLIENT_ID=validator-client","SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_CLIENT_SECRET=validator-secret","SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_AUDIENCE=https://ledger-api","SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_SCOPE=daml_ledger_api","SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_USER_NAME=validator-admin"]},"NetworkSettings":{"Networks":{"splice-validator_splice_validator":{}}}}]'
 fi
 EOF
 cat >"$fake_bin/curl" <<'EOF'
@@ -61,6 +61,11 @@ if [[ "$*" == *"--data-binary @-"* ]]; then
     and .clientSecret == "validator-secret"
     and .audience == "https://ledger-api"
     and .scope == "daml_ledger_api"
+    and (if $mode == "helm"
+      then .participantNamespace == "validator"
+      else .validatorContainer == "/validator-one"
+        and .composeNetwork == "splice-validator_splice_validator"
+      end)
   ' >/dev/null <<<"$payload" || exit 41
   jq -r '[.sourceMode,.expectedAdministratorUserId] | @tsv' <<<"$payload" \
     >>"$BOOTSTRAP_CHECK"

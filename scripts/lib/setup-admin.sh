@@ -21,8 +21,9 @@ bootstrap_helm_setup_admin() (
   local setup_token="$4"
 
   kubectl --namespace "$namespace" get secret "$secret_name" -o json |
-    jq -e '{
+    jq -e --arg participantNamespace "$namespace" '{
       sourceMode: "helm",
+      participantNamespace: $participantNamespace,
       discoveryUrl: ((.data.url // "") | @base64d),
       expectedAdministratorUserId: ((.data["ledger-api-user"] // "") | @base64d),
       clientId: ((.data["client-id"] // "") | @base64d),
@@ -73,7 +74,8 @@ bootstrap_compose_setup_admin() (
 
   docker inspect "$container" |
     jq -e '
-      .[0].Config.Env
+      .[0] as $container
+      | $container.Config.Env
       | map(
           capture(
             "^SPLICE_APP_VALIDATOR_LEDGER_API_AUTH_(?<key>URL|CLIENT_ID|CLIENT_SECRET|AUDIENCE|SCOPE|USER_NAME)=(?<value>.*)$"
@@ -88,7 +90,9 @@ bootstrap_compose_setup_admin() (
           clientId: (.CLIENT_ID // ""),
           clientSecret: (.CLIENT_SECRET // ""),
           audience: (.AUDIENCE // ""),
-          scope: (.SCOPE // "")
+          scope: (.SCOPE // ""),
+          validatorContainer: ($container.Name // ""),
+          composeNetwork: (($container.NetworkSettings.Networks // {}) | keys | first // "")
         }
       | select(
           .discoveryUrl != ""
