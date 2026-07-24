@@ -48,6 +48,10 @@ assert_contains "$scratch/standard.yaml" 'SCAN_PROXY_URL: http://validator-app:5
 assert_contains "$scratch/standard.yaml" 'target: /exports'
 assert_contains "$compose_dir/config/nodes-config.json" 'participant:5001'
 assert_not_contains "$scratch/standard.yaml" 'externalDatabase'
+[[ "$(grep -c 'NOVES_GATEWAY_AUTH_TOKEN_FILE: /run/secrets/noves-gateway-auth-token' "$scratch/standard.yaml")" == 2 ]] ||
+  fail 'gateway credential file must be configured for backend and frontend'
+[[ "$(grep -c 'target: /run/secrets/noves-gateway-auth-token' "$scratch/standard.yaml")" == 2 ]] ||
+  fail 'gateway credential must be mounted into backend and frontend'
 
 assert_contains "$scratch/setup.yaml" 'host_ip: 127.0.0.1'
 assert_contains "$scratch/setup.yaml" 'published: "8099"'
@@ -56,6 +60,7 @@ assert_contains "$scratch/setup.yaml" 'SETUP_STORAGE_MODE: file'
 assert_contains "$scratch/setup.yaml" 'user: 1000:1000'
 assert_not_contains "$scratch/setup.yaml" '/var/run/docker.sock'
 assert_not_contains "$scratch/setup.yaml" 'M2M_CLIENT_SECRET'
+assert_contains "$scratch/setup.yaml" 'NOVES_GATEWAY_AUTH_TOKEN_FILE: /run/secrets/noves-gateway-auth-token'
 
 assert_contains "$scratch/migration.yaml" 'name: cda-v3-data'
 assert_contains "$scratch/migration.yaml" 'CDA_SETUP_WIZARD_ENABLED: "false"'

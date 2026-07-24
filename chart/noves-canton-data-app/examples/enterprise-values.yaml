@@ -12,6 +12,10 @@ database:
 capture:
   existingSecret: noves-canton-data-app-capture-auth
 
+novesGateway:
+  existingSecret: noves-canton-data-app-gateway
+  tokenKey: token
+
 canton:
   expectedParticipantId: "participant::replace-me"
 

@@ -36,6 +36,9 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- if and .Values.setupWizard.enabled .Values.routing.enabled -}}
 {{- fail "public routing is disabled while setupWizard is active; use localhost port-forwarding" -}}
 {{- end -}}
+{{- if ne (int .Values.backend.replicaCount) 1 -}}
+{{- fail "backend.replicaCount must be 1" -}}
+{{- end -}}
 {{- range $name, $workload := dict "backend" .Values.backend "frontend" .Values.frontend "database" .Values.database -}}
 {{- if not (or (eq $workload.image.tag "latest") (regexMatch "^4\\." $workload.image.tag)) -}}
 {{- fail (printf "%s.image.tag must be a v4 image tag or latest within the v4 repository" $name) -}}
@@ -77,5 +80,11 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 {{- if not .Values.database.existingSecret -}}
 {{- fail "database.existingSecret is required" -}}
+{{- end -}}
+{{- if not .Values.novesGateway.existingSecret -}}
+{{- fail "novesGateway.existingSecret is required" -}}
+{{- end -}}
+{{- if not .Values.novesGateway.tokenKey -}}
+{{- fail "novesGateway.tokenKey is required" -}}
 {{- end -}}
 {{- end -}}

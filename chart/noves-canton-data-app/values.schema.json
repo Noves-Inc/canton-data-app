@@ -6,7 +6,7 @@
     "nameOverride": { "type": "string" },
     "fullnameOverride": { "type": "string" },
     "imagePullSecrets": { "type": "array" },
-    "backend": { "$ref": "#/$defs/workload" },
+    "backend": { "$ref": "#/$defs/backendWorkload" },
     "frontend": { "$ref": "#/$defs/workload" },
     "database": {
       "type": "object",
@@ -66,6 +66,15 @@
         "clientSecretKey": { "type": "string" },
         "audienceKey": { "type": "string" },
         "scopeKey": { "type": "string" }
+      }
+    },
+    "novesGateway": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["existingSecret", "tokenKey"],
+      "properties": {
+        "existingSecret": { "type": "string", "minLength": 1 },
+        "tokenKey": { "type": "string", "minLength": 1 }
       }
     },
     "oidc": {
@@ -162,6 +171,7 @@
     "exports",
     "canton",
     "capture",
+    "novesGateway",
     "oidc",
     "routing",
     "setupWizard",
@@ -184,6 +194,16 @@
       "required": ["replicaCount", "image", "resources"],
       "properties": {
         "replicaCount": { "type": "integer", "minimum": 1 },
+        "image": { "$ref": "#/$defs/image" },
+        "resources": { "type": "object" }
+      }
+    },
+    "backendWorkload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["replicaCount", "image", "resources"],
+      "properties": {
+        "replicaCount": { "type": "integer", "const": 1 },
         "image": { "$ref": "#/$defs/image" },
         "resources": { "type": "object" }
       }

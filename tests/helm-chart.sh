@@ -54,6 +54,7 @@ assert_contains "$chart/values.yaml" 'repository: ghcr.io/noves-inc/noves-canton
 assert_contains "$chart/values.yaml" 'repository: ghcr.io/noves-inc/noves-canton-database-v4'
 assert_contains "$chart/values.yaml" 'tag: "4.0.0"'
 assert_contains "$chart/values.yaml" 'passwordKey: postgres-password'
+assert_contains "$chart/values.schema.json" '"const": 1'
 assert_not_contains "$chart/values.yaml" 'tag: latest'
 assert_not_contains "$chart/values.yaml" 'externalDatabase'
 app_version="$(sed -n 's/^appVersion: "\(.*\)"/\1/p' "$chart/Chart.yaml")"
@@ -77,6 +78,12 @@ assert_contains "$scratch/enterprise.yaml" 'key: token-endpoint'
 assert_contains "$scratch/enterprise.yaml" 'key: client-id'
 assert_contains "$scratch/enterprise.yaml" 'key: client-secret'
 assert_contains "$scratch/enterprise.yaml" 'name: M2M_INDEXER_ENABLED'
+[[ "$(grep -c 'name: NOVES_GATEWAY_AUTH_TOKEN' "$scratch/enterprise.yaml")" == 2 ]] ||
+  fail 'gateway credential must be injected into backend and frontend'
+[[ "$(grep -c 'name: cda-noves-gateway' "$scratch/enterprise.yaml")" == 2 ]] ||
+  fail 'backend and frontend must use the configured gateway Secret'
+[[ "$(grep -c 'key: gateway-token' "$scratch/enterprise.yaml")" == 2 ]] ||
+  fail 'backend and frontend must use the configured gateway Secret key'
 assert_contains "$scratch/enterprise.yaml" 'helm.sh/resource-policy: keep'
 assert_contains "$scratch/enterprise.yaml" 'kind: VirtualService'
 assert_contains "$scratch/enterprise.yaml" 'cluster-ingress/cn-http-gateway'
@@ -125,5 +132,15 @@ if helm template cda "$chart" --namespace validator \
   fail 'v4 chart accepted a v5 backend image'
 fi
 assert_contains "$scratch/invalid-major.out" 'backend.image.tag'
+
+replica_chart="$scratch/chart-without-schema"
+cp -R "$chart" "$replica_chart"
+rm "$replica_chart/values.schema.json"
+if helm template cda "$replica_chart" --namespace validator \
+  --set backend.replicaCount=2 \
+  --values "$fixtures/enterprise-values.yaml" >"$scratch/invalid-replicas.out" 2>&1; then
+  fail 'chart accepted more than one backend replica'
+fi
+assert_contains "$scratch/invalid-replicas.out" 'backend.replicaCount must be 1'
 
 printf 'helm chart tests passed\n'

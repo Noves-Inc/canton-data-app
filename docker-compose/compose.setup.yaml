@@ -36,9 +36,12 @@ services:
       CDA_SETUP_WIZARD_ENABLED: "true"
       CDA_SETUP_TOKEN: ${CDA_SETUP_TOKEN:?Set CDA_SETUP_TOKEN}
       M2M_INDEXER_ENABLED: "false"
+      NOVES_GATEWAY_AUTH_TOKEN_FILE: /run/secrets/noves-gateway-auth-token
     volumes:
       - ./.state/nodes-config.json:/config/nodes-config.json:ro
       - cda-exports:/exports
+    secrets:
+      - noves-gateway-auth-token
     depends_on:
       database:
         condition: service_healthy
@@ -80,3 +83,7 @@ volumes:
     name: ${CDA_DATABASE_VOLUME:-noves-canton-data-app-v4-data}
   cda-exports:
     name: ${CDA_EXPORTS_VOLUME:-noves-canton-data-app-v4-exports}
+
+secrets:
+  noves-gateway-auth-token:
+    file: ./.secrets/noves-gateway-auth-token

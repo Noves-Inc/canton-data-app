@@ -69,6 +69,11 @@ spec:
               value: {{ .Values.canton.validatorUrl | quote }}
             - name: PUBLIC_SCAN_INDEXER_URL
               value: {{ .Values.canton.publicScanUrl | quote }}
+            - name: NOVES_GATEWAY_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.novesGateway.existingSecret }}
+                  key: {{ .Values.novesGateway.tokenKey }}
             - name: M2M_INDEXER_ENABLED
               value: {{ ternary "false" "true" .Values.setupWizard.enabled | quote }}
             {{- if not .Values.setupWizard.enabled }}

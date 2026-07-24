@@ -34,12 +34,15 @@ services:
       CDA_NETWORK: ${CDA_NETWORK:-mainnet}
       SCAN_PROXY_URL: ${CDA_VALIDATOR_URL:-http://validator-app:5003}
       PUBLIC_SCAN_INDEXER_URL: ${CDA_PUBLIC_SCAN_URL:-}
+      NOVES_GATEWAY_AUTH_TOKEN_FILE: /run/secrets/noves-gateway-auth-token
     env_file:
       - path: ./.state/capture.env
         required: false
     volumes:
       - ./.state/nodes-config.json:/config/nodes-config.json:ro
       - cda-exports:/exports
+    secrets:
+      - noves-gateway-auth-token
     ports:
       - "127.0.0.1:${CDA_BACKEND_PORT:-8090}:8090"
     depends_on:
@@ -65,8 +68,11 @@ services:
       VITE_KEYCLOAK_CLIENT_ID: ${VITE_KEYCLOAK_CLIENT_ID:-}
       VITE_KEYCLOAK_REDIRECT_URI: ${CDA_APP_URL}/callback
       VITE_KEYCLOAK_LOGOUT_URL: ${CDA_APP_URL}
+      NOVES_GATEWAY_AUTH_TOKEN_FILE: /run/secrets/noves-gateway-auth-token
     volumes:
       - cda-exports:/app/exports
+    secrets:
+      - noves-gateway-auth-token
     ports:
       - "${CDA_FRONTEND_BIND:-127.0.0.1}:${CDA_FRONTEND_PORT:-8091}:3000"
     depends_on:
@@ -86,3 +92,7 @@ volumes:
     name: ${CDA_DATABASE_VOLUME:-noves-canton-data-app-v4-data}
   cda-exports:
     name: ${CDA_EXPORTS_VOLUME:-noves-canton-data-app-v4-exports}
+
+secrets:
+  noves-gateway-auth-token:
+    file: ./.secrets/noves-gateway-auth-token

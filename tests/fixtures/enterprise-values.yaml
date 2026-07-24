@@ -12,6 +12,10 @@ canton:
 capture:
   existingSecret: cda-capture-auth
 
+novesGateway:
+  existingSecret: cda-noves-gateway
+  tokenKey: gateway-token
+
 database:
   existingSecret: cda-database
 
