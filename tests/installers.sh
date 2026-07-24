@@ -19,17 +19,24 @@ EOF
 cat >"$fake_bin/kubectl" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >>"$INSTALLER_CALLS"
-if [[ "$*" == *"get secret"*"splice-app-validator-ledger-api-auth"*"-o json"* ]] \
+if [[ "$*" == *"port-forward"* ]]; then
+  while true; do sleep 1; done
+elif [[ "$*" == *"get secret"*"splice-app-validator-ledger-api-auth"*"-o json"* ]] \
   || [[ "$*" == *"get secret"*"custom-admin-secret"*"-o json"* ]]; then
   printf '%s' '{"data":{"url":"aHR0cHM6Ly9zc28uZXhhbXBsZS5jb20vcmVhbG1zL2NhbnRvbi9wcm90b2NvbC9vcGVuaWQtY29ubmVjdC90b2tlbg==","ledger-api-user":"dmFsaWRhdG9yLWFkbWlu","client-id":"dmFsaWRhdG9yLWNsaWVudA==","client-secret":"dmFsaWRhdG9yLXNlY3JldA==","audience":"aHR0cHM6Ly9sZWRnZXItYXBp","scope":"ZGFtbF9sZWRnZXJfYXBp"}}'
 elif [[ -n "${GUIDED_RESULT:-}" && "$*" == *"get secret"*"setup-token"*"-o jsonpath={.data.token}"* ]]; then
   printf 'c2V0dXAtc2VjcmV0'
 elif [[ -n "${GUIDED_RESULT:-}" && "$*" == *"get secret"*"setup-token"*"-o jsonpath={.data.session-token}"* ]]; then
   printf 'YnJvd3Nlci1zZWNyZXQ='
-elif [[ -n "${GUIDED_RESULT:-}" && "$*" == *"get secret"*"capture-auth"*"-o json"* ]]; then
+elif { [[ -n "${GUIDED_RESULT:-}" ]] \
+    || [[ -n "${ACTIVE_GUIDED_MARKER:-}" && -f "$ACTIVE_GUIDED_MARKER" ]]; } \
+  && [[ "$*" == *"get secret"*"capture-auth"*"-o json"* ]]; then
   printf '%s' '{"data":{"ledger-api-user":"Y2FwdHVyZS11c2Vy","token-endpoint":"aHR0cHM6Ly9pc3N1ZXIuZXhhbXBsZS90b2tlbg==","client-id":"Y2FwdHVyZS1jbGllbnQ=","client-secret":"c2VjcmV0","audience":"aHR0cHM6Ly9sZWRnZXItYXBp","scope":""}}'
 elif [[ -n "${GUIDED_RESULT:-}" && "$*" == *"get configmap"*"setup-results"* ]]; then
   printf '%s' "$GUIDED_RESULT"
+elif [[ -n "${ACTIVE_GUIDED_MARKER:-}" && -f "$ACTIVE_GUIDED_MARKER" ]] \
+  && [[ "$*" == *"get configmap"*"setup-results"* ]]; then
+  printf '%s' "$ACTIVE_GUIDED_RESULT"
 fi
 exit 0
 EOF
@@ -78,10 +85,39 @@ if [[ "$*" == *"--data-binary @-"* ]]; then
   ' >/dev/null <<<"$payload" || exit 41
   jq -r '[.sourceMode,.expectedAdministratorUserId] | @tsv' <<<"$payload" \
     >>"$BOOTSTRAP_CHECK"
+  if [[ -n "${ACTIVE_GUIDED_MARKER:-}" ]]; then
+    touch "$ACTIVE_GUIDED_MARKER"
+  fi
+  if [[ -n "${ACTIVE_COMPOSE_STATE_DIR:-}" ]]; then
+    mkdir -p "$ACTIVE_COMPOSE_STATE_DIR"
+    printf '%s' "$ACTIVE_COMPOSE_RESULT" \
+      >"$ACTIVE_COMPOSE_STATE_DIR/values.json"
+    printf '%s\n' \
+      'M2M_INDEXER_ENABLED=true' \
+      'M2M_LEDGER_API_USER=capture-user' \
+      'M2M_TOKEN_ENDPOINT=https://issuer.example/token' \
+      'M2M_CLIENT_ID=capture-client' \
+      'M2M_CLIENT_SECRET=capture-secret' \
+      'M2M_AUDIENCE=https://ledger-api' \
+      'M2M_SCOPE=' \
+      >"$ACTIVE_COMPOSE_STATE_DIR/capture.env"
+    chmod 600 \
+      "$ACTIVE_COMPOSE_STATE_DIR/values.json" \
+      "$ACTIVE_COMPOSE_STATE_DIR/capture.env"
+  fi
   printf '%s' '{"status":"stored"}'
 fi
 EOF
-chmod +x "$fake_bin/helm" "$fake_bin/kubectl" "$fake_bin/docker" "$fake_bin/curl"
+cat >"$fake_bin/open" <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+chmod +x \
+  "$fake_bin/helm" \
+  "$fake_bin/kubectl" \
+  "$fake_bin/docker" \
+  "$fake_bin/curl" \
+  "$fake_bin/open"
 
 gateway_file="$scratch/gateway-token"
 printf 'file-token\n' >"$gateway_file"
@@ -166,6 +202,27 @@ grep -Fq -- 'from-literal="session-token=$setup_session_token"' \
   "$repo_root/scripts/install-helm.sh" ||
   fail 'guided Helm setup does not persist a separate browser session token.'
 
+active_helm_marker="$scratch/active-helm-completed"
+active_helm_calls="$scratch/active-helm.calls"
+active_helm_bootstrap="$scratch/active-helm-bootstrap.check"
+INSTALLER_CALLS="$active_helm_calls" \
+  BOOTSTRAP_CHECK="$active_helm_bootstrap" \
+  ACTIVE_GUIDED_MARKER="$active_helm_marker" \
+  ACTIVE_GUIDED_RESULT="$guided_result" \
+  NOVES_GATEWAY_AUTH_TOKEN=gateway-token \
+  PATH="$fake_bin:$PATH" \
+  "$repo_root/scripts/install-helm.sh" \
+  --namespace validator --release active-cda --setup-port 18099
+[[ "$(grep -c -- 'upgrade --install active-cda' "$active_helm_calls")" == 2 ]] ||
+  fail 'active guided Helm path did not install setup and activate the final release.'
+grep -Fq -- 'port-forward deployment/active-cda-setup-wizard 18099:3000' \
+  "$active_helm_calls" ||
+  fail 'active guided Helm path did not launch the localhost wizard.'
+grep -Fq $'helm\tvalidator-admin' "$active_helm_bootstrap" ||
+  fail 'active guided Helm path did not bootstrap the administrator credential.'
+grep -Fq -- 'delete secret active-cda-setup-token' "$active_helm_calls" ||
+  fail 'active guided Helm path retained its setup credential after activation.'
+
 compose_install="$scratch/compose-install"
 mkdir -p "$compose_install/docker-compose/.state" \
   "$compose_install/docker-compose/.secrets"
@@ -193,6 +250,32 @@ grep -Fq -- 'M2M_TOKEN_ENDPOINT M2M_CLIENT_ID M2M_CLIENT_SECRET M2M_AUDIENCE' \
   fail 'Compose installer does not validate capture credentials before activation.'
 grep -Fq -- 'SETUP_SESSION_TOKEN' "$repo_root/scripts/install-compose.sh" ||
   fail 'Compose installer does not persist a separate browser session token.'
+
+active_compose_install="$scratch/active-compose-install"
+active_compose_state="$active_compose_install/docker-compose/.state"
+active_compose_calls="$scratch/active-compose.calls"
+active_compose_bootstrap="$scratch/active-compose-bootstrap.check"
+INSTALLER_CALLS="$active_compose_calls" \
+  BOOTSTRAP_CHECK="$active_compose_bootstrap" \
+  ACTIVE_COMPOSE_STATE_DIR="$active_compose_state" \
+  ACTIVE_COMPOSE_RESULT="$guided_result" \
+  NOVES_GATEWAY_AUTH_TOKEN=gateway-token \
+  PATH="$fake_bin:$PATH" \
+  "$repo_root/scripts/install-compose.sh" \
+  --directory "$active_compose_install"
+grep -Fq $'compose\tvalidator-admin' "$active_compose_bootstrap" ||
+  fail 'active guided Compose path did not bootstrap the administrator credential.'
+grep -Fq -- 'compose --env-file .env -f compose.setup.yaml down' \
+  "$active_compose_calls" ||
+  fail 'active guided Compose path did not remove the setup stack.'
+grep -Fq -- 'compose --env-file .env -f compose.yaml up -d --wait' \
+  "$active_compose_calls" ||
+  fail 'active guided Compose path did not wait for final application readiness.'
+jq -e '.completed == true' "$active_compose_state/values.json" >/dev/null ||
+  fail 'active guided Compose path did not persist completed setup state.'
+if grep -Fq 'validator-secret' "$active_compose_state/capture.env"; then
+  fail 'active guided Compose path persisted the validator administrator credential.'
+fi
 
 bootstrap_calls="$scratch/bootstrap.calls"
 bootstrap_check="$scratch/bootstrap.check"

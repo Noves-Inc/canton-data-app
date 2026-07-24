@@ -208,5 +208,5 @@ rm -f .env.bak
 chmod 600 .env .state/capture.env .state/nodes-config.json .state/values.json
 
 docker compose --env-file .env -f compose.setup.yaml down
-docker compose --env-file .env -f compose.yaml up -d
+docker compose --env-file .env -f compose.yaml up -d --wait
 printf 'Installation complete. Open %s\n' "$app_url"
