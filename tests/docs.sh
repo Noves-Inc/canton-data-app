@@ -63,4 +63,23 @@ if rg -n 'canton-data-app/main/install\.sh' "$repo_root/readme.md" "$repo_root/d
   fail 'a v4 quick start downloads an installer from the moving main branch.'
 fi
 
+for contract in \
+  'novesGateway.existingSecret' \
+  '.secrets/noves-gateway-auth-token' \
+  'NOVES_GATEWAY_AUTH_TOKEN_FILE' \
+  '/dev/tty' \
+  'session-token' \
+  'release-manifest.json' \
+  'DATABASE_MAX_PARALLEL_WORKERS_PER_GATHER' \
+  'READ_MODEL_TOTAL_CAPACITY'
+do
+  rg -Fq "$contract" "$repo_root/readme.md" "$repo_root/docs" ||
+    fail "operator documentation is missing: $contract"
+done
+
+rg -Fq 'Direct values take precedence' "$repo_root/docs" ||
+  fail 'secret direct-variable precedence is undocumented.'
+rg -Fq 'immutable' "$repo_root/docs/upgrades.md" ||
+  fail 'semantic tag immutability is undocumented.'
+
 printf 'documentation tests passed\n'

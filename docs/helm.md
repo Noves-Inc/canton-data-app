@@ -37,6 +37,17 @@ kubectl --namespace validator create secret generic noves-canton-data-app-captur
 Use your normal secret manager instead of imperative commands in production. The Secret must
 contain a new least-privilege capture identity; it must not contain a validator credential.
 
+Create a separate installation credential for the Noves gateway:
+
+```bash
+kubectl --namespace validator create secret generic noves-canton-data-app-gateway \
+  --from-literal=token='replace-with-this-installation-credential'
+```
+
+Set `novesGateway.existingSecret` to that Secret and `novesGateway.tokenKey` to `token`.
+The chart injects the same installation credential into the backend and BFF without placing
+its value in Helm values. Rotate it by updating the Secret and restarting both Deployments.
+
 ## Install
 
 Copy the [enterprise example](../chart/noves-canton-data-app/examples/enterprise-values.yaml),
@@ -53,6 +64,30 @@ helm upgrade --install noves-canton-data-app \
 
 The version constraint admits compatible v4 chart releases and refuses v5. For fully
 reproducible environments, replace it with an exact chart version.
+
+## Performance tuning
+
+The chart exposes database and read-model controls under `backend.performance`. Defaults are
+safe for a typical single-node installation. Higher-volume operators can increase database
+resources and then tune:
+
+```yaml
+backend:
+  performance:
+    database:
+      writeBatchSize: 250
+      maxParallelWorkersPerGather: 2
+      synchronousCommit: "off"
+      maxWalSize: 16GB
+    readModel:
+      totalCapacity: 8
+      reservedLiveCapacity: 2
+      bootstrapBatchSize: 50
+```
+
+Increase one dimension at a time while observing database CPU, memory, connection utilization,
+write latency, capture lag, and `/startup-status`. The complete typed set is in
+[`values.yaml`](../chart/noves-canton-data-app/values.yaml).
 
 ## Routing
 

@@ -58,9 +58,12 @@ For a standard Compose installation:
 ```bash
 cp docker-compose/.env.example docker-compose/.env
 mkdir -p docker-compose/.state
+mkdir -p docker-compose/.secrets
 cp docker-compose/config/nodes-config.json docker-compose/.state/nodes-config.json
-# Add dedicated M2M settings to docker-compose/.state/capture.env, then:
-chmod 600 docker-compose/.env docker-compose/.state/capture.env
+# Add dedicated M2M settings to .state/capture.env and the installation
+# gateway credential to .secrets/noves-gateway-auth-token, then:
+chmod 600 docker-compose/.env docker-compose/.state/capture.env \
+  docker-compose/.secrets/noves-gateway-auth-token
 docker compose --env-file docker-compose/.env -f docker-compose/compose.yaml up -d
 ```
 

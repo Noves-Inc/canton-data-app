@@ -61,9 +61,49 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.database.existingSecret }}
                   key: {{ .Values.database.passwordKey }}
+            - name: INDEX_DB_WRITE_BATCH_SIZE
+              value: {{ .Values.backend.performance.database.writeBatchSize | quote }}
+            - name: DATABASE_MAX_PARALLEL_WORKERS_PER_GATHER
+              value: {{ .Values.backend.performance.database.maxParallelWorkersPerGather | quote }}
+            - name: DATABASE_SYNCHRONOUS_COMMIT
+              value: {{ .Values.backend.performance.database.synchronousCommit | quote }}
+            - name: DATABASE_MAX_WAL_SIZE
+              value: {{ .Values.backend.performance.database.maxWalSize | quote }}
+            - name: DATABASE_DEAD_TUPLE_RATIO_LIMIT
+              value: {{ .Values.backend.performance.database.deadTupleRatioLimit | quote }}
+            - name: DATABASE_DEAD_TUPLE_MINIMUM
+              value: {{ .Values.backend.performance.database.deadTupleMinimum | quote }}
+            - name: DATABASE_TRANSACTION_AGE_LIMIT
+              value: {{ .Values.backend.performance.database.transactionAgeLimit | quote }}
+            - name: DATABASE_WRITE_IO_UTILIZATION_LIMIT
+              value: {{ .Values.backend.performance.database.writeIoUtilizationLimit | quote }}
+            - name: DATABASE_CONNECTION_UTILIZATION_LIMIT
+              value: {{ .Values.backend.performance.database.connectionUtilizationLimit | quote }}
+            - name: DATABASE_COMMIT_P95_LIMIT_MS
+              value: {{ .Values.backend.performance.database.commitP95LimitMs | quote }}
+            - name: READ_MODEL_TOTAL_CAPACITY
+              value: {{ .Values.backend.performance.readModel.totalCapacity | quote }}
+            - name: READ_MODEL_RESERVED_LIVE_CAPACITY
+              value: {{ .Values.backend.performance.readModel.reservedLiveCapacity | quote }}
+            - name: READ_MODEL_LIVE_WEIGHT
+              value: {{ .Values.backend.performance.readModel.liveWeight | quote }}
+            - name: READ_MODEL_BOOTSTRAP_WEIGHT
+              value: {{ .Values.backend.performance.readModel.bootstrapWeight | quote }}
+            - name: READ_MODEL_BOOTSTRAP_BATCH_SIZE
+              value: {{ .Values.backend.performance.readModel.bootstrapBatchSize | quote }}
+            - name: READ_MODEL_PRESSURE_CHECK_INTERVAL_MS
+              value: {{ .Values.backend.performance.readModel.pressureCheckIntervalMs | quote }}
+            - name: READ_MODEL_PRESSURE_RESUME_RATIO
+              value: {{ .Values.backend.performance.readModel.pressureResumeRatio | quote }}
+            - name: READ_MODEL_CAPTURE_LAG_LIMIT_RECORDS
+              value: {{ .Values.backend.performance.readModel.captureLagLimitRecords | quote }}
+            - name: READ_MODEL_LIVE_WORK_MAX_WAIT_MS
+              value: {{ .Values.backend.performance.readModel.liveWorkMaxWaitMs | quote }}
+            - name: PROCESS_MEMORY_LIMIT_BYTES
+              value: {{ .Values.backend.performance.readModel.processMemoryLimitBytes | quote }}
             - name: NODES_CONFIG_FILE_PATH
               value: /config/nodes-config.json
-            - name: CDA_NETWORK
+            - name: CANTON_NETWORK
               value: {{ .Values.canton.network | quote }}
             - name: SCAN_PROXY_URL
               value: {{ .Values.canton.validatorUrl | quote }}
@@ -105,15 +145,15 @@ spec:
                   optional: true
             {{- end }}
             {{- if .Values.setupWizard.enabled }}
-            - name: CDA_SETUP_WIZARD_ENABLED
+            - name: SETUP_ENABLED
               value: "true"
-            - name: CDA_SETUP_TOKEN
+            - name: SETUP_TOKEN
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.setupWizard.setupTokenSecret }}
                   key: {{ .Values.setupWizard.setupTokenKey }}
             {{- else if .Values.migration.enabled }}
-            - name: CDA_SETUP_WIZARD_ENABLED
+            - name: SETUP_ENABLED
               value: "false"
             {{- end }}
           volumeMounts:

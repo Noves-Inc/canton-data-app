@@ -42,6 +42,7 @@ jobs:
       - uses: azure/setup-helm@v4
         with:
           version: v3.14.3
+      - uses: docker/setup-buildx-action@v3
       - name: Verify chart and release versions match
         run: |
           chart_version="$(sed -n 's/^version: //p' chart/noves-canton-data-app/Chart.yaml)"
@@ -50,8 +51,87 @@ jobs:
           test "${app_version}" = "${chart_version}"
           test "$(grep -c "tag: \"${app_version}\"" chart/noves-canton-data-app/values.yaml)" = 3
       - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Log Helm in to GHCR
         run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io --username "${{ github.actor }}" --password-stdin
-      - name: Publish chart
+      - name: Resolve and verify release images
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          backend="ghcr.io/noves-inc/noves-canton-backend-v4"
+          frontend="ghcr.io/noves-inc/noves-canton-frontend-v4"
+          database="ghcr.io/noves-inc/noves-canton-database-v4"
+
+          resolve_digest() {
+            docker buildx imagetools inspect "$1:$version" |
+              awk '/^Digest:/ { print $2; exit }'
+          }
+
+          backend_digest="$(resolve_digest "$backend")"
+          frontend_digest="$(resolve_digest "$frontend")"
+          database_digest="$(resolve_digest "$database")"
+          test -n "$backend_digest"
+          test -n "$frontend_digest"
+          test -n "$database_digest"
+
+          {
+            echo "RELEASE_VERSION=$version"
+            echo "BACKEND_REPOSITORY=$backend"
+            echo "BACKEND_DIGEST=$backend_digest"
+            echo "FRONTEND_REPOSITORY=$frontend"
+            echo "FRONTEND_DIGEST=$frontend_digest"
+            echo "DATABASE_REPOSITORY=$database"
+            echo "DATABASE_DIGEST=$database_digest"
+          } >>"$GITHUB_ENV"
+      - name: Refuse an existing chart version
+        run: |
+          if helm show chart oci://ghcr.io/noves-inc/charts/noves-canton-data-app \
+            --version "$RELEASE_VERSION" >/dev/null 2>&1; then
+            echo "Refusing to replace existing chart version $RELEASE_VERSION" >&2
+            exit 1
+          fi
+      - name: Create release artifacts
         run: |
           helm package chart/noves-canton-data-app --destination dist
-          helm push "dist/noves-canton-data-app-${GITHUB_REF_NAME#v}.tgz" oci://ghcr.io/noves-inc/charts
+          jq -n \
+            --arg version "$RELEASE_VERSION" \
+            --arg gitSha "$GITHUB_SHA" \
+            --arg backendRepository "$BACKEND_REPOSITORY" \
+            --arg backendDigest "$BACKEND_DIGEST" \
+            --arg frontendRepository "$FRONTEND_REPOSITORY" \
+            --arg frontendDigest "$FRONTEND_DIGEST" \
+            --arg databaseRepository "$DATABASE_REPOSITORY" \
+            --arg databaseDigest "$DATABASE_DIGEST" \
+            '{
+              chart: {version: $version, gitSha: $gitSha},
+              images: {
+                backend: {
+                  repository: $backendRepository,
+                  tag: $version,
+                  digest: $backendDigest
+                },
+                frontend: {
+                  repository: $frontendRepository,
+                  tag: $version,
+                  digest: $frontendDigest
+                },
+                database: {
+                  repository: $databaseRepository,
+                  tag: $version,
+                  digest: $databaseDigest
+                }
+              }
+            }' >dist/release-manifest.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: noves-canton-data-app-v4-${{ env.RELEASE_VERSION }}
+          path: |
+            dist/noves-canton-data-app-${{ env.RELEASE_VERSION }}.tgz
+            dist/release-manifest.json
+      - name: Publish chart
+        run: |
+          helm push "dist/noves-canton-data-app-${RELEASE_VERSION}.tgz" \
+            oci://ghcr.io/noves-inc/charts

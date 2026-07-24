@@ -2,15 +2,15 @@ name: noves-canton-data-app-v4
 
 services:
   database:
-    image: ghcr.io/noves-inc/noves-canton-database-v4:${CDA_VERSION:-4.0.0}
+    image: ghcr.io/noves-inc/noves-canton-database-v4:${IMAGE_VERSION:-4.0.0}
     container_name: noves-canton-database-v4
     environment:
       POSTGRES_USER: appuser
       POSTGRES_DB: canton_index
-      POSTGRES_PASSWORD: ${CDA_DATABASE_PASSWORD:?Set CDA_DATABASE_PASSWORD}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:?Set DATABASE_PASSWORD}
       PGDATA: /home/postgres/pgdata/data
     volumes:
-      - ${CANTON_DATA_APP_DB_DATA:-cda-database-data}:/home/postgres/pgdata
+      - ${DATABASE_DATA_PATH:-cda-database-data}:/home/postgres/pgdata
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U appuser -d canton_index -h 127.0.0.1"]
       interval: 10s
@@ -22,18 +22,38 @@ services:
     restart: unless-stopped
 
   backend:
-    image: ghcr.io/noves-inc/noves-canton-backend-v4:${CDA_VERSION:-4.0.0}
+    image: ghcr.io/noves-inc/noves-canton-backend-v4:${IMAGE_VERSION:-4.0.0}
     container_name: noves-canton-backend-v4
     environment:
       INDEX_DB_HOST: database
       INDEX_DB_PORT: "5432"
       INDEX_DB_NAME: canton_index
       INDEX_DB_USER: appuser
-      INDEX_DB_PASSWORD: ${CDA_DATABASE_PASSWORD:?Set CDA_DATABASE_PASSWORD}
+      INDEX_DB_PASSWORD: ${DATABASE_PASSWORD:?Set DATABASE_PASSWORD}
+      INDEX_DB_WRITE_BATCH_SIZE: ${INDEX_DB_WRITE_BATCH_SIZE:-250}
+      DATABASE_MAX_PARALLEL_WORKERS_PER_GATHER: ${DATABASE_MAX_PARALLEL_WORKERS_PER_GATHER:-0}
+      DATABASE_SYNCHRONOUS_COMMIT: ${DATABASE_SYNCHRONOUS_COMMIT:-off}
+      DATABASE_MAX_WAL_SIZE: ${DATABASE_MAX_WAL_SIZE:-8GB}
+      READ_MODEL_TOTAL_CAPACITY: ${READ_MODEL_TOTAL_CAPACITY:-4}
+      READ_MODEL_RESERVED_LIVE_CAPACITY: ${READ_MODEL_RESERVED_LIVE_CAPACITY:-1}
+      READ_MODEL_LIVE_WEIGHT: ${READ_MODEL_LIVE_WEIGHT:-4}
+      READ_MODEL_BOOTSTRAP_WEIGHT: ${READ_MODEL_BOOTSTRAP_WEIGHT:-1}
+      READ_MODEL_BOOTSTRAP_BATCH_SIZE: ${READ_MODEL_BOOTSTRAP_BATCH_SIZE:-25}
+      READ_MODEL_PRESSURE_CHECK_INTERVAL_MS: ${READ_MODEL_PRESSURE_CHECK_INTERVAL_MS:-5000}
+      READ_MODEL_PRESSURE_RESUME_RATIO: ${READ_MODEL_PRESSURE_RESUME_RATIO:-0.80}
+      READ_MODEL_CAPTURE_LAG_LIMIT_RECORDS: ${READ_MODEL_CAPTURE_LAG_LIMIT_RECORDS:-2000}
+      READ_MODEL_LIVE_WORK_MAX_WAIT_MS: ${READ_MODEL_LIVE_WORK_MAX_WAIT_MS:-30000}
+      DATABASE_DEAD_TUPLE_RATIO_LIMIT: ${DATABASE_DEAD_TUPLE_RATIO_LIMIT:-0.30}
+      DATABASE_DEAD_TUPLE_MINIMUM: ${DATABASE_DEAD_TUPLE_MINIMUM:-1000}
+      DATABASE_TRANSACTION_AGE_LIMIT: ${DATABASE_TRANSACTION_AGE_LIMIT:-100000}
+      PROCESS_MEMORY_LIMIT_BYTES: ${PROCESS_MEMORY_LIMIT_BYTES:-4294967296}
+      DATABASE_WRITE_IO_UTILIZATION_LIMIT: ${DATABASE_WRITE_IO_UTILIZATION_LIMIT:-0.90}
+      DATABASE_CONNECTION_UTILIZATION_LIMIT: ${DATABASE_CONNECTION_UTILIZATION_LIMIT:-0.85}
+      DATABASE_COMMIT_P95_LIMIT_MS: ${DATABASE_COMMIT_P95_LIMIT_MS:-250}
       NODES_CONFIG_FILE_PATH: /config/nodes-config.json
-      CDA_NETWORK: ${CDA_NETWORK:-mainnet}
-      SCAN_PROXY_URL: ${CDA_VALIDATOR_URL:-http://validator-app:5003}
-      PUBLIC_SCAN_INDEXER_URL: ${CDA_PUBLIC_SCAN_URL:-}
+      CANTON_NETWORK: ${CANTON_NETWORK:-mainnet}
+      SCAN_PROXY_URL: ${CANTON_VALIDATOR_URL:-http://validator-app:5003}
+      PUBLIC_SCAN_INDEXER_URL: ${CANTON_PUBLIC_SCAN_URL:-}
       NOVES_GATEWAY_AUTH_TOKEN_FILE: /run/secrets/noves-gateway-auth-token
     env_file:
       - path: ./.state/capture.env
@@ -44,7 +64,7 @@ services:
     secrets:
       - noves-gateway-auth-token
     ports:
-      - "127.0.0.1:${CDA_BACKEND_PORT:-8090}:8090"
+      - "127.0.0.1:${BACKEND_PORT:-8090}:8090"
     depends_on:
       database:
         condition: service_healthy
@@ -53,7 +73,7 @@ services:
     restart: unless-stopped
 
   frontend:
-    image: ghcr.io/noves-inc/noves-canton-frontend-v4:${CDA_VERSION:-4.0.0}
+    image: ghcr.io/noves-inc/noves-canton-frontend-v4:${IMAGE_VERSION:-4.0.0}
     container_name: noves-canton-frontend-v4
     environment:
       PORT: "3000"
@@ -61,20 +81,20 @@ services:
       VITE_AUTH0_DOMAIN: ${VITE_AUTH0_DOMAIN:-}
       VITE_AUTH0_CLIENT_ID: ${VITE_AUTH0_CLIENT_ID:-}
       VITE_AUTH0_AUDIENCE: ${VITE_AUTH0_AUDIENCE:-}
-      VITE_AUTH0_REDIRECT_URI: ${CDA_APP_URL:?Set CDA_APP_URL}/callback
-      VITE_AUTH0_LOGOUT_URL: ${CDA_APP_URL}
+      VITE_AUTH0_REDIRECT_URI: ${APP_URL:?Set APP_URL}/callback
+      VITE_AUTH0_LOGOUT_URL: ${APP_URL}
       VITE_KEYCLOAK_URL: ${VITE_KEYCLOAK_URL:-}
       VITE_KEYCLOAK_REALM: ${VITE_KEYCLOAK_REALM:-}
       VITE_KEYCLOAK_CLIENT_ID: ${VITE_KEYCLOAK_CLIENT_ID:-}
-      VITE_KEYCLOAK_REDIRECT_URI: ${CDA_APP_URL}/callback
-      VITE_KEYCLOAK_LOGOUT_URL: ${CDA_APP_URL}
+      VITE_KEYCLOAK_REDIRECT_URI: ${APP_URL}/callback
+      VITE_KEYCLOAK_LOGOUT_URL: ${APP_URL}
       NOVES_GATEWAY_AUTH_TOKEN_FILE: /run/secrets/noves-gateway-auth-token
     volumes:
       - cda-exports:/app/exports
     secrets:
       - noves-gateway-auth-token
     ports:
-      - "${CDA_FRONTEND_BIND:-127.0.0.1}:${CDA_FRONTEND_PORT:-8091}:3000"
+      - "${FRONTEND_BIND_ADDRESS:-127.0.0.1}:${FRONTEND_PORT:-8091}:3000"
     depends_on:
       backend:
         condition: service_started
@@ -89,9 +109,9 @@ networks:
 
 volumes:
   cda-database-data:
-    name: ${CDA_DATABASE_VOLUME:-noves-canton-data-app-v4-data}
+    name: ${DATABASE_VOLUME:-noves-canton-data-app-v4-data}
   cda-exports:
-    name: ${CDA_EXPORTS_VOLUME:-noves-canton-data-app-v4-exports}
+    name: ${EXPORTS_VOLUME:-noves-canton-data-app-v4-exports}
 
 secrets:
   noves-gateway-auth-token:

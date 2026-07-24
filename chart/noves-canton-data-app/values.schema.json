@@ -138,11 +138,12 @@
     "setupWizard": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["enabled", "setupTokenSecret", "setupTokenKey", "localPort"],
+      "required": ["enabled", "setupTokenSecret", "setupTokenKey", "sessionTokenKey", "localPort"],
       "properties": {
         "enabled": { "type": "boolean" },
         "setupTokenSecret": { "type": "string" },
         "setupTokenKey": { "type": "string" },
+        "sessionTokenKey": { "type": "string" },
         "localPort": { "type": "integer", "minimum": 1024, "maximum": 65535 }
       }
     },
@@ -201,11 +202,75 @@
     "backendWorkload": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["replicaCount", "image", "resources"],
+      "required": ["replicaCount", "image", "resources", "performance"],
       "properties": {
         "replicaCount": { "type": "integer", "const": 1 },
         "image": { "$ref": "#/$defs/image" },
-        "resources": { "type": "object" }
+        "resources": { "type": "object" },
+        "performance": { "$ref": "#/$defs/performance" }
+      }
+    },
+    "performance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["database", "readModel"],
+      "properties": {
+        "database": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "writeBatchSize",
+            "maxParallelWorkersPerGather",
+            "synchronousCommit",
+            "maxWalSize",
+            "deadTupleRatioLimit",
+            "deadTupleMinimum",
+            "transactionAgeLimit",
+            "writeIoUtilizationLimit",
+            "connectionUtilizationLimit",
+            "commitP95LimitMs"
+          ],
+          "properties": {
+            "writeBatchSize": { "type": "integer", "minimum": 1, "maximum": 250 },
+            "maxParallelWorkersPerGather": { "type": "integer", "minimum": 0 },
+            "synchronousCommit": { "enum": ["off", "on", "local", "remote_write", "remote_apply"] },
+            "maxWalSize": { "type": "string", "minLength": 1 },
+            "deadTupleRatioLimit": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+            "deadTupleMinimum": { "type": "integer", "minimum": 1 },
+            "transactionAgeLimit": { "type": "integer", "minimum": 1 },
+            "writeIoUtilizationLimit": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+            "connectionUtilizationLimit": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+            "commitP95LimitMs": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "readModel": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "totalCapacity",
+            "reservedLiveCapacity",
+            "liveWeight",
+            "bootstrapWeight",
+            "bootstrapBatchSize",
+            "pressureCheckIntervalMs",
+            "pressureResumeRatio",
+            "captureLagLimitRecords",
+            "liveWorkMaxWaitMs",
+            "processMemoryLimitBytes"
+          ],
+          "properties": {
+            "totalCapacity": { "type": "integer", "minimum": 1 },
+            "reservedLiveCapacity": { "type": "integer", "minimum": 1 },
+            "liveWeight": { "type": "integer", "minimum": 1 },
+            "bootstrapWeight": { "type": "integer", "minimum": 1 },
+            "bootstrapBatchSize": { "type": "integer", "minimum": 1 },
+            "pressureCheckIntervalMs": { "type": "integer", "minimum": 1 },
+            "pressureResumeRatio": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+            "captureLagLimitRecords": { "type": "integer", "minimum": 1 },
+            "liveWorkMaxWaitMs": { "type": "integer", "minimum": 1 },
+            "processMemoryLimitBytes": { "type": "integer", "minimum": 1 }
+          }
+        }
       }
     },
     "persistence": {

@@ -24,8 +24,8 @@ if [[ -f "$local_installer" ]]; then
   exec "$local_installer" "$@"
 fi
 
-ref="${CDA_INSTALL_REF:-v4}"
-raw_base="${CDA_INSTALL_RAW_BASE:-https://raw.githubusercontent.com/Noves-Inc/canton-data-app/$ref}"
+ref="${NOVES_DATA_APP_INSTALL_REF:-v4}"
+raw_base="${NOVES_DATA_APP_INSTALL_RAW_BASE:-https://raw.githubusercontent.com/Noves-Inc/canton-data-app/$ref}"
 scratch="$(mktemp -d)"
 trap 'rm -rf "$scratch"' EXIT
 mkdir -p "$scratch/scripts/lib" "$scratch/docker-compose/config"

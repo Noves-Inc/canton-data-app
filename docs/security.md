@@ -49,6 +49,11 @@ Kubernetes values contain only Secret names. Store Secret values in your normal 
 Compose stores local secret files with mode `0600`. Rotate the M2M secret in the identity
 provider and deployment Secret together, then restart the backend.
 
+The Noves gateway credential is installation-specific and separate from both OIDC clients. In
+Kubernetes it is referenced through `novesGateway.existingSecret`. In Compose it is mounted from
+`.secrets/noves-gateway-auth-token`. Rotate it in the source secret, restart both backend and
+frontend, and verify readiness without printing the credential.
+
 Never:
 
 - reuse a validator, wallet, or administrative credential;

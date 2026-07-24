@@ -29,6 +29,10 @@ Plain semantic tags such as `4.0.0` are immutable release selections. `latest` m
 within those v4 repositories. A future v5 uses `-v5` repositories, so pulling v4 `latest`
 cannot cross the major-version boundary.
 
+Every chart release publishes `release-manifest.json` beside the packaged chart. It records the
+chart commit and the exact digest of each of the three Data App images. Use those digests as
+release evidence or pin them directly in environments that require digest-only deployment.
+
 ## Upgrade procedure
 
 1. Read the release notes.

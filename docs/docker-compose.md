@@ -21,6 +21,7 @@ Prepare the files:
 ```bash
 cp docker-compose/.env.example docker-compose/.env
 mkdir -p docker-compose/.state
+mkdir -p docker-compose/.secrets
 cp docker-compose/config/nodes-config.json docker-compose/.state/nodes-config.json
 ```
 
@@ -38,12 +39,22 @@ M2M_AUDIENCE=https://canton.network.global
 M2M_SCOPE=
 ```
 
+Write the installation-specific Noves gateway credential without putting it in `.env`:
+
+```bash
+umask 077
+printf '%s\n' 'replace-with-this-installation-credential' \
+  > docker-compose/.secrets/noves-gateway-auth-token
+chmod 600 docker-compose/.secrets/noves-gateway-auth-token
+```
+
 Protect the files and start:
 
 ```bash
 chmod 600 docker-compose/.env \
   docker-compose/.state/capture.env \
-  docker-compose/.state/nodes-config.json
+  docker-compose/.state/nodes-config.json \
+  docker-compose/.secrets/noves-gateway-auth-token
 docker compose --env-file docker-compose/.env \
   -f docker-compose/compose.yaml up -d
 ```
@@ -51,12 +62,29 @@ docker compose --env-file docker-compose/.env \
 The containers are named `noves-canton-backend-v4`, `noves-canton-frontend-v4`, and
 `noves-canton-database-v4`. The backend is bound to localhost by default. The frontend also
 defaults to localhost; put your existing TLS reverse proxy in front of port 8091 or change
-`CDA_FRONTEND_BIND` intentionally.
+`FRONTEND_BIND_ADDRESS` intentionally.
 
 ## Versions
 
-`CDA_VERSION=4.0.0` pins all three images. `CDA_VERSION=latest` opts into the newest release in
+`IMAGE_VERSION=4.0.0` pins all three images. `IMAGE_VERSION=latest` opts into the newest release in
 the v4-only repositories. It cannot select a future v5 image.
+
+## Performance tuning
+
+The final section of `.env.example` keeps all supported database and read-model controls
+available. The most common are:
+
+- `INDEX_DB_WRITE_BATCH_SIZE`: write batch size, capped at 250;
+- `DATABASE_MAX_PARALLEL_WORKERS_PER_GATHER`: per-query database parallelism;
+- `DATABASE_SYNCHRONOUS_COMMIT`: durability/latency policy;
+- `DATABASE_MAX_WAL_SIZE`: write-ahead-log allowance during heavy ingestion;
+- `READ_MODEL_TOTAL_CAPACITY`: total concurrent read-model work;
+- `READ_MODEL_RESERVED_LIVE_CAPACITY`: capacity reserved for current traffic;
+- `READ_MODEL_BOOTSTRAP_BATCH_SIZE`: historical catch-up batch size.
+
+The remaining pressure thresholds let large operators match scheduling to their database and
+container limits. Keep the supplied defaults initially. Increase capacity only after increasing
+CPU, memory, and database connections, and observe capture lag and write latency between changes.
 
 ## Operations
 
@@ -78,5 +106,5 @@ docker compose --env-file docker-compose/.env \
 The named database and export volumes remain. Do not use `down --volumes` unless permanent
 data deletion is intended and backups have been verified.
 
-For encrypted storage, set `CANTON_DATA_APP_DB_DATA` to an absolute path on an encrypted
+For encrypted storage, set `DATABASE_DATA_PATH` to an absolute path on an encrypted
 filesystem. See [Encryption at rest](../encryption_at_rest.md).

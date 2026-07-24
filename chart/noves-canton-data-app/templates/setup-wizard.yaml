@@ -139,39 +139,43 @@ spec:
               value: {{ .Values.canton.participantAddress | quote }}
             - name: CANTON_TRANSLATE_BASE_URL
               value: {{ printf "http://%s-backend:8090" (include "cda.fullname" .) | quote }}
-            - name: CDA_SETUP_TOKEN
+            - name: SETUP_TOKEN
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.setupWizard.setupTokenSecret }}
                   key: {{ .Values.setupWizard.setupTokenKey }}
+            - name: SETUP_SESSION_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.setupWizard.setupTokenSecret }}
+                  key: {{ .Values.setupWizard.sessionTokenKey }}
             - name: NODE_EXTRA_CA_CERTS
               value: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
           readinessProbe:
             httpGet:
-              path: /api/setup/state
+              path: /health
               port: http
             periodSeconds: 5
           livenessProbe:
             httpGet:
-              path: /api/setup/state
+              path: /health
               port: http
             periodSeconds: 20
           resources:
             {{- toYaml .Values.frontend.resources | nindent 12 }}
 ---
-apiVersion: v1
-kind: Service
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
 metadata:
   name: {{ include "cda.fullname" . }}-setup-wizard
   labels:
     {{- include "cda.labels" . | nindent 4 }}
     app.kubernetes.io/component: setup-wizard
 spec:
-  selector:
-    {{- include "cda.selectorLabels" . | nindent 4 }}
-    app.kubernetes.io/component: setup-wizard
-  ports:
-    - name: http
-      port: 8080
-      targetPort: http
+  podSelector:
+    matchLabels:
+      {{- include "cda.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: setup-wizard
+  policyTypes:
+    - Ingress
 {{- end }}
