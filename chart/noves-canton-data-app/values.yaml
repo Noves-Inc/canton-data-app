@@ -75,6 +75,8 @@ database:
   persistence:
     existingClaim: ""
     size: 100Gi
+    # Leave empty only for local/portable installs. Production should explicitly select encrypted
+    # SSD block storage (AKS managed-csi-premium, EKS gp3, or GKE premium-rwo).
     storageClass: ""
   resources:
     requests:

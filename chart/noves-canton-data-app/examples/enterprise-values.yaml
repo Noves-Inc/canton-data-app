@@ -16,6 +16,10 @@ database:
   image:
     tag: "4.0.0"
   existingSecret: noves-canton-data-app-database
+  persistence:
+    # Production requires encrypted SSD-backed block storage. Examples:
+    # AKS: managed-csi-premium; EKS: an encrypted gp3 class; GKE: premium-rwo.
+    storageClass: replace-with-production-ssd-storage-class
 
 capture:
   existingSecret: noves-canton-data-app-capture-auth

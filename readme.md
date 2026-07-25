@@ -83,7 +83,9 @@ You need:
 - an Auth0 tenant or Keycloak realm;
 - a browser OIDC client for users;
 - a separate M2M client and matching Canton user for capture;
-- a backup plan and durable storage for the shipped database container.
+- a backup plan and durable storage for the shipped database container;
+- for production Kubernetes, encrypted SSD-backed block storage: AKS `managed-csi-premium`,
+  encrypted EKS `gp3`, GKE `premium-rwo`, or an equivalent measured on-premises class.
 
 The capture identity must have only `CanReadAsAnyParty`. Do not reuse the validator identity.
 Do not grant `ParticipantAdmin`, identity-provider administration, act-as, execute-as, or their

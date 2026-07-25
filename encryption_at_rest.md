@@ -181,7 +181,10 @@ database:
 
 ### Encrypted StorageClass Examples
 
-Use these as templates — the mechanism depends on where your cluster runs. In all cases the application manifests need nothing beyond the `storageClassName`.
+Use these as templates — the mechanism depends on where your cluster runs. In all cases the
+application manifests need nothing beyond the `storageClassName`. The database examples use the
+production SSD classes required by the Helm installation guide; do not substitute Azure Standard
+SSD, GCP balanced persistent disk, HDD-backed storage, or a network file share.
 
 **AWS (EBS CSI):**
 
@@ -205,17 +208,18 @@ volumeBindingMode: WaitForFirstConsumer
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
-  name: encrypted-cmk
+  name: encrypted-premium-cmk
 provisioner: disk.csi.azure.com
 parameters:
-  skuname: StandardSSD_LRS
+  skuName: Premium_LRS
   diskEncryptionSetID: "/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.Compute/diskEncryptionSets/<des>"
 allowVolumeExpansion: true
 volumeBindingMode: WaitForFirstConsumer
 ```
 
 Azure managed disks are encrypted at rest with platform-managed keys by default. A Disk Encryption
-Set (DES) adds a customer-managed key. For a DES-backed AKS StorageClass:
+Set (DES) adds a customer-managed key. Without a customer-managed key, AKS's built-in
+`managed-csi-premium` class provisions Premium SSD storage. For a DES-backed AKS StorageClass:
 
 1. Keep the Key Vault and DES in the same region. Enable Key Vault soft delete and purge
    protection.
@@ -249,18 +253,18 @@ Two AKS specifics (both verified in a real deployment):
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
-  name: encrypted-cmek
+  name: encrypted-premium-cmek
 provisioner: pd.csi.storage.gke.io
 parameters:
-  type: pd-balanced
+  type: pd-ssd
   disk-encryption-kms-key: projects/<project>/locations/<region>/keyRings/<ring>/cryptoKeys/<key>
 allowVolumeExpansion: true
 volumeBindingMode: WaitForFirstConsumer
 ```
 
 **On-premise clusters:**
-- **Longhorn**: supports encrypted volumes natively (LUKS under the hood) — create a StorageClass with `encrypted: "true"` and the crypto key in a Kubernetes Secret, per the Longhorn documentation.
-- **Rook/Ceph**: enable OSD encryption (`encryptedDevice: "true"` in the CephCluster spec) — then *every* volume from that cluster is encrypted at rest.
+- **Longhorn**: supports encrypted volumes natively (LUKS under the hood) — create a StorageClass with `encrypted: "true"` and the crypto key in a Kubernetes Secret, per the Longhorn documentation. Back the replica disks with SSD or NVMe storage and measure sustained write latency.
+- **Rook/Ceph**: enable OSD encryption (`encryptedDevice: "true"` in the CephCluster spec) — then *every* volume from that cluster is encrypted at rest. Use an SSD/NVMe device class for the database pool.
 - **local-path / hostPath provisioners**: encrypt at the node layer instead — put the provisioner's data directory on a LUKS volume on each node (same procedure as the [Docker Compose LUKS walkthrough](#setting-up-an-encrypted-filesystem-with-luks)).
 
 ### Migrating an Existing PVC

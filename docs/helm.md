@@ -11,9 +11,25 @@ Flux, Argo CD, Terraform, or a direct `helm upgrade --install` works without the
 - a default validator app Service reachable at `validator-app:5003`
 - durable storage and either the standard Canton Istio gateway or an Ingress controller
 
-Set `database.persistence.storageClass` to an encrypted StorageClass for fresh storage, or set
-`database.persistence.existingClaim` to an operator-managed encrypted PVC. See
-[Encryption at rest](../encryption_at_rest.md).
+For production, the database must use encrypted SSD-backed block storage. Set
+`database.persistence.storageClass` explicitly for fresh storage, or set
+`database.persistence.existingClaim` to an operator-managed PVC with the same performance class.
+Do not rely on the cluster's default StorageClass: it may provision a standard or balanced disk
+whose checkpoint latency is unsuitable for initial ledger capture.
+
+Use the provider's production SSD class:
+
+| Platform | Database storage |
+|---|---|
+| Azure AKS | `managed-csi-premium`, backed by Azure Premium SSD; use a custom `Premium_LRS`/`Premium_ZRS` class when customer-managed encryption or other parameters require it |
+| AWS EKS | encrypted EBS `gp3` through the EBS CSI driver; provision additional IOPS or throughput for higher-volume nodes |
+| Google GKE | `premium-rwo`, backed by `pd-ssd`, or an equivalent custom `pd-ssd` class |
+| On premises | encrypted SSD/NVMe-backed `ReadWriteOnce` block storage with measured sustained write latency |
+
+The empty chart default exists for local clusters and portability; it is not the production
+recommendation. Disk performance is provider- and size-dependent, so verify the provisioned volume's
+actual IOPS, throughput, and latency rather than inferring them from the PVC size. See
+[Encryption at rest](../encryption_at_rest.md) for StorageClass examples.
 
 The backend runs as non-root UID/GID `1654`. The chart sets the backend pod's `fsGroup` to `1654`
 with `fsGroupChangePolicy: OnRootMismatch` so the durable exports claim is writable without a
@@ -121,6 +137,7 @@ backend:
 Increase one dimension at a time while observing database CPU, memory, connection utilization,
 write latency, capture lag, and `/startup-status`. The complete typed set is in
 [`values.yaml`](../chart/noves-canton-data-app/values.yaml).
+Database tuning cannot compensate for a standard, balanced, HDD-backed, or network-file volume.
 See [Streams, alerts, and connectors](streaming.md) for every streaming control and the private
 webhook policy.
 
