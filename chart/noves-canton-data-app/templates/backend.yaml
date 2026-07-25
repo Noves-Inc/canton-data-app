@@ -29,6 +29,8 @@ spec:
     spec:
       automountServiceAccountToken: false
       securityContext:
+        fsGroup: 1654
+        fsGroupChangePolicy: OnRootMismatch
         seccompProfile:
           type: RuntimeDefault
       {{- with .Values.imagePullSecrets }}

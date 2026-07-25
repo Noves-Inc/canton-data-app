@@ -15,6 +15,11 @@ Set `database.persistence.storageClass` to an encrypted StorageClass for fresh s
 `database.persistence.existingClaim` to an operator-managed encrypted PVC. See
 [Encryption at rest](../encryption_at_rest.md).
 
+The backend runs as non-root UID/GID `1654`. The chart sets the backend pod's `fsGroup` to `1654`
+with `fsGroupChangePolicy: OnRootMismatch` so the durable exports claim is writable without a
+privileged init container. If your CSI driver or admission policy replaces pod security settings,
+preserve that group ownership; otherwise export creation fails even though the API remains healthy.
+
 Create the database Secret:
 
 ```bash

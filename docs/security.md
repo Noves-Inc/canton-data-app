@@ -80,3 +80,8 @@ assisted path.
 The database and export volumes contain private transaction data. Encrypt storage, back it up,
 limit administrative access, and preserve it during ordinary upgrades. The shipped database
 container is the only supported database runtime.
+
+The backend container is non-root (`1654:1654`). Its pod uses `fsGroup: 1654` with
+`fsGroupChangePolicy: OnRootMismatch` to make the exports PVC group-writable. Keep this setting when
+copying or wrapping the chart. Do not solve export-volume permissions by running the backend as root
+or adding a privileged volume-permissions container.
