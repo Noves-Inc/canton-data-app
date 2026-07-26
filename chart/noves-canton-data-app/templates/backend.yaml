@@ -93,6 +93,8 @@ spec:
               value: {{ .Values.backend.performance.readModel.bootstrapWeight | quote }}
             - name: READ_MODEL_BOOTSTRAP_BATCH_SIZE
               value: {{ .Values.backend.performance.readModel.bootstrapBatchSize | quote }}
+            - name: PARTY_EVENTS_INDEXING_DELAY_MS
+              value: {{ .Values.backend.performance.readModel.partyEventsIndexingDelayMs | quote }}
             - name: READ_MODEL_PRESSURE_CHECK_INTERVAL_MS
               value: {{ .Values.backend.performance.readModel.pressureCheckIntervalMs | quote }}
             - name: READ_MODEL_PRESSURE_RESUME_RATIO

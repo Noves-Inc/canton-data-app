@@ -34,6 +34,7 @@ backend:
       liveWeight: 4
       bootstrapWeight: 1
       bootstrapBatchSize: 25
+      partyEventsIndexingDelayMs: 0
       pressureCheckIntervalMs: 5000
       pressureResumeRatio: 0.80
       captureLagLimitRecords: 2000

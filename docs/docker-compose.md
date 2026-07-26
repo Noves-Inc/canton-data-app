@@ -95,7 +95,10 @@ available. The most common are:
 - `DATABASE_MAX_WAL_SIZE`: write-ahead-log allowance during heavy ingestion;
 - `READ_MODEL_TOTAL_CAPACITY`: total concurrent read-model work;
 - `READ_MODEL_RESERVED_LIVE_CAPACITY`: capacity reserved for current traffic;
-- `READ_MODEL_BOOTSTRAP_BATCH_SIZE`: historical catch-up batch size.
+- `READ_MODEL_BOOTSTRAP_BATCH_SIZE`: historical catch-up batch size;
+- `PARTY_EVENTS_INDEXING_DELAY_MS`: pause after each non-empty Party Events live batch. Keep `0`
+  for maximum catch-up speed. For a backend limited to about 1.5 CPU cores, start with `250` and
+  `READ_MODEL_TOTAL_CAPACITY=2`; party history and readiness will catch up more slowly.
 
 The remaining pressure thresholds let large operators match scheduling to their database and
 container limits. Keep the supplied defaults initially. Increase capacity only after increasing

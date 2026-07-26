@@ -126,9 +126,10 @@ backend:
       synchronousCommit: "off"
       maxWalSize: 16GB
     readModel:
-      totalCapacity: 8
-      reservedLiveCapacity: 2
-      bootstrapBatchSize: 50
+      totalCapacity: 2
+      reservedLiveCapacity: 1
+      bootstrapBatchSize: 25
+      partyEventsIndexingDelayMs: 250
   streaming:
     pageSize: 250
     websocketBufferLimit: 25000
@@ -137,6 +138,9 @@ backend:
 Increase one dimension at a time while observing database CPU, memory, connection utilization,
 write latency, capture lag, and `/startup-status`. The complete typed set is in
 [`values.yaml`](../chart/noves-canton-data-app/values.yaml).
+The `250` ms / two-lane read-model profile prioritizes API and capture responsiveness on a backend
+limited to about 1.5 CPU cores; it deliberately slows Party Events catch-up and does not require
+raising that CPU limit.
 Database tuning cannot compensate for a standard, balanced, HDD-backed, or network-file volume.
 See [Streams, alerts, and connectors](streaming.md) for every streaming control and the private
 webhook policy.
