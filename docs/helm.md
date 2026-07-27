@@ -129,7 +129,8 @@ backend:
       totalCapacity: 2
       reservedLiveCapacity: 1
       bootstrapBatchSize: 25
-      partyEventsIndexingDelayMs: 250
+      backgroundIndexingDutyPercent: 50
+      partyEventsIndexingDelayMs: 0
   streaming:
     pageSize: 250
     websocketBufferLimit: 25000
@@ -138,9 +139,10 @@ backend:
 Increase one dimension at a time while observing database CPU, memory, connection utilization,
 write latency, capture lag, and `/startup-status`. The complete typed set is in
 [`values.yaml`](../chart/noves-canton-data-app/values.yaml).
-The `250` ms / two-lane read-model profile prioritizes API and capture responsiveness on a backend
-limited to about 1.5 CPU cores; it deliberately slows Party Events catch-up and does not require
-raising that CPU limit.
+The `50` percent controlled-batch wall-duty profile prioritizes API responsiveness on a backend
+limited to about 1.5 CPU cores. It serializes CPU-heavy indexing batches and adds proportional
+cooldown without holding scheduler or database capacity. It is not a CPU-utilization target.
+Lower values trade catch-up time for more foreground headroom.
 Database tuning cannot compensate for a standard, balanced, HDD-backed, or network-file volume.
 See [Streams, alerts, and connectors](streaming.md) for every streaming control and the private
 webhook policy.

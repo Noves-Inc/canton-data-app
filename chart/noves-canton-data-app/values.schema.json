@@ -271,12 +271,27 @@
         "readModel": {
           "type": "object",
           "additionalProperties": false,
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "backgroundIndexingDutyPercent": { "maximum": 99 }
+                }
+              },
+              "then": {
+                "properties": {
+                  "partyEventsIndexingDelayMs": { "const": 0 }
+                }
+              }
+            }
+          ],
           "required": [
             "totalCapacity",
             "reservedLiveCapacity",
             "liveWeight",
             "bootstrapWeight",
             "bootstrapBatchSize",
+            "backgroundIndexingDutyPercent",
             "partyEventsIndexingDelayMs",
             "pressureCheckIntervalMs",
             "pressureResumeRatio",
@@ -290,6 +305,7 @@
             "liveWeight": { "type": "integer", "minimum": 1 },
             "bootstrapWeight": { "type": "integer", "minimum": 1 },
             "bootstrapBatchSize": { "type": "integer", "minimum": 1 },
+            "backgroundIndexingDutyPercent": { "type": "integer", "minimum": 1, "maximum": 100 },
             "partyEventsIndexingDelayMs": { "type": "integer", "minimum": 0 },
             "pressureCheckIntervalMs": { "type": "integer", "minimum": 1 },
             "pressureResumeRatio": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },

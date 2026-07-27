@@ -77,6 +77,7 @@ for contract in \
   'release-manifest.json' \
   'DATABASE_MAX_PARALLEL_WORKERS_PER_GATHER' \
   'READ_MODEL_TOTAL_CAPACITY' \
+  'BACKGROUND_INDEXING_DUTY_PERCENT' \
   'STREAM_PAGE_SIZE' \
   'splice-app-validator-ledger-api-auth' \
   '--participant-admin-secret' \

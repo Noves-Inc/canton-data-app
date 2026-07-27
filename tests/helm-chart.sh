@@ -29,6 +29,11 @@ assert_not_contains() {
 helm lint "$chart" --values "$fixtures/enterprise-values.yaml"
 helm lint "$chart" --values "$fixtures/setup-istio-values.yaml"
 helm lint "$chart" --values "$chart/examples/enterprise-values.yaml"
+if helm lint "$chart" --values "$fixtures/enterprise-values.yaml" \
+  --set backend.performance.readModel.backgroundIndexingDutyPercent=50 \
+  --set backend.performance.readModel.partyEventsIndexingDelayMs=1 >/dev/null 2>&1; then
+  fail 'constrained background duty accepted the deprecated Party Events delay.'
+fi
 
 helm template cda "$chart" \
   --namespace validator \
@@ -85,6 +90,7 @@ assert_contains "$scratch/enterprise.yaml" 'name: DATABASE_SYNCHRONOUS_COMMIT'
 assert_contains "$scratch/enterprise.yaml" 'name: DATABASE_MAX_WAL_SIZE'
 assert_contains "$scratch/enterprise.yaml" 'name: INDEX_DB_WRITE_BATCH_SIZE'
 assert_contains "$scratch/enterprise.yaml" 'name: READ_MODEL_TOTAL_CAPACITY'
+assert_contains "$scratch/enterprise.yaml" 'name: BACKGROUND_INDEXING_DUTY_PERCENT'
 assert_contains "$scratch/enterprise.yaml" 'name: PARTY_EVENTS_INDEXING_DELAY_MS'
 assert_contains "$scratch/enterprise.yaml" 'name: READ_MODEL_BOOTSTRAP_BATCH_SIZE'
 assert_contains "$scratch/enterprise.yaml" 'name: STREAM_POLL_INTERVAL_MS'
