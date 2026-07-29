@@ -108,12 +108,12 @@
       ],
       "properties": {
         "existingSecret": { "type": "string" },
-        "ledgerApiUserKey": { "type": "string" },
-        "tokenEndpointKey": { "type": "string" },
-        "clientIdKey": { "type": "string" },
-        "clientSecretKey": { "type": "string" },
-        "audienceKey": { "type": "string" },
-        "scopeKey": { "type": "string" }
+        "ledgerApiUserKey": { "type": "string", "minLength": 1 },
+        "tokenEndpointKey": { "type": "string", "minLength": 1 },
+        "clientIdKey": { "type": "string", "minLength": 1 },
+        "clientSecretKey": { "type": "string", "minLength": 1 },
+        "audienceKey": { "type": "string", "minLength": 1 },
+        "scopeKey": { "type": "string", "minLength": 1 }
       }
     },
     "novesGateway": {
@@ -162,7 +162,10 @@
         "provider": { "enum": ["none", "ingress", "istio"] },
         "host": { "type": "string" },
         "tlsSecret": { "type": "string" },
-        "annotations": { "type": "object" },
+        "annotations": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
         "istio": {
           "type": "object",
           "additionalProperties": false,

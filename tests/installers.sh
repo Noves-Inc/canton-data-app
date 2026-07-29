@@ -16,13 +16,17 @@ cat >"$fake_bin/helm" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >>"$INSTALLER_CALLS"
 if [[ -n "${FINAL_VALUES_CAPTURE:-}" ]]; then
+  values_source=""
   while (($#)); do
     if [[ "$1" == "--values" && -f "${2:-}" ]]; then
-      cp "$2" "$FINAL_VALUES_CAPTURE"
-      break
+      values_source="$2"
+      shift
     fi
     shift
   done
+  if [[ -n "$values_source" ]]; then
+    cp "$values_source" "$FINAL_VALUES_CAPTURE"
+  fi
 fi
 EOF
 cat >"$fake_bin/kubectl" <<'EOF'
@@ -191,9 +195,12 @@ grep -Fq -- 'get configmap "$result_configmap"' "$repo_root/scripts/install-helm
   fail 'guided Helm setup does not detect an existing result.'
 
 guided_result='{"completed":true,"provider":"auth0","appUrl":"https://data.example.com:8443","routingHost":"data.example.com","routingMode":"ingress","routingProvider":"ingress","tlsSecret":"data-example-com-tls","ingressClassName":"nginx","istioGateway":"cluster-ingress/cn-http-gateway","routingAnnotations":{"nginx.ingress.kubernetes.io/proxy-body-size":"20m"},"nodeId":"main-node","participantAddress":"participant:5001","expectedParticipantId":"participant::expected","validatorUrl":"http://validator-app:5003","publicScanUrl":"","expectedNetwork":"mainnet","auth0Domain":"tenant.auth0.com","browserClientId":"browser-client","browserAudience":"https://ledger-api"}'
+guided_values="$scratch/guided-operator-values.yaml"
+printf 'imagePullSecrets:\n  - name: private-registry\n' >"$guided_values"
 INSTALLER_CALLS="$scratch/guided.calls" GUIDED_RESULT="$guided_result" \
   FINAL_VALUES_CAPTURE="$scratch/guided-final-values.json" PATH="$fake_bin:$PATH" \
-  "$repo_root/scripts/install-helm.sh" --namespace validator --release cda
+  "$repo_root/scripts/install-helm.sh" --namespace validator --release cda \
+  --values "$guided_values"
 if grep -Fq -- 'create secret generic cda-database' "$scratch/guided.calls"; then
   fail 'guided Helm resume replaced the existing database credential.'
 fi
@@ -202,6 +209,10 @@ if grep -Fq -- 'port-forward' "$scratch/guided.calls"; then
 fi
 [[ "$(grep -c -- 'upgrade --install cda' "$scratch/guided.calls")" == 2 ]] ||
   fail 'guided Helm resume did not reconcile setup and activate the release.'
+[[ "$(grep -c -- "--values $guided_values" "$scratch/guided.calls")" == 2 ]] ||
+  fail 'guided Helm setup did not preserve operator values for setup and activation.'
+grep -Fq -- '--set routing.provider=none' "$scratch/guided.calls" ||
+  fail 'guided Helm setup did not override the operator route during localhost setup.'
 grep -Fq -- 'deployment/${release}-setup-wizard' "$repo_root/scripts/install-helm.sh" ||
   fail 'guided Helm setup does not port-forward directly to the Deployment.'
 grep -Fq -- '#session=$setup_session_token' "$repo_root/scripts/install-helm.sh" ||

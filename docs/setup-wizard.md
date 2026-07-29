@@ -91,6 +91,11 @@ name. It cannot list Secrets, access Canton Secrets, patch Deployments, or perfo
 administration. Public routing is rejected while the wizard is enabled; access is through a
 localhost port-forward only.
 
+Pass `--values FILE` to the guided Helm installer when the cluster needs operator settings such
+as `imagePullSecrets`, StorageClasses, resource limits, or scheduling rules. The installer applies
+that file to both the temporary setup release and the activated release. Wizard results override
+only the values the wizard owns, including OIDC, Canton addresses, and routing.
+
 The validator administrator Secret is read by the host-side installer with the operator's
 existing Kubernetes access. It is never granted to the setup service account.
 

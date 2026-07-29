@@ -18,8 +18,6 @@ In the examples below, `APP_URL` is the exact public URL, such as
 5. Save and record the tenant domain and Client ID. A browser client has no client secret in the
    Data App configuration.
 
-<!-- screenshot-slot: auth0-spa-callbacks -->
-
 Use these Helm values:
 
 ```yaml
@@ -43,8 +41,6 @@ For Compose, use the equivalent `VITE_AUTH0_*` values in `.env`.
    normally `https://TENANT_DOMAIN/oauth/token`.
 5. Do not authorize the M2M application for unrelated APIs.
 
-<!-- screenshot-slot: auth0-m2m-api-grant -->
-
 Auth0 client-credentials tokens normally use `<client-id>@clients` as `sub`. Request a token and
 confirm the actual claim for your tenant; the value is case-sensitive.
 
@@ -64,8 +60,6 @@ unset TOKEN TOKEN_RESPONSE PAYLOAD
 ```
 
 Copy the exact `sub`, then clear the shell variables that contain credentials.
-
-<!-- screenshot-slot: auth0-token-subject -->
 
 ## 3. Matching Canton user
 
@@ -87,8 +81,6 @@ configuration. After you create and enter the dedicated capture application, the
 explicit confirmation and can create this Canton user automatically. It does not create or
 modify the Auth0 application. If automatic participant provisioning is unavailable, use the
 copyable `grpcurl -expand-headers` commands shown by the wizard.
-
-<!-- screenshot-slot: auth0-canton-rights -->
 
 ## 4. Verify
 

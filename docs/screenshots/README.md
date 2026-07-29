@@ -1,7 +1,7 @@
 # Screenshot production
 
-The authentication guides contain named screenshot slots instead of image links. Add a file
-only after it has been captured from a Noves-controlled tenant and reviewed.
+The manifest records screenshots that may be added to the authentication guides. Add a file
+only after capturing it from a Noves-controlled tenant and completing review.
 
 For every screenshot:
 

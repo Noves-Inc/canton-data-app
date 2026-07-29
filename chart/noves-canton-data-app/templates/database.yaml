@@ -32,6 +32,10 @@ spec:
         - name: validate-postgresql-major
           image: {{ include "cda.image" .Values.database.image | quote }}
           imagePullPolicy: {{ .Values.database.image.pullPolicy }}
+          {{- with .Values.database.containerSecurityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           command:
             - sh
             - -ec

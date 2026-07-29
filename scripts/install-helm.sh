@@ -19,7 +19,7 @@ participant_admin_secret="splice-app-validator-ledger-api-auth"
 usage() {
   cat <<'EOF'
 Usage:
-  install-helm.sh                         Guided localhost setup
+  install-helm.sh [--values FILE]         Guided localhost setup
   install-helm.sh --standard --values FILE
 
 Options:
@@ -52,9 +52,12 @@ done
 require_command helm
 require_command kubectl
 
+if [[ -n "$values_file" && ! -f "$values_file" ]]; then
+  die "Values file not found: $values_file"
+fi
+
 if [[ "$mode" == standard ]]; then
   [[ -n "$values_file" ]] || die "--standard requires --values FILE."
-  [[ -f "$values_file" ]] || die "Values file not found: $values_file"
   exec helm upgrade --install "$release" "$chart_ref" \
     --version "$chart_constraint" \
     --namespace "$namespace" \
@@ -65,6 +68,8 @@ fi
 require_command jq
 require_command openssl
 require_command curl
+
+guided_values_file="${values_file:-/dev/null}"
 
 database_secret="${release}-database"
 capture_secret="${release}-capture-auth"
@@ -133,7 +138,9 @@ result_json="$(
 helm upgrade --install "$release" "$chart_ref" \
   --version "$chart_constraint" \
   --namespace "$namespace" \
+  --values "$guided_values_file" \
   --set setupWizard.enabled=true \
+  --set routing.provider=none \
   --set "setupWizard.setupTokenSecret=$setup_token_secret" \
   --set "novesGateway.existingSecret=$gateway_secret" \
   --set "database.existingSecret=$database_secret" \
@@ -236,6 +243,7 @@ jq --arg databaseSecret "$database_secret" \
 helm upgrade --install "$release" "$chart_ref" \
   --version "$chart_constraint" \
   --namespace "$namespace" \
+  --values "$guided_values_file" \
   --values "$final_values" \
   --wait
 

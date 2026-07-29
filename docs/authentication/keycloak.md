@@ -20,8 +20,6 @@ realm.
 6. Require PKCE with `S256` when that option is available.
 7. Add the validator's `daml_ledger_api` client scope as a default scope.
 
-<!-- screenshot-slot: keycloak-public-client -->
-
 Use these Helm values:
 
 ```yaml
@@ -49,10 +47,6 @@ For Compose, use the equivalent `VITE_KEYCLOAK_*` values in `.env`.
    KEYCLOAK_URL/realms/REALM/protocol/openid-connect/token
    ```
 
-<!-- screenshot-slot: keycloak-service-account -->
-
-<!-- screenshot-slot: keycloak-ledger-scope -->
-
 ## 3. Observe the exact token subject
 
 Request one token locally:
@@ -74,8 +68,6 @@ unset TOKEN TOKEN_RESPONSE PAYLOAD
 Copy the exact, case-sensitive `sub`. Do not assume it is the client ID or service-account
 display name.
 
-<!-- screenshot-slot: keycloak-token-subject -->
-
 ## 4. Matching Canton user
 
 Create a Canton user whose ID exactly equals the observed `sub`:
@@ -95,8 +87,6 @@ from the validator configuration. After you create and enter the separate captur
 wizard asks for explicit confirmation and can create this Canton user automatically. It does not
 create or modify a Keycloak client. If automatic participant provisioning is unavailable, use
 the copyable `grpcurl -expand-headers` commands shown by the wizard.
-
-<!-- screenshot-slot: keycloak-canton-rights -->
 
 ## 5. Verify
 

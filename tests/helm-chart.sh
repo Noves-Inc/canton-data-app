@@ -120,6 +120,8 @@ assert_contains "$scratch/enterprise.yaml" 'type: RuntimeDefault'
 assert_contains "$scratch/enterprise.yaml" 'fsGroup: 1654'
 assert_contains "$scratch/enterprise.yaml" 'fsGroupChangePolicy: OnRootMismatch'
 assert_contains "$scratch/enterprise.yaml" 'allowPrivilegeEscalation: false'
+[[ "$(grep -c 'allowPrivilegeEscalation: false' "$scratch/enterprise.yaml")" == 4 ]] ||
+  fail 'backend, frontend, database, and database init containers must disable privilege escalation'
 assert_contains "$scratch/enterprise.yaml" 'runAsUser: 1654'
 assert_contains "$scratch/enterprise.yaml" 'runAsUser: 70'
 assert_contains "$scratch/enterprise.yaml" 'runAsGroup: 70'
@@ -234,6 +236,20 @@ assert_contains "$scratch/migration.yaml" 'value: "false"'
 assert_contains "$scratch/migration.yaml" 'name: DATABASE_EXPECTED_SOURCE'
 assert_contains "$scratch/migration.yaml" 'value: "v3"'
 assert_not_contains "$scratch/migration.yaml" 'kind: Job'
+
+if helm template cda "$chart" --namespace validator \
+  --values "$fixtures/enterprise-values.yaml" \
+  --set-string capture.clientIdKey= >"$scratch/invalid-capture-key.out" 2>&1; then
+  fail 'chart accepted an empty capture Secret key name'
+fi
+assert_contains "$scratch/invalid-capture-key.out" 'capture.clientIdKey'
+
+if helm template cda "$chart" --namespace validator \
+  --values "$fixtures/enterprise-values.yaml" \
+  --set routing.annotations.flag=true >"$scratch/invalid-annotation.out" 2>&1; then
+  fail 'chart accepted a non-string routing annotation'
+fi
+assert_contains "$scratch/invalid-annotation.out" 'routing.annotations.flag'
 
 if helm template cda "$chart" --namespace validator \
   --values "$fixtures/invalid-routing-values.yaml" >"$scratch/invalid.out" 2>&1; then

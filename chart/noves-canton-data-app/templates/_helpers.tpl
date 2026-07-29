@@ -98,4 +98,16 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- if not .Values.novesGateway.tokenKey -}}
 {{- fail "novesGateway.tokenKey is required" -}}
 {{- end -}}
+{{- range $field, $value := dict
+  "capture.ledgerApiUserKey" .Values.capture.ledgerApiUserKey
+  "capture.tokenEndpointKey" .Values.capture.tokenEndpointKey
+  "capture.clientIdKey" .Values.capture.clientIdKey
+  "capture.clientSecretKey" .Values.capture.clientSecretKey
+  "capture.audienceKey" .Values.capture.audienceKey
+  "capture.scopeKey" .Values.capture.scopeKey
+-}}
+{{- if not $value -}}
+{{- fail (printf "%s is required" $field) -}}
+{{- end -}}
+{{- end -}}
 {{- end -}}
