@@ -37,10 +37,22 @@ if helm lint "$chart" --values "$fixtures/enterprise-values.yaml" \
   --set-string backend.publicApiUrl=http://127.999.999.999:8099 >/dev/null 2>&1; then
   fail 'backend.publicApiUrl accepted an invalid loopback-looking host.'
 fi
+for invalid_url in \
+  'http://127.0.0.1:99999' \
+  'https://api.example.test:99999'; do
+  if helm lint "$chart" --values "$fixtures/enterprise-values.yaml" \
+    --set-string "backend.publicApiUrl=$invalid_url" >/dev/null 2>&1; then
+    fail "backend.publicApiUrl accepted an out-of-range port: $invalid_url"
+  fi
+done
 helm lint "$chart" --values "$fixtures/enterprise-values.yaml" \
   --set-string backend.publicApiUrl=https://api.example.test >/dev/null
 helm lint "$chart" --values "$fixtures/enterprise-values.yaml" \
   --set-string backend.publicApiUrl=http://127.0.0.1:8099 >/dev/null
+helm lint "$chart" --values "$fixtures/enterprise-values.yaml" \
+  --set-string backend.publicApiUrl=HTTPS://api.example.test:8443/base >/dev/null
+helm lint "$chart" --values "$fixtures/enterprise-values.yaml" \
+  --set-string backend.publicApiUrl=http://LOCALHOST:8099 >/dev/null
 if helm lint "$chart" --values "$fixtures/enterprise-values.yaml" \
   --set backend.performance.readModel.backgroundIndexingDutyPercent=50 \
   --set backend.performance.readModel.partyEventsIndexingDelayMs=1 >/dev/null 2>&1; then
