@@ -92,7 +92,10 @@ for contract in \
   '/api/v2/capture/status' \
   'kubectl get ingressclass' \
   'kubectl get pvc' \
-  'imagePullSecrets'
+  'imagePullSecrets' \
+  'DATABASE_EXPECTED_SOURCE' \
+  'persistentVolumeClaim.claimName' \
+  'Keep `migration.enabled: true`'
 do
   rg -Fq -- "$contract" "$repo_root/readme.md" "$repo_root/docs" ||
     fail "operator documentation is missing: $contract"
