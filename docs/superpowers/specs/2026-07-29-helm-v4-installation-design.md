@@ -16,7 +16,7 @@ The chart will use the images running in `noves-prod-ns` until Noves publishes t
 | Component | Image |
 |---|---|
 | Backend | `noves.azurecr.io/cda-backend:prod-19b8de69-1785353655` |
-| Frontend | `noves.azurecr.io/cda-frontend:prod-6110f60d-1785354653` |
+| Frontend | `noves.azurecr.io/cda-frontend:prod-df73e5ab-1785364651` |
 | Database | `ghcr.io/noves-inc/noves-canton-database-v4:candidate-30160846627-1@sha256:1482f1bbe6ca9039ebe4bdcdf7442d34acf9389b2799215b95e10ee8d01ba49b` |
 
 The values schema will accept a digest for each image. Templates will render `repository:tag@digest` when the operator supplies a digest and `repository:tag` otherwise. `imagePullSecrets` stays available for private registries. The installation guide will tell the operator to arrange ACR and GHCR access before installing the release.

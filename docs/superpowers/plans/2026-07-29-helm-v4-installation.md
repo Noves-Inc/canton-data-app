@@ -51,7 +51,7 @@ Add fixture renders and assertions to `tests/helm-chart.sh` for these contracts:
 
 ```bash
 assert_contains "$scratch/enterprise.yaml" 'noves.azurecr.io/cda-backend:prod-19b8de69-1785353655'
-assert_contains "$scratch/enterprise.yaml" 'noves.azurecr.io/cda-frontend:prod-6110f60d-1785354653'
+assert_contains "$scratch/enterprise.yaml" 'noves.azurecr.io/cda-frontend:prod-df73e5ab-1785364651'
 assert_contains "$scratch/enterprise.yaml" 'candidate-30160846627-1@sha256:1482f1b'
 assert_contains "$scratch/enterprise.yaml" 'name: ACCOUNTING_TOKEN_ENCRYPTION_KEY'
 assert_contains "$scratch/enterprise.yaml" 'kind: Secret'

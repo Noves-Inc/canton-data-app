@@ -70,7 +70,7 @@ frontend:
   replicaCount: 1
   image:
     repository: noves.azurecr.io/cda-frontend
-    tag: "prod-6110f60d-1785354653"
+    tag: "prod-df73e5ab-1785364651"
     digest: ""
     pullPolicy: IfNotPresent
   podSecurityContext:

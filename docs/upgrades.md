@@ -21,7 +21,7 @@ The prerelease chart currently uses private images:
 
 ```text
 noves.azurecr.io/cda-backend:prod-19b8de69-1785353655
-noves.azurecr.io/cda-frontend:prod-6110f60d-1785354653
+noves.azurecr.io/cda-frontend:prod-df73e5ab-1785364651
 ghcr.io/noves-inc/noves-canton-database-v4:candidate-30160846627-1
 ```
 
