@@ -5,7 +5,7 @@
 
 ## Goal
 
-An operator installing Canton Data App v4 for the first time should be able to deploy it next to a standard Kubernetes Canton validator without reading the chart templates. An operator upgrading from Python v3.16.1 should get a hard failure before database mutation if they select the wrong persistent volume.
+An operator installing Canton Data App v4 for the first time should be able to deploy it next to a standard Kubernetes Canton validator without reading the chart templates. An operator upgrading from Data App v3.16.1 should get a hard failure before database mutation if they select the wrong persistent volume.
 
 This work covers the chart, Auth0 installation path, v3 upgrade path, operator documentation, and chart verification. Keycloak testing will follow on an isolated localnet cluster. The setup wizard comes after the manual installation and migration paths work.
 
@@ -123,7 +123,7 @@ DATABASE_EXPECTED_SOURCE=v3
 
 The database coordinator will enforce the expectation after classification and before extension provisioning or schema mutation. It will accept:
 
-- a supported Python v3.16.1 database;
+- a supported Data App v3.16.1 database;
 - a migration-managed database whose recorded bootstrap source is v3, which permits restart and replay resumption.
 
 It will reject:
