@@ -273,7 +273,7 @@ public enum DatabaseExpectedSource
 }
 ```
 
-Add `ExpectedSource` to `MigrationOptions`. In `DatabaseCoordinator`, check the classified state before adoption validation or extension provisioning. Accept `LatestV3`. For `MigrationManaged`, read the recorded bootstrap ID and accept only `BootstrapManifest.PythonId`. Reject all other classifications with `MigrationValidationException`.
+Add `ExpectedSource` to `MigrationOptions`. In `DatabaseCoordinator`, check the classified state before adoption validation or extension provisioning. Accept `LatestV3`. For `MigrationManaged`, read the recorded bootstrap ID and accept only the v3 bridge bootstrap. Reject all other classifications with `MigrationValidationException`.
 
 Parse `DATABASE_EXPECTED_SOURCE`; accept an empty value or `v3`, and reject unknown values during startup.
 
@@ -297,7 +297,7 @@ Run:
 
 ```bash
 dotnet test CantonDataApp.Tests/CantonDataApp.Tests.csproj \
-  --filter 'FullyQualifiedName~CoordinatorTests|FullyQualifiedName~PythonBridgeTests'
+  --filter 'FullyQualifiedName~CoordinatorTests|FullyQualifiedName~BridgeTests'
 tests/helm-chart.sh
 tests/docs.sh
 ```

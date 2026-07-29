@@ -17,24 +17,31 @@ chart upgrade and its migration guide.
 
 ## Images
 
-Each major version has separate repositories. For v4:
+The prerelease chart currently uses private images:
 
 ```text
-ghcr.io/noves-inc/noves-canton-backend-v4
-ghcr.io/noves-inc/noves-canton-frontend-v4
-ghcr.io/noves-inc/noves-canton-database-v4
+noves.azurecr.io/cda-backend:prod-19b8de69-1785353655
+noves.azurecr.io/cda-frontend:prod-6110f60d-1785354653
+ghcr.io/noves-inc/noves-canton-database-v4:candidate-30160846627-1
 ```
 
-Plain semantic tags such as `4.0.0` are immutable release selections. `latest` moves only
-within those v4 repositories. A future v5 uses `-v5` repositories, so pulling v4 `latest`
-cannot cross the major-version boundary.
+The database default also pins its digest. Each image accepts an explicit digest:
 
-Every chart release publishes `release-manifest.json` beside the packaged chart. It records the
+```yaml
+backend:
+  image:
+    repository: noves.azurecr.io/cda-backend
+    tag: prod-19b8de69-1785353655
+    digest: sha256:replace-with-a-64-character-digest
+```
+
+The public release will replace these defaults with immutable v4 release images. Each chart
+release will publish `release-manifest.json` beside the packaged chart. It records the
 chart commit and the public source repository, commit, and exact digest for each of the three
 Data App images. It contains no internal dependency identity. Use those digests as release evidence
 or pin them directly in environments that require digest-only deployment.
 
-Download and verify a release before promoting it:
+After publication, download and verify a release before promoting it:
 
 ```bash
 gh release download v4.0.0 \

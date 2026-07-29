@@ -22,9 +22,6 @@ realm.
 
 <!-- screenshot-slot: keycloak-public-client -->
 
-Keycloak browser-client capability settings and access fields. Show Standard flow,
-public-client status, redirect URI, and web origin. Redact realm-specific identifiers.
-
 Use these Helm values:
 
 ```yaml
@@ -54,13 +51,7 @@ For Compose, use the equivalent `VITE_KEYCLOAK_*` values in `.env`.
 
 <!-- screenshot-slot: keycloak-service-account -->
 
-Keycloak capture-client capability settings showing Client authentication and Service accounts
-roles. Do not show the Credentials tab or secret.
-
 <!-- screenshot-slot: keycloak-ledger-scope -->
-
-Assigned default client scopes and audience mapper showing `daml_ledger_api` and the Canton
-Ledger API audience. Redact internal hostnames if required.
 
 ## 3. Observe the exact token subject
 
@@ -85,9 +76,6 @@ display name.
 
 <!-- screenshot-slot: keycloak-token-subject -->
 
-Locally decoded token claims showing only `sub`, `iss`, and `aud`. Never capture the access
-token or client secret.
-
 ## 4. Matching Canton user
 
 Create a Canton user whose ID exactly equals the observed `sub`:
@@ -109,9 +97,6 @@ create or modify a Keycloak client. If automatic participant provisioning is una
 the copyable `grpcurl -expand-headers` commands shown by the wizard.
 
 <!-- screenshot-slot: keycloak-canton-rights -->
-
-Canton user-rights output showing `CanReadAsAnyParty` and no other rights. Redact participant
-and party identifiers.
 
 ## 5. Verify
 

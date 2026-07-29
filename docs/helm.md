@@ -1,215 +1,317 @@
 # Helm installation
 
-The chart is a conventional application chart. `setupWizard.enabled` is `false` by default, so
-Flux, Argo CD, Terraform, or a direct `helm upgrade --install` works without the guided flow.
+This guide installs Data App v4 in the same namespace as a validator deployed with the standard Canton Helm chart. It uses Auth0, NGINX Ingress, and the default Canton Service names. The values reference private prerelease images; Noves will replace them with public v4 images at release time.
 
-## Prerequisites
+The setup wizard is optional and disabled by default. Follow this guide for a normal Helm or GitOps installation.
 
-- Helm 3 and Kubernetes 1.27 or newer
-- a validator in the target namespace, normally `validator`
-- a default participant Service reachable at `participant:5001`
-- a default validator app Service reachable at `validator-app:5003`
-- durable storage and either the standard Canton Istio gateway or an Ingress controller
+## 1. Check the cluster
 
-For production, the database must use encrypted SSD-backed block storage. Set
-`database.persistence.storageClass` explicitly for fresh storage, or set
-`database.persistence.existingClaim` to an operator-managed PVC with the same performance class.
-Do not rely on the cluster's default StorageClass: it may provision a standard or balanced disk
-whose checkpoint latency is unsuitable for initial ledger capture.
-
-Use the provider's production SSD class:
-
-| Platform | Database storage |
-|---|---|
-| Azure AKS | `managed-csi-premium`, backed by Azure Premium SSD; use a custom `Premium_LRS`/`Premium_ZRS` class when customer-managed encryption or other parameters require it |
-| AWS EKS | encrypted EBS `gp3` through the EBS CSI driver; provision additional IOPS or throughput for higher-volume nodes |
-| Google GKE | `premium-rwo`, backed by `pd-ssd`, or an equivalent custom `pd-ssd` class |
-| On premises | encrypted SSD/NVMe-backed `ReadWriteOnce` block storage with measured sustained write latency |
-
-The empty chart default exists for local clusters and portability; it is not the production
-recommendation. Disk performance is provider- and size-dependent, so verify the provisioned volume's
-actual IOPS, throughput, and latency rather than inferring them from the PVC size. See
-[Encryption at rest](../encryption_at_rest.md) for StorageClass examples.
-
-The backend runs as non-root UID/GID `1654`. The chart sets the backend pod's `fsGroup` to `1654`
-with `fsGroupChangePolicy: OnRootMismatch` so the durable exports claim is writable without a
-privileged init container. If your CSI driver or admission policy replaces pod security settings,
-preserve that group ownership; otherwise export creation fails even though the API remains healthy.
-
-Create the database Secret:
+Set the context and namespace once:
 
 ```bash
-kubectl --namespace validator create secret generic noves-canton-data-app-database \
+export KUBE_CONTEXT=canton-mainnet
+export NAMESPACE=validator
+
+kubectl --context "$KUBE_CONTEXT" config current-context
+kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
+  get service participant validator-app
+kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
+  get service participant -o jsonpath='{.spec.ports[*].port}{"\n"}'
+kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
+  get service validator-app -o jsonpath='{.spec.ports[*].port}{"\n"}'
+```
+
+The standard services expose `participant:5001` and `validator-app:5003`. Change `canton.participantAddress` or `canton.validatorUrl` only when your validator uses different names.
+
+Check storage and routing:
+
+```bash
+kubectl --context "$KUBE_CONTEXT" get storageclass
+kubectl --context "$KUBE_CONTEXT" get ingressclass
+kubectl --context "$KUBE_CONTEXT" api-resources \
+  --api-group=networking.istio.io | grep -i virtualservice || true
+kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" get pvc
+```
+
+Use `routing.provider: ingress` for NGINX or another Kubernetes Ingress controller. Set `routing.ingress.className` to the exact IngressClass name. Use `routing.provider: istio` only when the cluster has the Istio VirtualService CRD and you know the gateway name. `routing.provider: none` creates no public route.
+
+Production database storage needs encrypted SSD-backed `ReadWriteOnce` block storage. Typical classes are AKS `managed-csi-premium`, encrypted EKS `gp3`, and GKE `premium-rwo`. Set `database.persistence.storageClass` for a new database. The empty default suits local clusters where the default StorageClass is known.
+
+## 2. Arrange private registry access
+
+The prerelease chart uses:
+
+```text
+noves.azurecr.io/cda-backend:prod-19b8de69-1785353655
+noves.azurecr.io/cda-frontend:prod-6110f60d-1785354653
+ghcr.io/noves-inc/noves-canton-database-v4:candidate-30160846627-1
+```
+
+The database image also carries a digest in the chart. An AKS cluster attached to the Noves ACR can pull the first two images through its kubelet identity. Other clusters need registry pull credentials.
+
+Create one or more `kubernetes.io/dockerconfigjson` Secrets through your secret manager, then list them:
+
+```yaml
+imagePullSecrets:
+  - name: noves-acr-pull
+  - name: noves-ghcr-pull
+```
+
+Confirm access before debugging the application:
+
+```bash
+kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
+  get secret noves-acr-pull noves-ghcr-pull
+```
+
+## 3. Configure Auth0 and the capture user
+
+Create the browser and capture applications described in [Auth0 configuration](authentication/auth0.md). Request a token for the capture application and copy its exact `sub` claim. That subject becomes the Canton capture user ID and the `ledger-api-user` Secret value.
+
+The standard validator stores an administrator client in `splice-app-validator-ledger-api-auth`. Use it only to create and inspect the dedicated capture user. The following commands keep the administrator access token in shell memory.
+
+```bash
+ADMIN_SECRET=splice-app-validator-ledger-api-auth
+
+ADMIN_TOKEN_URL="$(
+  kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
+    get secret "$ADMIN_SECRET" -o jsonpath='{.data.url}' | base64 -d
+)"
+ADMIN_CLIENT_ID="$(
+  kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
+    get secret "$ADMIN_SECRET" -o jsonpath='{.data.client-id}' | base64 -d
+)"
+ADMIN_CLIENT_SECRET="$(
+  kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
+    get secret "$ADMIN_SECRET" -o jsonpath='{.data.client-secret}' | base64 -d
+)"
+ADMIN_AUDIENCE="$(
+  kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
+    get secret "$ADMIN_SECRET" -o jsonpath='{.data.audience}' | base64 -d
+)"
+ADMIN_SCOPE="$(
+  kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
+    get secret "$ADMIN_SECRET" -o jsonpath='{.data.scope}' | base64 -d
+)"
+
+export PARTICIPANT_ADMIN_TOKEN="$(
+  curl -fsS --request POST "$ADMIN_TOKEN_URL" \
+    --header 'content-type: application/x-www-form-urlencoded' \
+    --data-urlencode grant_type=client_credentials \
+    --data-urlencode client_id="$ADMIN_CLIENT_ID" \
+    --data-urlencode client_secret="$ADMIN_CLIENT_SECRET" \
+    --data-urlencode audience="$ADMIN_AUDIENCE" \
+    --data-urlencode scope="$ADMIN_SCOPE" |
+    jq -er '.access_token'
+)"
+unset ADMIN_CLIENT_SECRET
+```
+
+Forward the Ledger API in a second terminal:
+
+```bash
+kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
+  port-forward service/participant 5001:5001
+```
+
+Read the full participant ID:
+
+```bash
+grpcurl -plaintext -expand-headers \
+  -H 'authorization: Bearer ${PARTICIPANT_ADMIN_TOKEN}' \
+  -d '{}' \
+  localhost:5001 \
+  com.daml.ledger.api.v2.admin.PartyManagementService/GetParticipantId
+```
+
+Set the capture subject, then create the user:
+
+```bash
+export CAPTURE_USER_ID='replace-with-the-exact-capture-token-subject'
+
+grpcurl -plaintext -expand-headers \
+  -H 'authorization: Bearer ${PARTICIPANT_ADMIN_TOKEN}' \
+  -d "{\"user\":{\"id\":\"${CAPTURE_USER_ID}\"},\"rights\":[{\"canReadAsAnyParty\":{}}]}" \
+  localhost:5001 \
+  com.daml.ledger.api.v2.admin.UserManagementService/CreateUser
+```
+
+If the user exists without the required right, grant it:
+
+```bash
+grpcurl -plaintext -expand-headers \
+  -H 'authorization: Bearer ${PARTICIPANT_ADMIN_TOKEN}' \
+  -d "{\"userId\":\"${CAPTURE_USER_ID}\",\"rights\":[{\"canReadAsAnyParty\":{}}]}" \
+  localhost:5001 \
+  com.daml.ledger.api.v2.admin.UserManagementService/GrantUserRights
+```
+
+Confirm that `CanReadAsAnyParty` is the only right:
+
+```bash
+grpcurl -plaintext -expand-headers \
+  -H 'authorization: Bearer ${PARTICIPANT_ADMIN_TOKEN}' \
+  -d "{\"userId\":\"${CAPTURE_USER_ID}\"}" \
+  localhost:5001 \
+  com.daml.ledger.api.v2.admin.UserManagementService/ListUserRights
+
+unset PARTICIPANT_ADMIN_TOKEN ADMIN_CLIENT_ID ADMIN_TOKEN_URL \
+  ADMIN_AUDIENCE ADMIN_SCOPE
+```
+
+Do not place the administrator client or token in a Data App Secret.
+
+## 4. Create application Secrets
+
+Create the database password:
+
+```bash
+kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
+  create secret generic noves-canton-data-app-database \
   --from-literal=postgres-password='replace-with-a-long-random-value'
 ```
 
-Create the dedicated capture Secret:
+Create the capture Secret with the dedicated Auth0 application:
 
 ```bash
-kubectl --namespace validator create secret generic noves-canton-data-app-capture-auth \
-  --from-literal=ledger-api-user='exact-token-subject' \
-  --from-literal=token-endpoint='https://issuer.example.com/oauth/token' \
-  --from-literal=client-id='replace-me' \
-  --from-literal=client-secret='replace-me' \
+kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
+  create secret generic noves-canton-data-app-capture-auth \
+  --from-literal=ledger-api-user="$CAPTURE_USER_ID" \
+  --from-literal=token-endpoint='https://TENANT.auth0.com/oauth/token' \
+  --from-literal=client-id='replace-with-capture-client-id' \
+  --from-literal=client-secret='replace-with-capture-client-secret' \
   --from-literal=audience='https://canton.network.global' \
   --from-literal=scope=''
 ```
 
-Use your normal secret manager instead of imperative commands in production. The Secret must
-contain a new least-privilege capture identity; it must not contain a validator credential.
-
-Create a separate installation credential for the Noves gateway:
+Noves supplies a separate per-installation gateway credential during the prerelease:
 
 ```bash
-kubectl --namespace validator create secret generic noves-canton-data-app-gateway \
-  --from-literal=token='replace-with-this-installation-credential'
+kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
+  create secret generic noves-canton-data-app-gateway \
+  --from-literal=token='replace-with-the-Noves-installation-credential'
 ```
 
-Set `novesGateway.existingSecret` to that Secret and `novesGateway.tokenKey` to `token`.
-The chart injects the same installation credential into the backend and BFF without placing
-its value in Helm values. Rotate it by updating the Secret and restarting both Deployments.
-
-## Install
-
-Copy the [enterprise example](../chart/noves-canton-data-app/examples/enterprise-values.yaml),
-set the participant ID, OIDC values, route, and existing Secret names, then run:
-
-```bash
-helm upgrade --install noves-canton-data-app \
-  oci://ghcr.io/noves-inc/charts/noves-canton-data-app \
-  --version '>=4.0.0 <5.0.0' \
-  --namespace validator \
-  --create-namespace \
-  --values enterprise-values.yaml
-```
-
-The version constraint admits compatible v4 chart releases and refuses v5. For fully
-reproducible environments, replace it with an exact chart version.
-
-## Guided localhost install
-
-The guided one-liner keeps the same chart defaults and opens the temporary wizard through a
-localhost port-forward:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/Noves-Inc/canton-data-app/v4/install.sh |
-  bash -s -- helm
-```
-
-With a standard validator deployment, the installer reads
-`splice-app-validator-ledger-api-auth` and sends it directly to setup-service memory so the
-wizard can provision the dedicated Canton capture user after your confirmation. The Secret is
-not mounted into the chart and is absent from the final release. For a differently named
-validator Secret:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/Noves-Inc/canton-data-app/v4/install.sh |
-  bash -s -- helm --participant-admin-secret my-validator-ledger-api-auth
-```
-
-If that Secret cannot be read or used, the wizard opens normally and provides manual
-`grpcurl -expand-headers` commands. This assisted path does not create the browser or capture
-client in Auth0 or Keycloak.
-
-## Performance tuning
-
-The chart exposes database and read-model controls under `backend.performance`. Defaults are
-safe for a typical single-node installation. Higher-volume operators can increase database
-resources and then tune:
+The chart generates `ACCOUNTING_TOKEN_ENCRYPTION_KEY` in a retained Secret named `<release>-accounting-token-encryption`. Back up that Secret with the database. Losing it makes stored accounting provider credentials unreadable. GitOps operators who need deterministic client-side rendering can create their own 32-byte base64 key and set:
 
 ```yaml
-backend:
-  performance:
-    database:
-      writeBatchSize: 250
-      maxParallelWorkersPerGather: 2
-      synchronousCommit: "off"
-      maxWalSize: 16GB
-    readModel:
-      totalCapacity: 2
-      reservedLiveCapacity: 1
-      bootstrapBatchSize: 25
-      backgroundIndexingDutyPercent: 50
-      partyEventsIndexingDelayMs: 0
-  streaming:
-    pageSize: 250
-    websocketBufferLimit: 25000
+accounting:
+  tokenEncryption:
+    existingSecret: cda-accounting-token-encryption
+    key: accounting-token-encryption-key
 ```
 
-Increase one dimension at a time while observing database CPU, memory, connection utilization,
-write latency, capture lag, and `/startup-status`. The complete typed set is in
-[`values.yaml`](../chart/noves-canton-data-app/values.yaml).
-The `50` percent controlled-batch wall-duty profile prioritizes API responsiveness on a backend
-limited to about 1.5 CPU cores. It serializes CPU-heavy indexing batches and adds proportional
-cooldown without holding scheduler or database capacity. It is not a CPU-utilization target.
-Lower values trade catch-up time for more foreground headroom.
-Database tuning cannot compensate for a standard, balanced, HDD-backed, or network-file volume.
-See [Streams, alerts, and connectors](streaming.md) for every streaming control and the private
-webhook policy.
+## 5. Write the values file
 
-## Routing
-
-Only one routing provider may be enabled. The chart routes only
-`noves-canton-data-app-frontend`; the backend and database have cluster-internal Services. Streaming
-REST and WebSocket traffic uses that same route.
-
-For the standard Canton Istio gateway:
+Start with:
 
 ```yaml
+imagePullSecrets:
+  - name: noves-acr-pull
+  - name: noves-ghcr-pull
+
+database:
+  existingSecret: noves-canton-data-app-database
+  persistence:
+    storageClass: managed-csi-premium
+
+capture:
+  existingSecret: noves-canton-data-app-capture-auth
+
+novesGateway:
+  existingSecret: noves-canton-data-app-gateway
+  tokenKey: token
+
+canton:
+  expectedParticipantId: 'participant::replace-with-the-full-id'
+  participantAddress: participant:5001
+  validatorUrl: http://validator-app:5003
+  network: mainnet
+
+oidc:
+  provider: auth0
+  appUrl: https://data.example.com
+  auth0:
+    domain: TENANT.auth0.com
+    clientId: replace-with-browser-client-id
+    audience: https://canton.network.global
+
 routing:
-  enabled: true
-  host: data.example.com
-  istio:
-    enabled: true
-    gateway: cluster-ingress/cn-http-gateway
-```
-
-For a standard Ingress:
-
-```yaml
-routing:
-  enabled: true
+  provider: ingress
   host: data.example.com
   tlsSecret: data-example-com-tls
   ingress:
-    enabled: true
     className: nginx
 ```
 
-Set the browser callback URL to `https://data.example.com/callback` and the logout URL to
-`https://data.example.com`.
+The backend stores exports on the retained `/exports` PVC by default. Set `exports.storage: s3` only when you have configured the typed `exports.s3` block and bucket access. Transaction-history backups use the independent `backup.s3` block. See [`values.yaml`](../chart/noves-canton-data-app/values.yaml) for the Secret key names and optional endpoint and region fields.
 
-## Certificates and non-default Canton services
+## 6. Render and install
 
-The defaults work with an unencrypted in-cluster Ledger API. To use TLS, create a Secret
-containing the participant CA and set:
-
-```yaml
-canton:
-  participantAddress: participant.example.com:443
-  certificateSecret: participant-ledger-api-ca
-  certificateKey: ca.crt
-```
-
-Change `canton.participantAddress` or `canton.validatorUrl` only when the validator does not use
-the default Canton names.
-
-## Observe startup
+Render before changing the cluster:
 
 ```bash
-kubectl --namespace validator get pods
-kubectl --namespace validator port-forward service/noves-canton-data-app-backend 8090:8090
-curl http://127.0.0.1:8090/startup-status
+helm lint ./chart/noves-canton-data-app --values enterprise-values.yaml
+helm template noves-canton-data-app ./chart/noves-canton-data-app \
+  --namespace "$NAMESPACE" \
+  --values enterprise-values.yaml |
+kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
+  apply --dry-run=server -f -
 ```
 
-Readiness stays false while database preparation or a migration is running. Health remains
-available so operators can distinguish progress from a crash.
+Install from this checkout:
+
+```bash
+helm upgrade --install noves-canton-data-app \
+  ./chart/noves-canton-data-app \
+  --kube-context "$KUBE_CONTEXT" \
+  --namespace "$NAMESPACE" \
+  --values enterprise-values.yaml \
+  --wait \
+  --timeout 20m
+```
+
+## 7. Verify startup and capture
+
+```bash
+kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" get pods
+kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
+  rollout status deployment/noves-canton-data-app-backend --timeout=20m
+kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
+  rollout status deployment/noves-canton-data-app-frontend --timeout=10m
+kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
+  port-forward service/noves-canton-data-app-backend 8090:8090
+```
+
+From another terminal:
+
+```bash
+curl -fsS http://127.0.0.1:8090/health
+curl -fsS http://127.0.0.1:8090/startup-status | jq
+curl -fsS http://127.0.0.1:8090/ready
+curl -fsS http://127.0.0.1:8090/api/v2/capture/status | jq
+```
+
+`/ready` proves that startup and database preparation finished. It does not prove that participant capture is running. The capture response should report `captureEnabled: true`; after initial loading, the node should report `initialCaptureComplete: true` and `caughtUp: true`.
+
+## Troubleshooting
+
+| Symptom | Check |
+|---|---|
+| `ImagePullBackOff` | `kubectl describe pod`; fix ACR or GHCR access and `imagePullSecrets` |
+| Database pod pending | `kubectl get pvc` and `kubectl describe pvc`; check the StorageClass and zone constraints |
+| Ingress has no address | `kubectl get ingressclass` and `kubectl describe ingress`; confirm `routing.ingress.className` |
+| Istio render fails server dry-run | Install the VirtualService CRD or select `routing.provider: ingress` |
+| Backend stays unready | Read `/startup-status`, then backend logs |
+| Capture disabled or stale | Read `/api/v2/capture/status`; verify the capture Secret, token subject, Canton user, and its exact rights |
+| Browser login loops | Compare the Auth0 callback, logout, origin, audience, and `oidc.appUrl` values |
 
 ## Uninstall
 
 ```bash
-helm uninstall noves-canton-data-app --namespace validator
+helm uninstall noves-canton-data-app \
+  --kube-context "$KUBE_CONTEXT" \
+  --namespace "$NAMESPACE"
 ```
 
-The database and exports claims, and Secrets created outside Helm, are retained. Delete them
-only after confirming backups and retention requirements.
+Helm retains the database PVC, exports PVC, and generated accounting-key Secret. Remove them only after satisfying backup and retention requirements.

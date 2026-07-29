@@ -5,14 +5,15 @@ Helm chart or Docker Compose bundle. The supplied defaults use the validator nam
 `participant:5001`, `http://validator-app:5003`, and the standard Compose network
 `splice-validator_splice_validator`.
 
-The deployment contains exactly three application images:
+The current prerelease deployment uses three private images:
 
-- `ghcr.io/noves-inc/noves-canton-backend-v4`
-- `ghcr.io/noves-inc/noves-canton-frontend-v4`
-- `ghcr.io/noves-inc/noves-canton-database-v4`
+- `noves.azurecr.io/cda-backend:prod-19b8de69-1785353655`
+- `noves.azurecr.io/cda-frontend:prod-6110f60d-1785354653`
+- `ghcr.io/noves-inc/noves-canton-database-v4:candidate-30160846627-1`
 
-Versioned examples pin `4.0.0`. Each v4 repository also has a `latest` tag that moves only
-within v4.
+The database image is also digest-pinned in Helm values. Configure `imagePullSecrets` or the
+cluster registry identity before installing. Noves will replace these references when the public
+v4 artifacts ship.
 
 ## Guided install
 
@@ -46,10 +47,8 @@ usual GitOps or secret-management process:
 
 ```bash
 helm upgrade --install noves-canton-data-app \
-  oci://ghcr.io/noves-inc/charts/noves-canton-data-app \
-  --version '>=4.0.0 <5.0.0' \
+  ./chart/noves-canton-data-app \
   --namespace validator \
-  --create-namespace \
   --values enterprise-values.yaml
 ```
 

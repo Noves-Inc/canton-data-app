@@ -1,0 +1,28 @@
+database:
+  existingSecret: noves-canton-data-app-database
+  persistence:
+    storageClass: replace-with-production-ssd-storage-class
+
+capture:
+  existingSecret: noves-canton-data-app-capture-auth
+
+novesGateway:
+  existingSecret: noves-canton-data-app-gateway
+  tokenKey: token
+
+canton:
+  expectedParticipantId: "participant::replace-me"
+
+oidc:
+  provider: auth0
+  appUrl: https://data.example.com
+  auth0:
+    domain: tenant.example.auth0.com
+    clientId: replace-with-browser-client-id
+    audience: https://canton.network.global
+
+routing:
+  provider: istio
+  host: data.example.com
+  istio:
+    gateway: cluster-ingress/cn-http-gateway

@@ -47,6 +47,11 @@ rights check before activation.
 Only the frontend/BFF receives public routing. Keep the backend, PostgreSQL Service, participant
 Ledger API, and setup verification route private. Use HTTPS for the public application URL.
 
+The chart enables a database ingress NetworkPolicy that accepts PostgreSQL traffic only from the
+release's backend pod. Broader frontend and backend policies depend on cluster-specific ingress
+controller, DNS, participant, identity-provider, and Noves API selectors. Add those policies through
+your platform policy layer after verifying the required egress.
+
 The default in-cluster participant connection is unencrypted because it stays inside the
 validator namespace. For cross-namespace or cross-network connections, mount the participant
 CA and use TLS.
@@ -56,6 +61,12 @@ CA and use TLS.
 Kubernetes values contain only Secret names. Store Secret values in your normal secret manager.
 Compose stores local secret files with mode `0600`. Rotate the M2M secret in the identity
 provider and deployment Secret together, then restart the backend.
+
+Helm generates the installation's `ACCOUNTING_TOKEN_ENCRYPTION_KEY` unless
+`accounting.tokenEncryption.existingSecret` names an operator-managed Secret. Helm retains the
+generated Secret during uninstall and reuses its value during upgrades. Back it up with the
+database. A replacement key cannot decrypt accounting provider credentials stored with the old
+key.
 
 The Noves gateway credential is installation-specific and separate from both OIDC clients. In
 Kubernetes it is referenced through `novesGateway.existingSecret`. In Compose it is mounted from
@@ -85,3 +96,8 @@ The backend container is non-root (`1654:1654`). Its pod uses `fsGroup: 1654` wi
 `fsGroupChangePolicy: OnRootMismatch` to make the exports PVC group-writable. Keep this setting when
 copying or wrapping the chart. Do not solve export-volume permissions by running the backend as root
 or adding a privileged volume-permissions container.
+
+The backend alone mounts the exports PVC. The frontend reads exports through the backend API.
+`exports.storage: s3` removes the PVC and mount; configure bucket-side encryption and a
+least-privilege credentials Secret before selecting it. The independent `backup.s3` block stores
+transaction-history backups.

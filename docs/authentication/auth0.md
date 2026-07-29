@@ -20,9 +20,6 @@ In the examples below, `APP_URL` is the exact public URL, such as
 
 <!-- screenshot-slot: auth0-spa-callbacks -->
 
-Auth0 application settings showing the three Application URI fields. Capture only the field
-labels and example-host values; redact tenant identifiers.
-
 Use these Helm values:
 
 ```yaml
@@ -48,16 +45,27 @@ For Compose, use the equivalent `VITE_AUTH0_*` values in `.env`.
 
 <!-- screenshot-slot: auth0-m2m-api-grant -->
 
-Auth0 M2M API authorization page showing the selected Canton API and its minimal grant. Redact
-the client ID, tenant name, and any secrets.
-
 Auth0 client-credentials tokens normally use `<client-id>@clients` as `sub`. Request a token and
 confirm the actual claim for your tenant; the value is case-sensitive.
 
-<!-- screenshot-slot: auth0-token-subject -->
+```bash
+TOKEN_RESPONSE="$(
+  curl -fsS --request POST "https://$AUTH0_DOMAIN/oauth/token" \
+    --header 'content-type: application/x-www-form-urlencoded' \
+    --data-urlencode grant_type=client_credentials \
+    --data-urlencode client_id="$M2M_CLIENT_ID" \
+    --data-urlencode client_secret="$M2M_CLIENT_SECRET" \
+    --data-urlencode audience="$AUDIENCE"
+)"
+TOKEN="$(jq -er '.access_token' <<<"$TOKEN_RESPONSE")"
+PAYLOAD="$(cut -d. -f2 <<<"$TOKEN" | tr '_-' '/+')"
+printf '%s' "$PAYLOAD===" | base64 -d 2>/dev/null | jq '{sub,iss,aud}'
+unset TOKEN TOKEN_RESPONSE PAYLOAD
+```
 
-Auth0 token inspection showing only the `sub`, `iss`, and `aud` claims. Never include the
-access token or client secret.
+Copy the exact `sub`, then clear the shell variables that contain credentials.
+
+<!-- screenshot-slot: auth0-token-subject -->
 
 ## 3. Matching Canton user
 
@@ -82,13 +90,11 @@ copyable `grpcurl -expand-headers` commands shown by the wizard.
 
 <!-- screenshot-slot: auth0-canton-rights -->
 
-Canton user-rights output showing `CanReadAsAnyParty` and no other rights. Redact participant
-and party identifiers.
-
 ## 4. Verify
 
 In the setup wizard, enter the tenant domain, browser Client ID, audience, M2M credentials, and
 exact Canton user ID. Activation is blocked if discovery, token exchange, subject equality,
 participant identity, or rights verification fails.
 
-For a standard installation, verify the same properties before creating the capture Secret.
+For a standard installation, follow the copyable participant-ID and `grpcurl -expand-headers`
+commands in [Helm installation](../helm.md) before creating the capture Secret.

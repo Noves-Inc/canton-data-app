@@ -86,11 +86,21 @@ for contract in \
   '--validator-container' \
   'grpcurl -expand-headers' \
   'memory only' \
-  'final deployment'
+  'final deployment' \
+  'routing.provider' \
+  'ACCOUNTING_TOKEN_ENCRYPTION_KEY' \
+  '/api/v2/capture/status' \
+  'kubectl get ingressclass' \
+  'kubectl get pvc' \
+  'imagePullSecrets'
 do
   rg -Fq -- "$contract" "$repo_root/readme.md" "$repo_root/docs" ||
     fail "operator documentation is missing: $contract"
 done
+
+if rg -ni 'Capture only|Redact' "$repo_root/docs/authentication"; then
+  fail 'authentication guides expose screenshot-production instructions.'
+fi
 
 if rg -ni 'wizard (creates|will create).*(Auth0|Keycloak).*(client|application)' \
   "$repo_root/readme.md" "$repo_root/docs"; then
