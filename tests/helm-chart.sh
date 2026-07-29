@@ -30,6 +30,14 @@ helm lint "$chart" --values "$fixtures/enterprise-values.yaml"
 helm lint "$chart" --values "$fixtures/setup-istio-values.yaml"
 helm lint "$chart" --values "$chart/examples/enterprise-values.yaml"
 if helm lint "$chart" --values "$fixtures/enterprise-values.yaml" \
+  --set-string backend.publicApiUrl=http://api.example.test >/dev/null 2>&1; then
+  fail 'backend.publicApiUrl accepted remote plain HTTP.'
+fi
+helm lint "$chart" --values "$fixtures/enterprise-values.yaml" \
+  --set-string backend.publicApiUrl=https://api.example.test >/dev/null
+helm lint "$chart" --values "$fixtures/enterprise-values.yaml" \
+  --set-string backend.publicApiUrl=http://127.0.0.1:8099 >/dev/null
+if helm lint "$chart" --values "$fixtures/enterprise-values.yaml" \
   --set backend.performance.readModel.backgroundIndexingDutyPercent=50 \
   --set backend.performance.readModel.partyEventsIndexingDelayMs=1 >/dev/null 2>&1; then
   fail 'constrained background duty accepted the deprecated Party Events delay.'
@@ -61,7 +69,7 @@ assert_contains "$chart/values.yaml" 'tag: "4.0.0"'
 assert_contains "$chart/values.yaml" 'passwordKey: postgres-password'
 assert_contains "$chart/values.yaml" 'publicApiUrl: https://api.canton.noves.fi'
 assert_contains "$chart/values.schema.json" '"const": 1'
-assert_contains "$chart/values.schema.json" '"publicApiUrl": { "type": "string", "format": "uri"'
+assert_contains "$chart/values.schema.json" '"publicApiUrl": { "type": "string", "format": "uri", "pattern":'
 assert_not_contains "$chart/values.yaml" 'tag: latest'
 assert_not_contains "$chart/values.yaml" 'externalDatabase'
 app_version="$(sed -n 's/^appVersion: "\(.*\)"/\1/p' "$chart/Chart.yaml")"
