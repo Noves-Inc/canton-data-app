@@ -97,6 +97,12 @@ The backend container is non-root (`1654:1654`). Its pod uses `fsGroup: 1654` wi
 copying or wrapping the chart. Do not solve export-volume permissions by running the backend as root
 or adding a privileged volume-permissions container.
 
+The database pod runs as its image's `postgres` account (`70:70`) with `fsGroup: 70`,
+`allowPrivilegeEscalation: false`, and all capabilities dropped. The pinned PostgreSQL 18 image has
+been tested both initializing an empty group-owned volume and restarting the initialized volume
+under those settings. CSI drivers must honor `fsGroup`; a driver that does not set group ownership
+will leave PostgreSQL unable to write the claim.
+
 The backend alone mounts the exports PVC. The frontend reads exports through the backend API.
 `exports.storage: s3` removes the PVC and mount; configure bucket-side encryption and a
 least-privilege credentials Secret before selecting it. The independent `backup.s3` block stores
