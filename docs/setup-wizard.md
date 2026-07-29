@@ -22,6 +22,10 @@ included in the final deployment. The temporary administrator token is also serv
 The wizard uses the validator OIDC URL, audience, and scope to pre-fill safe suggestions. It does
 not create Auth0 applications or Keycloak clients. Create a separate browser client and a
 separate capture client using the linked provider guide, then enter the capture credentials.
+Choose Kubernetes Ingress or Istio for the public route. Ingress also needs its class name and
+can reference a TLS Secret in the Data App namespace. Istio needs the Gateway name, including
+its namespace when the Gateway is elsewhere. Routing annotations are entered as a JSON object
+with string values.
 Before any participant mutation, the wizard shows the exact capture token subject and the one
 right it will grant. You must explicitly confirm `CanReadAsAnyParty`.
 
@@ -75,6 +79,13 @@ The temporary Secret contains separate `token` and `session-token` keys. The lat
 every browser-to-wizard request and is delivered only in the localhost URL fragment. The wizard
 has no Kubernetes Service, and its NetworkPolicy denies pod-to-pod ingress.
 
+If you need to reopen the local page while the wizard is running, forward its Deployment port:
+
+```bash
+kubectl --namespace <data-app-namespace> \
+  port-forward deployment/<release>-setup-wizard 8099:3000
+```
+
 The wizard service account can only `get`, `update`, or `patch` the first two resources by exact
 name. It cannot list Secrets, access Canton Secrets, patch Deployments, or perform cluster
 administration. Public routing is rejected while the wizard is enabled; access is through a
@@ -84,7 +95,7 @@ The validator administrator Secret is read by the host-side installer with the o
 existing Kubernetes access. It is never granted to the setup service account.
 
 After completion, the installer upgrades the release with `setupWizard.enabled=false`. Helm
-removes the wizard Deployment, Service, service account, Role, RoleBinding, and result
+removes the wizard Deployment, service account, Role, RoleBinding, and result
 ConfigMap. The capture Secret remains.
 
 Completion is stored in the result ConfigMap. A restarted wizard refuses verification or

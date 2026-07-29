@@ -190,12 +190,10 @@ if ! jq -e '
 fi
 
 app_url="$(jq -r '.appUrl' <<<"$result_json")"
-route_host="$(jq -er '.routingHost' <<<"$result_json")"
 final_values="$scratch/final-values.json"
 jq --arg databaseSecret "$database_secret" \
   --arg captureSecret "$capture_secret" \
   --arg gatewaySecret "$gateway_secret" \
-  --arg routeHost "$route_host" \
   '{
     setupWizard: {enabled: false},
     database: {existingSecret: $databaseSecret},
@@ -224,10 +222,14 @@ jq --arg databaseSecret "$database_secret" \
       }
     },
     routing: {
-      enabled: true,
-      host: $routeHost,
-      istio: {enabled: (.routingMode == "istio")},
-      ingress: {enabled: (.routingMode == "ingress")}
+      provider: (.routingProvider // .routingMode),
+      host: .routingHost,
+      tlsSecret: (.tlsSecret // ""),
+      annotations: (.routingAnnotations // {}),
+      ingress: {className: (.ingressClassName // "nginx")},
+      istio: {
+        gateway: (.istioGateway // "cluster-ingress/cn-http-gateway")
+      }
     }
   }' <<<"$result_json" >"$final_values"
 

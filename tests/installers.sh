@@ -15,6 +15,15 @@ fail() {
 cat >"$fake_bin/helm" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >>"$INSTALLER_CALLS"
+if [[ -n "${FINAL_VALUES_CAPTURE:-}" ]]; then
+  while (($#)); do
+    if [[ "$1" == "--values" && -f "${2:-}" ]]; then
+      cp "$2" "$FINAL_VALUES_CAPTURE"
+      break
+    fi
+    shift
+  done
+fi
 EOF
 cat >"$fake_bin/kubectl" <<'EOF'
 #!/usr/bin/env bash
@@ -181,8 +190,9 @@ grep -Fq -- 'get secret "$database_secret"' "$repo_root/scripts/install-helm.sh"
 grep -Fq -- 'get configmap "$result_configmap"' "$repo_root/scripts/install-helm.sh" ||
   fail 'guided Helm setup does not detect an existing result.'
 
-guided_result='{"completed":true,"provider":"auth0","appUrl":"https://data.example.com:8443","routingHost":"data.example.com","routingMode":"istio","nodeId":"main-node","participantAddress":"participant:5001","expectedParticipantId":"participant::expected","validatorUrl":"http://validator-app:5003","publicScanUrl":"","expectedNetwork":"mainnet","auth0Domain":"tenant.auth0.com","browserClientId":"browser-client","browserAudience":"https://ledger-api"}'
-INSTALLER_CALLS="$scratch/guided.calls" GUIDED_RESULT="$guided_result" PATH="$fake_bin:$PATH" \
+guided_result='{"completed":true,"provider":"auth0","appUrl":"https://data.example.com:8443","routingHost":"data.example.com","routingMode":"ingress","routingProvider":"ingress","tlsSecret":"data-example-com-tls","ingressClassName":"nginx","istioGateway":"cluster-ingress/cn-http-gateway","routingAnnotations":{"nginx.ingress.kubernetes.io/proxy-body-size":"20m"},"nodeId":"main-node","participantAddress":"participant:5001","expectedParticipantId":"participant::expected","validatorUrl":"http://validator-app:5003","publicScanUrl":"","expectedNetwork":"mainnet","auth0Domain":"tenant.auth0.com","browserClientId":"browser-client","browserAudience":"https://ledger-api"}'
+INSTALLER_CALLS="$scratch/guided.calls" GUIDED_RESULT="$guided_result" \
+  FINAL_VALUES_CAPTURE="$scratch/guided-final-values.json" PATH="$fake_bin:$PATH" \
   "$repo_root/scripts/install-helm.sh" --namespace validator --release cda
 if grep -Fq -- 'create secret generic cda-database' "$scratch/guided.calls"; then
   fail 'guided Helm resume replaced the existing database credential.'
@@ -196,8 +206,19 @@ grep -Fq -- 'deployment/${release}-setup-wizard' "$repo_root/scripts/install-hel
   fail 'guided Helm setup does not port-forward directly to the Deployment.'
 grep -Fq -- '#session=$setup_session_token' "$repo_root/scripts/install-helm.sh" ||
   fail 'guided Helm setup URL does not carry the one-time browser session.'
-grep -Fq -- "jq -er '.routingHost'" "$repo_root/scripts/install-helm.sh" ||
-  fail 'guided Helm activation does not use the parsed routing hostname.'
+jq -e '
+  .routing == {
+    provider: "ingress",
+    host: "data.example.com",
+    tlsSecret: "data-example-com-tls",
+    annotations: {
+      "nginx.ingress.kubernetes.io/proxy-body-size": "20m"
+    },
+    ingress: {className: "nginx"},
+    istio: {gateway: "cluster-ingress/cn-http-gateway"}
+  }
+' "$scratch/guided-final-values.json" >/dev/null ||
+  fail 'guided Helm activation did not preserve the complete routing contract.'
 grep -Fq -- 'from-literal="session-token=$setup_session_token"' \
   "$repo_root/scripts/install-helm.sh" ||
   fail 'guided Helm setup does not persist a separate browser session token.'
