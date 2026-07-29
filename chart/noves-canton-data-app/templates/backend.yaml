@@ -58,9 +58,9 @@ spec:
                   name: {{ .Values.database.existingSecret }}
                   key: {{ .Values.database.passwordKey }}
             - name: INDEX_DB_WRITE_BATCH_SIZE
-              value: {{ .Values.backend.performance.database.writeBatchSize | quote }}
+              value: {{ .Values.backend.performance.database.writeBatchSize | int64 | quote }}
             - name: DATABASE_MAX_PARALLEL_WORKERS_PER_GATHER
-              value: {{ .Values.backend.performance.database.maxParallelWorkersPerGather | quote }}
+              value: {{ .Values.backend.performance.database.maxParallelWorkersPerGather | int64 | quote }}
             - name: DATABASE_SYNCHRONOUS_COMMIT
               value: {{ .Values.backend.performance.database.synchronousCommit | quote }}
             - name: DATABASE_MAX_WAL_SIZE
@@ -68,53 +68,53 @@ spec:
             - name: DATABASE_DEAD_TUPLE_RATIO_LIMIT
               value: {{ .Values.backend.performance.database.deadTupleRatioLimit | quote }}
             - name: DATABASE_DEAD_TUPLE_MINIMUM
-              value: {{ .Values.backend.performance.database.deadTupleMinimum | quote }}
+              value: {{ .Values.backend.performance.database.deadTupleMinimum | int64 | quote }}
             - name: DATABASE_TRANSACTION_AGE_LIMIT
-              value: {{ .Values.backend.performance.database.transactionAgeLimit | quote }}
+              value: {{ .Values.backend.performance.database.transactionAgeLimit | int64 | quote }}
             - name: DATABASE_WRITE_IO_UTILIZATION_LIMIT
               value: {{ .Values.backend.performance.database.writeIoUtilizationLimit | quote }}
             - name: DATABASE_CONNECTION_UTILIZATION_LIMIT
               value: {{ .Values.backend.performance.database.connectionUtilizationLimit | quote }}
             - name: DATABASE_COMMIT_P95_LIMIT_MS
-              value: {{ .Values.backend.performance.database.commitP95LimitMs | quote }}
+              value: {{ .Values.backend.performance.database.commitP95LimitMs | int64 | quote }}
             - name: READ_MODEL_TOTAL_CAPACITY
-              value: {{ .Values.backend.performance.readModel.totalCapacity | quote }}
+              value: {{ .Values.backend.performance.readModel.totalCapacity | int64 | quote }}
             - name: READ_MODEL_RESERVED_LIVE_CAPACITY
-              value: {{ .Values.backend.performance.readModel.reservedLiveCapacity | quote }}
+              value: {{ .Values.backend.performance.readModel.reservedLiveCapacity | int64 | quote }}
             - name: READ_MODEL_LIVE_WEIGHT
-              value: {{ .Values.backend.performance.readModel.liveWeight | quote }}
+              value: {{ .Values.backend.performance.readModel.liveWeight | int64 | quote }}
             - name: READ_MODEL_BOOTSTRAP_WEIGHT
-              value: {{ .Values.backend.performance.readModel.bootstrapWeight | quote }}
+              value: {{ .Values.backend.performance.readModel.bootstrapWeight | int64 | quote }}
             - name: READ_MODEL_BOOTSTRAP_BATCH_SIZE
-              value: {{ .Values.backend.performance.readModel.bootstrapBatchSize | quote }}
+              value: {{ .Values.backend.performance.readModel.bootstrapBatchSize | int64 | quote }}
             - name: BACKGROUND_INDEXING_DUTY_PERCENT
-              value: {{ .Values.backend.performance.readModel.backgroundIndexingDutyPercent | quote }}
+              value: {{ .Values.backend.performance.readModel.backgroundIndexingDutyPercent | int64 | quote }}
             - name: PARTY_EVENTS_INDEXING_DELAY_MS
-              value: {{ .Values.backend.performance.readModel.partyEventsIndexingDelayMs | quote }}
+              value: {{ .Values.backend.performance.readModel.partyEventsIndexingDelayMs | int64 | quote }}
             - name: READ_MODEL_PRESSURE_CHECK_INTERVAL_MS
-              value: {{ .Values.backend.performance.readModel.pressureCheckIntervalMs | quote }}
+              value: {{ .Values.backend.performance.readModel.pressureCheckIntervalMs | int64 | quote }}
             - name: READ_MODEL_PRESSURE_RESUME_RATIO
               value: {{ .Values.backend.performance.readModel.pressureResumeRatio | quote }}
             - name: READ_MODEL_CAPTURE_LAG_LIMIT_RECORDS
-              value: {{ .Values.backend.performance.readModel.captureLagLimitRecords | quote }}
+              value: {{ .Values.backend.performance.readModel.captureLagLimitRecords | int64 | quote }}
             - name: READ_MODEL_LIVE_WORK_MAX_WAIT_MS
-              value: {{ .Values.backend.performance.readModel.liveWorkMaxWaitMs | quote }}
+              value: {{ .Values.backend.performance.readModel.liveWorkMaxWaitMs | int64 | quote }}
             - name: PROCESS_MEMORY_LIMIT_BYTES
-              value: {{ .Values.backend.performance.readModel.processMemoryLimitBytes | quote }}
+              value: {{ .Values.backend.performance.readModel.processMemoryLimitBytes | int64 | quote }}
             - name: STREAM_POLL_INTERVAL_MS
-              value: {{ .Values.backend.streaming.pollIntervalMs | quote }}
+              value: {{ .Values.backend.streaming.pollIntervalMs | int64 | quote }}
             - name: STREAM_PAGE_SIZE
-              value: {{ .Values.backend.streaming.pageSize | quote }}
+              value: {{ .Values.backend.streaming.pageSize | int64 | quote }}
             - name: STREAM_RETRY_DELAY_MS
-              value: {{ .Values.backend.streaming.retryDelayMs | quote }}
+              value: {{ .Values.backend.streaming.retryDelayMs | int64 | quote }}
             - name: STREAM_WEBSOCKET_BUFFER_LIMIT
-              value: {{ .Values.backend.streaming.websocketBufferLimit | quote }}
+              value: {{ .Values.backend.streaming.websocketBufferLimit | int64 | quote }}
             - name: STREAM_DATABASE_TIMEOUT_SECONDS
-              value: {{ .Values.backend.streaming.databaseTimeoutSeconds | quote }}
+              value: {{ .Values.backend.streaming.databaseTimeoutSeconds | int64 | quote }}
             - name: STREAM_DEDUPLICATION_WINDOW_RECORDS
-              value: {{ .Values.backend.streaming.deduplicationWindowRecords | quote }}
+              value: {{ .Values.backend.streaming.deduplicationWindowRecords | int64 | quote }}
             - name: STREAM_DELIVERY_RECENCY_MINUTES
-              value: {{ .Values.backend.streaming.deliveryRecencyMinutes | quote }}
+              value: {{ .Values.backend.streaming.deliveryRecencyMinutes | int64 | quote }}
             - name: ALLOW_PRIVATE_WEBHOOK_TARGETS
               value: {{ .Values.backend.streaming.allowPrivateWebhookTargets | quote }}
             - name: NODES_CONFIG_FILE_PATH
