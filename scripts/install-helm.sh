@@ -145,6 +145,12 @@ helm upgrade --install "$release" "$chart_ref" \
   --set "novesGateway.existingSecret=$gateway_secret" \
   --set "database.existingSecret=$database_secret" \
   --set "capture.existingSecret=$capture_secret" \
+  --set capture.ledgerApiUserKey=ledger-api-user \
+  --set capture.tokenEndpointKey=token-endpoint \
+  --set capture.clientIdKey=client-id \
+  --set capture.clientSecretKey=client-secret \
+  --set capture.audienceKey=audience \
+  --set capture.scopeKey=scope \
   --wait
 
 if [[ -z "$result_json" ]] || ! jq -e '.completed == true' >/dev/null 2>&1 <<<"$result_json"; then
@@ -204,7 +210,15 @@ jq --arg databaseSecret "$database_secret" \
   '{
     setupWizard: {enabled: false},
     database: {existingSecret: $databaseSecret},
-    capture: {existingSecret: $captureSecret},
+    capture: {
+      existingSecret: $captureSecret,
+      ledgerApiUserKey: "ledger-api-user",
+      tokenEndpointKey: "token-endpoint",
+      clientIdKey: "client-id",
+      clientSecretKey: "client-secret",
+      audienceKey: "audience",
+      scopeKey: "scope"
+    },
     novesGateway: {existingSecret: $gatewaySecret},
     canton: {
       nodeId: .nodeId,

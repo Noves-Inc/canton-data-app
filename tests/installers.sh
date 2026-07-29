@@ -196,7 +196,12 @@ grep -Fq -- 'get configmap "$result_configmap"' "$repo_root/scripts/install-helm
 
 guided_result='{"completed":true,"provider":"auth0","appUrl":"https://data.example.com:8443","routingHost":"data.example.com","routingMode":"ingress","routingProvider":"ingress","tlsSecret":"data-example-com-tls","ingressClassName":"nginx","istioGateway":"cluster-ingress/cn-http-gateway","routingAnnotations":{"nginx.ingress.kubernetes.io/proxy-body-size":"20m"},"nodeId":"main-node","participantAddress":"participant:5001","expectedParticipantId":"participant::expected","validatorUrl":"http://validator-app:5003","publicScanUrl":"","expectedNetwork":"mainnet","auth0Domain":"tenant.auth0.com","browserClientId":"browser-client","browserAudience":"https://ledger-api"}'
 guided_values="$scratch/guided-operator-values.yaml"
-printf 'imagePullSecrets:\n  - name: private-registry\n' >"$guided_values"
+printf '%s\n' \
+  'imagePullSecrets:' \
+  '  - name: private-registry' \
+  'capture:' \
+  '  clientIdKey: custom-client-id' \
+  >"$guided_values"
 INSTALLER_CALLS="$scratch/guided.calls" GUIDED_RESULT="$guided_result" \
   FINAL_VALUES_CAPTURE="$scratch/guided-final-values.json" PATH="$fake_bin:$PATH" \
   "$repo_root/scripts/install-helm.sh" --namespace validator --release cda \
@@ -213,6 +218,8 @@ fi
   fail 'guided Helm setup did not preserve operator values for setup and activation.'
 grep -Fq -- '--set routing.provider=none' "$scratch/guided.calls" ||
   fail 'guided Helm setup did not override the operator route during localhost setup.'
+grep -Fq -- '--set capture.clientIdKey=client-id' "$scratch/guided.calls" ||
+  fail 'guided Helm setup did not retain its installer-owned capture Secret key layout.'
 grep -Fq -- 'deployment/${release}-setup-wizard' "$repo_root/scripts/install-helm.sh" ||
   fail 'guided Helm setup does not port-forward directly to the Deployment.'
 grep -Fq -- '#session=$setup_session_token' "$repo_root/scripts/install-helm.sh" ||
@@ -230,6 +237,18 @@ jq -e '
   }
 ' "$scratch/guided-final-values.json" >/dev/null ||
   fail 'guided Helm activation did not preserve the complete routing contract.'
+jq -e '
+  .capture == {
+    existingSecret: "cda-capture-auth",
+    ledgerApiUserKey: "ledger-api-user",
+    tokenEndpointKey: "token-endpoint",
+    clientIdKey: "client-id",
+    clientSecretKey: "client-secret",
+    audienceKey: "audience",
+    scopeKey: "scope"
+  }
+' "$scratch/guided-final-values.json" >/dev/null ||
+  fail 'guided Helm activation did not pin its generated capture Secret key layout.'
 grep -Fq -- 'from-literal="session-token=$setup_session_token"' \
   "$repo_root/scripts/install-helm.sh" ||
   fail 'guided Helm setup does not persist a separate browser session token.'

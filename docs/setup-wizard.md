@@ -94,7 +94,8 @@ localhost port-forward only.
 Pass `--values FILE` to the guided Helm installer when the cluster needs operator settings such
 as `imagePullSecrets`, StorageClasses, resource limits, or scheduling rules. The installer applies
 that file to both the temporary setup release and the activated release. Wizard results override
-only the values the wizard owns, including OIDC, Canton addresses, and routing.
+only the values the wizard owns: OIDC, Canton addresses, routing, and the generated capture
+Secret's key names. Use standard Helm mode when you need a custom capture Secret layout.
 
 The validator administrator Secret is read by the host-side installer with the operator's
 existing Kubernetes access. It is never granted to the setup service account.
