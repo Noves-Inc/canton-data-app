@@ -1,9 +1,7 @@
 setupWizard:
-  enabled: true
+  enabled: false
 routing:
-  enabled: true
+  provider: ingress
   host: data.example.com
-  istio:
-    enabled: true
   ingress:
-    enabled: true
+    className: ""

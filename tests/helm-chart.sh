@@ -27,7 +27,9 @@ assert_not_contains() {
 }
 
 helm lint "$chart" --values "$fixtures/enterprise-values.yaml"
+helm lint "$chart" --values "$fixtures/istio-values.yaml"
 helm lint "$chart" --values "$fixtures/setup-istio-values.yaml"
+helm lint "$chart" --values "$fixtures/s3-values.yaml"
 helm lint "$chart" --values "$chart/examples/enterprise-values.yaml"
 if helm lint "$chart" --values "$fixtures/enterprise-values.yaml" \
   --set-string backend.publicApiUrl=http://api.example.test >/dev/null 2>&1; then
@@ -64,6 +66,9 @@ helm template cda "$chart" \
   --values "$fixtures/enterprise-values.yaml" >"$scratch/enterprise.yaml"
 helm template cda "$chart" \
   --namespace validator \
+  --values "$fixtures/istio-values.yaml" >"$scratch/istio.yaml"
+helm template cda "$chart" \
+  --namespace validator \
   --values "$fixtures/setup-istio-values.yaml" >"$scratch/setup.yaml"
 helm template cda "$chart" \
   --namespace validator \
@@ -73,15 +78,24 @@ helm template cda "$chart" \
   --values "$fixtures/migration-values.yaml" >"$scratch/migration.yaml"
 helm template cda "$chart" \
   --namespace validator \
+  --values "$fixtures/s3-values.yaml" >"$scratch/s3.yaml"
+helm template cda "$chart" \
+  --namespace validator \
+  --values "$fixtures/enterprise-values.yaml" \
+  --values "$fixtures/existing-accounting-secret-values.yaml" >"$scratch/existing-accounting-secret.yaml"
+helm template cda "$chart" \
+  --namespace validator \
   --set database.persistence.existingClaim=cda-encrypted-data \
   --values "$fixtures/enterprise-values.yaml" >"$scratch/existing-database-claim.yaml"
 
 assert_contains "$chart/Chart.yaml" 'name: noves-canton-data-app'
 assert_contains "$chart/Chart.yaml" 'version: 4.0.0'
-assert_contains "$chart/values.yaml" 'repository: ghcr.io/noves-inc/noves-canton-backend-v4'
-assert_contains "$chart/values.yaml" 'repository: ghcr.io/noves-inc/noves-canton-frontend-v4'
-assert_contains "$chart/values.yaml" 'repository: ghcr.io/noves-inc/noves-canton-database-v4'
-assert_contains "$chart/values.yaml" 'tag: "4.0.0"'
+assert_contains "$chart/values.yaml" 'repository: noves.azurecr.io/cda-backend'
+assert_contains "$chart/values.yaml" 'repository: noves.azurecr.io/cda-frontend'
+assert_contains "$chart/values.yaml" 'tag: "prod-19b8de69-1785353655"'
+assert_contains "$chart/values.yaml" 'tag: "prod-6110f60d-1785354653"'
+assert_contains "$chart/values.yaml" 'tag: "candidate-30160846627-1"'
+assert_contains "$chart/values.yaml" 'digest: "sha256:1482f1bbe6ca9039ebe4bdcdf7442d34acf9389b2799215b95e10ee8d01ba49b"'
 assert_contains "$chart/values.yaml" 'passwordKey: postgres-password'
 assert_contains "$chart/values.yaml" 'publicApiUrl: https://api.canton.noves.fi'
 assert_contains "$chart/values.schema.json" '"const": 1'
@@ -92,21 +106,24 @@ app_version="$(sed -n 's/^appVersion: "\(.*\)"/\1/p' "$chart/Chart.yaml")"
 chart_version="$(sed -n 's/^version: //p' "$chart/Chart.yaml")"
 [[ "$app_version" == "$chart_version" ]] ||
   fail 'chart version and appVersion differ.'
-[[ "$(grep -c "tag: \"$app_version\"" "$chart/values.yaml")" == 3 ]] ||
-  fail 'all default image tags must match appVersion.'
-
 assert_contains "$scratch/enterprise.yaml" 'participant:5001'
 assert_contains "$scratch/enterprise.yaml" 'http://validator-app:5003'
 assert_contains "$scratch/enterprise.yaml" 'name: SCAN_PROXY_URL'
 assert_contains "$scratch/enterprise.yaml" 'name: NOVES_PUBLIC_API_URL'
 assert_contains "$scratch/enterprise.yaml" 'value: "https://api.canton.noves.fi"'
 assert_not_contains "$scratch/enterprise.yaml" 'CDA_PUBLIC_API_URL'
-assert_contains "$scratch/enterprise.yaml" 'mountPath: /exports'
+[[ "$(grep -c 'mountPath: /exports' "$scratch/enterprise.yaml")" == 1 ]] ||
+  fail 'only the backend may mount the exports PVC'
+assert_not_contains "$scratch/enterprise.yaml" 'mountPath: /app/exports'
 assert_contains "$scratch/enterprise.yaml" 'type: Recreate'
 assert_contains "$scratch/enterprise.yaml" 'type: RuntimeDefault'
 assert_contains "$scratch/enterprise.yaml" 'fsGroup: 1654'
 assert_contains "$scratch/enterprise.yaml" 'fsGroupChangePolicy: OnRootMismatch'
 assert_contains "$scratch/enterprise.yaml" 'allowPrivilegeEscalation: false'
+assert_contains "$scratch/enterprise.yaml" 'runAsUser: 1654'
+assert_contains "$scratch/enterprise.yaml" 'name: ACCOUNTING_TOKEN_ENCRYPTION_KEY'
+assert_contains "$scratch/enterprise.yaml" 'name: cda-accounting-token-encryption'
+assert_contains "$scratch/enterprise.yaml" 'key: accounting-token-encryption-key'
 assert_contains "$scratch/enterprise.yaml" 'name: cda-capture-auth'
 assert_contains "$scratch/enterprise.yaml" 'name: cda-database'
 assert_contains "$chart/values.yaml" 'ledgerApiUserKey: ledger-api-user'
@@ -145,10 +162,30 @@ assert_contains "$chart/values.schema.json" '"allowPrivateWebhookTargets"'
 [[ "$(grep -c 'key: gateway-token' "$scratch/enterprise.yaml")" == 2 ]] ||
   fail 'backend and frontend must use the configured gateway Secret key'
 assert_contains "$scratch/enterprise.yaml" 'helm.sh/resource-policy: keep'
-assert_contains "$scratch/enterprise.yaml" 'kind: VirtualService'
-assert_contains "$scratch/enterprise.yaml" 'cluster-ingress/cn-http-gateway'
+assert_contains "$scratch/enterprise.yaml" 'kind: Ingress'
+assert_contains "$scratch/enterprise.yaml" 'ingressClassName: "nginx"'
+assert_contains "$scratch/enterprise.yaml" 'secretName: data-example-com-tls'
+assert_not_contains "$scratch/enterprise.yaml" 'kind: VirtualService'
+assert_contains "$scratch/istio.yaml" 'kind: VirtualService'
+assert_contains "$scratch/istio.yaml" 'cluster-ingress/cn-http-gateway'
+assert_not_contains "$scratch/istio.yaml" 'kind: Ingress'
 assert_not_contains "$scratch/enterprise.yaml" 'kind: Role'
 assert_not_contains "$scratch/enterprise.yaml" 'SETUP_ENABLED'
+assert_contains "$scratch/enterprise.yaml" 'kind: NetworkPolicy'
+assert_contains "$scratch/enterprise.yaml" 'port: 5432'
+
+assert_not_contains "$scratch/existing-accounting-secret.yaml" 'name: cda-accounting-token-encryption'
+assert_contains "$scratch/existing-accounting-secret.yaml" 'name: cda-accounting-key'
+assert_contains "$scratch/existing-accounting-secret.yaml" 'key: token-key'
+
+assert_contains "$scratch/s3.yaml" 'name: EXPORTS_S3_BUCKET'
+assert_contains "$scratch/s3.yaml" 'value: "cda-exports"'
+assert_contains "$scratch/s3.yaml" 'name: EXPORTS_S3_ACCESS_KEY_ID'
+assert_contains "$scratch/s3.yaml" 'name: EXPORTS_S3_SECRET_ACCESS_KEY'
+assert_contains "$scratch/s3.yaml" 'name: BACKUP_S3_BUCKET'
+assert_contains "$scratch/s3.yaml" 'value: "cda-backups"'
+assert_not_contains "$scratch/s3.yaml" 'mountPath: /exports'
+assert_not_contains "$scratch/s3.yaml" 'name: cda-exports'
 
 assert_not_contains "$scratch/setup.yaml" 'kind: VirtualService'
 assert_not_contains "$scratch/setup.yaml" 'kind: Ingress'
@@ -184,26 +221,35 @@ assert_contains "$scratch/migration.yaml" 'claimName: cda-v3-data'
 assert_contains "$scratch/existing-database-claim.yaml" 'claimName: cda-encrypted-data'
 assert_contains "$scratch/migration.yaml" 'SETUP_ENABLED'
 assert_contains "$scratch/migration.yaml" 'value: "false"'
+assert_contains "$scratch/migration.yaml" 'name: DATABASE_EXPECTED_SOURCE'
+assert_contains "$scratch/migration.yaml" 'value: "v3"'
 assert_not_contains "$scratch/migration.yaml" 'kind: Job'
 
 if helm template cda "$chart" --namespace validator \
   --values "$fixtures/invalid-routing-values.yaml" >"$scratch/invalid.out" 2>&1; then
   fail 'chart accepted both Istio and Ingress routing'
 fi
-assert_contains "$scratch/invalid.out" 'mutually exclusive'
+assert_contains "$scratch/invalid.out" 'routing.ingress.className'
+
+if helm template cda "$chart" --namespace validator \
+  --values "$fixtures/enterprise-values.yaml" \
+  --set routing.provider=traefik >"$scratch/invalid-provider.out" 2>&1; then
+  fail 'chart accepted an unknown routing provider'
+fi
+assert_contains "$scratch/invalid-provider.out" 'routing.provider'
 
 if helm template cda "$chart" --namespace validator \
   --values "$fixtures/invalid-migration-values.yaml" >"$scratch/invalid-migration.out" 2>&1; then
   fail 'chart accepted an unconfirmed v3 migration'
 fi
-assert_contains "$scratch/invalid-migration.out" 'Data App v3.16.1'
+assert_contains "$scratch/invalid-migration.out" 'cannot be enabled together'
 
 if helm template cda "$chart" --namespace validator \
-  --set backend.image.tag=5.0.0 \
+  --set backend.image.digest=sha256:not-a-digest \
   --values "$fixtures/enterprise-values.yaml" >"$scratch/invalid-major.out" 2>&1; then
-  fail 'v4 chart accepted a v5 backend image'
+  fail 'chart accepted a malformed backend image digest'
 fi
-assert_contains "$scratch/invalid-major.out" 'backend.image.tag'
+assert_contains "$scratch/invalid-major.out" 'backend.image.digest'
 
 replica_chart="$scratch/chart-without-schema"
 cp -R "$chart" "$replica_chart"

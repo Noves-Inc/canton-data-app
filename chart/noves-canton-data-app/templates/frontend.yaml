@@ -28,22 +28,17 @@ spec:
     spec:
       automountServiceAccountToken: false
       securityContext:
-        seccompProfile:
-          type: RuntimeDefault
+        {{- toYaml .Values.frontend.podSecurityContext | nindent 8 }}
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       containers:
         - name: frontend
-          image: "{{ .Values.frontend.image.repository }}:{{ .Values.frontend.image.tag }}"
+          image: {{ include "cda.image" .Values.frontend.image | quote }}
           imagePullPolicy: {{ .Values.frontend.image.pullPolicy }}
           securityContext:
-            allowPrivilegeEscalation: false
-            runAsNonRoot: true
-            capabilities:
-              drop:
-                - ALL
+            {{- toYaml .Values.frontend.containerSecurityContext | nindent 12 }}
           ports:
             - name: http
               containerPort: 3000
@@ -56,9 +51,6 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.novesGateway.existingSecret }}
                   key: {{ .Values.novesGateway.tokenKey }}
-          volumeMounts:
-            - name: exports
-              mountPath: /app/exports
           readinessProbe:
             httpGet:
               path: /api/health
@@ -71,10 +63,6 @@ spec:
             periodSeconds: 20
           resources:
             {{- toYaml .Values.frontend.resources | nindent 12 }}
-      volumes:
-        - name: exports
-          persistentVolumeClaim:
-            claimName: {{ include "cda.fullname" . }}-exports
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

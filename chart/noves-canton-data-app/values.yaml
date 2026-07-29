@@ -7,9 +7,23 @@ backend:
   replicaCount: 1
   publicApiUrl: https://api.canton.noves.fi
   image:
-    repository: ghcr.io/noves-inc/noves-canton-backend-v4
-    tag: "4.0.0"
+    repository: noves.azurecr.io/cda-backend
+    tag: "prod-19b8de69-1785353655"
+    digest: ""
     pullPolicy: IfNotPresent
+  podSecurityContext:
+    fsGroup: 1654
+    fsGroupChangePolicy: OnRootMismatch
+    seccompProfile:
+      type: RuntimeDefault
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    runAsNonRoot: true
+    runAsUser: 1654
+    capabilities:
+      drop:
+        - ALL
+  extraEnv: []
   resources:
     requests:
       cpu: 500m
@@ -55,9 +69,19 @@ backend:
 frontend:
   replicaCount: 1
   image:
-    repository: ghcr.io/noves-inc/noves-canton-frontend-v4
-    tag: "4.0.0"
+    repository: noves.azurecr.io/cda-frontend
+    tag: "prod-6110f60d-1785354653"
+    digest: ""
     pullPolicy: IfNotPresent
+  podSecurityContext:
+    seccompProfile:
+      type: RuntimeDefault
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    runAsNonRoot: true
+    capabilities:
+      drop:
+        - ALL
   resources:
     requests:
       cpu: 100m
@@ -69,8 +93,13 @@ frontend:
 database:
   image:
     repository: ghcr.io/noves-inc/noves-canton-database-v4
-    tag: "4.0.0"
+    tag: "candidate-30160846627-1"
+    digest: "sha256:1482f1bbe6ca9039ebe4bdcdf7442d34acf9389b2799215b95e10ee8d01ba49b"
     pullPolicy: IfNotPresent
+  podSecurityContext:
+    seccompProfile:
+      type: RuntimeDefault
+  containerSecurityContext: {}
   existingSecret: noves-canton-data-app-database
   passwordKey: postgres-password
   name: canton_index
@@ -90,9 +119,34 @@ database:
       memory: 8Gi
 
 exports:
+  storage: pvc
   persistence:
     size: 20Gi
     storageClass: ""
+  s3:
+    bucket: ""
+    endpointUrl: ""
+    region: ""
+    existingSecret: ""
+    accessKeyIdKey: access-key-id
+    secretAccessKeyKey: secret-access-key
+    sessionTokenKey: session-token
+
+backup:
+  s3:
+    enabled: false
+    bucket: ""
+    endpointUrl: ""
+    region: ""
+    existingSecret: ""
+    accessKeyIdKey: access-key-id
+    secretAccessKeyKey: secret-access-key
+    sessionTokenKey: session-token
+
+accounting:
+  tokenEncryption:
+    existingSecret: ""
+    key: accounting-token-encryption-key
 
 canton:
   nodeId: main-node
@@ -133,15 +187,13 @@ oidc:
     clientId: ""
 
 routing:
-  enabled: false
+  provider: none
   host: ""
   tlsSecret: ""
   annotations: {}
   istio:
-    enabled: false
     gateway: cluster-ingress/cn-http-gateway
   ingress:
-    enabled: false
     className: ""
 
 setupWizard:
@@ -157,6 +209,10 @@ migration:
   backupConfirmed: false
   oldWorkloadStopped: false
   existingClaim: ""
+
+networkPolicy:
+  database:
+    enabled: true
 
 podAnnotations: {}
 podLabels: {}

@@ -1,10 +1,10 @@
 oidc:
-  provider: keycloak
+  provider: auth0
   appUrl: https://data.example.com
-  keycloak:
-    url: https://sso.example.com
-    realm: canton
+  auth0:
+    domain: tenant.example.auth0.com
     clientId: browser-client
+    audience: https://ledger-api
 
 canton:
   expectedParticipantId: participant::expected
@@ -16,7 +16,7 @@ database:
   existingSecret: cda-database
 
 routing:
-  provider: ingress
+  provider: istio
   host: data.example.com
-  ingress:
-    className: nginx
+  istio:
+    gateway: cluster-ingress/cn-http-gateway

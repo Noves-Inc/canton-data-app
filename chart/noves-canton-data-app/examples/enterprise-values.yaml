@@ -1,6 +1,4 @@
 backend:
-  image:
-    tag: "4.0.0"
   # Keep defaults initially. Raise these only with matching database capacity.
   performance:
     database:
@@ -9,12 +7,7 @@ backend:
     readModel:
       totalCapacity: 4
       reservedLiveCapacity: 1
-frontend:
-  image:
-    tag: "4.0.0"
 database:
-  image:
-    tag: "4.0.0"
   existingSecret: noves-canton-data-app-database
   persistence:
     # Production requires encrypted SSD-backed block storage. Examples:
@@ -40,11 +33,11 @@ oidc:
     audience: https://canton.network.global
 
 routing:
-  enabled: true
+  provider: ingress
   host: data.example.com
-  istio:
-    enabled: true
-    gateway: cluster-ingress/cn-http-gateway
+  tlsSecret: data-example-com-tls
+  ingress:
+    className: nginx
 
 setupWizard:
   enabled: false

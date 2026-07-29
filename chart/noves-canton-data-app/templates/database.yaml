@@ -23,15 +23,14 @@ spec:
     spec:
       automountServiceAccountToken: false
       securityContext:
-        seccompProfile:
-          type: RuntimeDefault
+        {{- toYaml .Values.database.podSecurityContext | nindent 8 }}
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       initContainers:
         - name: validate-postgresql-major
-          image: "{{ .Values.database.image.repository }}:{{ .Values.database.image.tag }}"
+          image: {{ include "cda.image" .Values.database.image | quote }}
           imagePullPolicy: {{ .Values.database.image.pullPolicy }}
           command:
             - sh
@@ -47,8 +46,12 @@ spec:
               mountPath: /home/postgres/pgdata
       containers:
         - name: database
-          image: "{{ .Values.database.image.repository }}:{{ .Values.database.image.tag }}"
+          image: {{ include "cda.image" .Values.database.image | quote }}
           imagePullPolicy: {{ .Values.database.image.pullPolicy }}
+          {{- with .Values.database.containerSecurityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           ports:
             - name: postgresql
               containerPort: 5432

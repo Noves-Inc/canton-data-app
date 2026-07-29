@@ -23,26 +23,37 @@ app.kubernetes.io/name: {{ include "cda.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 
+{{- define "cda.image" -}}
+{{- printf "%s:%s" .repository .tag -}}{{- with .digest -}}@{{ . }}{{- end -}}
+{{- end -}}
+
 {{- define "cda.validate" -}}
-{{- if and .Values.routing.istio.enabled .Values.routing.ingress.enabled -}}
-{{- fail "routing.istio.enabled and routing.ingress.enabled are mutually exclusive" -}}
+{{- if not (or (eq .Values.routing.provider "none") (eq .Values.routing.provider "ingress") (eq .Values.routing.provider "istio")) -}}
+{{- fail "routing.provider must be one of none, ingress, or istio" -}}
 {{- end -}}
-{{- if and .Values.routing.enabled (not (or .Values.routing.istio.enabled .Values.routing.ingress.enabled)) -}}
-{{- fail "routing.enabled requires exactly one of routing.istio.enabled or routing.ingress.enabled" -}}
+{{- if and (ne .Values.routing.provider "none") (not .Values.routing.host) -}}
+{{- fail "routing.host is required when routing.provider is ingress or istio" -}}
 {{- end -}}
-{{- if and .Values.routing.enabled (not .Values.routing.host) -}}
-{{- fail "routing.host is required when routing.enabled=true" -}}
+{{- if and (eq .Values.routing.provider "ingress") (not .Values.routing.ingress.className) -}}
+{{- fail "routing.ingress.className is required when routing.provider=ingress" -}}
 {{- end -}}
-{{- if and .Values.setupWizard.enabled .Values.routing.enabled -}}
+{{- if and (eq .Values.routing.provider "istio") (not .Values.routing.istio.gateway) -}}
+{{- fail "routing.istio.gateway is required when routing.provider=istio" -}}
+{{- end -}}
+{{- if and .Values.setupWizard.enabled (ne .Values.routing.provider "none") -}}
 {{- fail "public routing is disabled while setupWizard is active; use localhost port-forwarding" -}}
+{{- end -}}
+{{- if and .Values.setupWizard.enabled .Values.migration.enabled -}}
+{{- fail "setupWizard.enabled and migration.enabled cannot be enabled together" -}}
 {{- end -}}
 {{- if ne (int .Values.backend.replicaCount) 1 -}}
 {{- fail "backend.replicaCount must be 1" -}}
 {{- end -}}
-{{- range $name, $workload := dict "backend" .Values.backend "frontend" .Values.frontend "database" .Values.database -}}
-{{- if not (or (eq $workload.image.tag "latest") (regexMatch "^4\\." $workload.image.tag)) -}}
-{{- fail (printf "%s.image.tag must be a v4 image tag or latest within the v4 repository" $name) -}}
+{{- if and (eq .Values.exports.storage "s3") (not .Values.exports.s3.bucket) -}}
+{{- fail "exports.s3.bucket is required when exports.storage=s3" -}}
 {{- end -}}
+{{- if and .Values.backup.s3.enabled (not .Values.backup.s3.bucket) -}}
+{{- fail "backup.s3.bucket is required when backup.s3.enabled=true" -}}
 {{- end -}}
 {{- if .Values.migration.enabled -}}
 {{- if ne .Values.migration.sourceVersion "3.16.1" -}}

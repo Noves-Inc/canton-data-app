@@ -9,4 +9,4 @@ capture:
   existingSecret: cda-capture-auth
 
 routing:
-  enabled: false
+  provider: none
