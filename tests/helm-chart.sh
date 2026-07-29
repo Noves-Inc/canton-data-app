@@ -33,6 +33,10 @@ if helm lint "$chart" --values "$fixtures/enterprise-values.yaml" \
   --set-string backend.publicApiUrl=http://api.example.test >/dev/null 2>&1; then
   fail 'backend.publicApiUrl accepted remote plain HTTP.'
 fi
+if helm lint "$chart" --values "$fixtures/enterprise-values.yaml" \
+  --set-string backend.publicApiUrl=http://127.999.999.999:8099 >/dev/null 2>&1; then
+  fail 'backend.publicApiUrl accepted an invalid loopback-looking host.'
+fi
 helm lint "$chart" --values "$fixtures/enterprise-values.yaml" \
   --set-string backend.publicApiUrl=https://api.example.test >/dev/null
 helm lint "$chart" --values "$fixtures/enterprise-values.yaml" \
