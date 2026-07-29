@@ -5,6 +5,7 @@ imagePullSecrets: []
 
 backend:
   replicaCount: 1
+  publicApiUrl: https://api.canton.noves.fi
   image:
     repository: ghcr.io/noves-inc/noves-canton-backend-v4
     tag: "4.0.0"

@@ -64,6 +64,7 @@ services:
       CANTON_NETWORK: ${CANTON_NETWORK:-mainnet}
       SCAN_PROXY_URL: ${CANTON_VALIDATOR_URL:-http://validator-app:5003}
       PUBLIC_SCAN_INDEXER_URL: ${CANTON_PUBLIC_SCAN_URL:-}
+      NOVES_PUBLIC_API_URL: ${NOVES_PUBLIC_API_URL:-https://api.canton.noves.fi}
       NOVES_GATEWAY_AUTH_TOKEN_FILE: /run/secrets/noves-gateway-auth-token
     env_file:
       - path: ./.state/capture.env

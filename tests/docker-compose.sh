@@ -27,6 +27,9 @@ assert_not_contains() {
 
 docker compose --env-file "$compose_dir/.env.example" \
   -f "$compose_dir/compose.yaml" config >"$scratch/standard.yaml"
+NOVES_PUBLIC_API_URL=https://api.example.test \
+docker compose --env-file "$compose_dir/.env.example" \
+  -f "$compose_dir/compose.yaml" config >"$scratch/public-api-url.yaml"
 SETUP_TOKEN=test-setup-token \
 SETUP_SESSION_TOKEN=test-session-token \
 SETUP_USER=1000:1000 \
@@ -45,6 +48,9 @@ assert_contains "$scratch/standard.yaml" 'container_name: noves-canton-frontend-
 assert_contains "$scratch/standard.yaml" 'container_name: noves-canton-database-v4'
 assert_contains "$scratch/standard.yaml" 'name: splice-validator_splice_validator'
 assert_contains "$scratch/standard.yaml" 'SCAN_PROXY_URL: http://validator-app:5003'
+assert_contains "$scratch/standard.yaml" 'NOVES_PUBLIC_API_URL: https://api.canton.noves.fi'
+assert_contains "$scratch/public-api-url.yaml" 'NOVES_PUBLIC_API_URL: https://api.example.test'
+assert_not_contains "$scratch/standard.yaml" 'CDA_PUBLIC_API_URL'
 assert_contains "$scratch/standard.yaml" 'DATABASE_MAX_PARALLEL_WORKERS_PER_GATHER: "0"'
 assert_contains "$scratch/standard.yaml" 'DATABASE_SYNCHRONOUS_COMMIT: "off"'
 assert_contains "$scratch/standard.yaml" 'DATABASE_MAX_WAL_SIZE: 8GB'

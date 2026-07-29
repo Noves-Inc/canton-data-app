@@ -72,6 +72,8 @@ for contract in \
   'novesGateway.existingSecret' \
   '.secrets/noves-gateway-auth-token' \
   'NOVES_GATEWAY_AUTH_TOKEN_FILE' \
+  'NOVES_PUBLIC_API_URL' \
+  'https://api.canton.noves.fi' \
   '/dev/tty' \
   'session-token' \
   'release-manifest.json' \

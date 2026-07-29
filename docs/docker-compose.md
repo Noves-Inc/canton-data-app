@@ -40,8 +40,10 @@ mkdir -p docker-compose/.secrets
 cp docker-compose/config/nodes-config.json docker-compose/.state/nodes-config.json
 ```
 
-Edit `.env` for the public application URL and one OIDC provider. Edit
-`.state/nodes-config.json` with the exact participant ID.
+Edit `.env` for the public application URL and one OIDC provider. The backend uses
+`NOVES_PUBLIC_API_URL`, which defaults to `https://api.canton.noves.fi`; set it only when your
+deployment uses a different Noves public API endpoint. Edit `.state/nodes-config.json` with the
+exact participant ID.
 
 Create `.state/capture.env`:
 
