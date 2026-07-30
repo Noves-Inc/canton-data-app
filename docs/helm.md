@@ -35,6 +35,18 @@ kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" get pvc
 
 Use `routing.provider: ingress` for NGINX or another Kubernetes Ingress controller. Set `routing.ingress.className` to the exact IngressClass name. Use `routing.provider: istio` only when the cluster has the Istio VirtualService CRD and you know the gateway name. `routing.provider: none` creates no public route.
 
+Public routing creates two hostnames by default:
+
+```text
+data.example.com      -> frontend/BFF
+api.data.example.com  -> backend API and /docs
+```
+
+Create DNS records for both names and point them to the same Ingress or Istio gateway address.
+The chart derives the backend name by adding `api.` to `routing.host`. Set
+`routing.backend.host` when you need another name, or set `routing.backend.enabled: false` for a
+frontend-only route.
+
 Production database storage needs encrypted SSD-backed `ReadWriteOnce` block storage. Typical classes are AKS `managed-csi-premium`, encrypted EKS `gp3`, and GKE `premium-rwo`. Set `database.persistence.storageClass` for a new database. The empty default suits local clusters where the default StorageClass is known.
 
 ## 2. Arrange private registry access
@@ -245,9 +257,18 @@ routing:
   provider: ingress
   host: data.example.com
   tlsSecret: data-example-com-tls
+  backend:
+    enabled: true
+    host: ""
+    tlsSecret: ""
   ingress:
     className: nginx
 ```
+
+An empty backend host produces `api.data.example.com`. An empty backend TLS Secret reuses
+`routing.tlsSecret`; that certificate must include both hostnames. Set
+`routing.backend.tlsSecret` when the backend uses a separate certificate. With Istio, the
+Gateway terminates TLS, so its certificate must cover both names.
 
 The backend stores exports on the retained `/exports` PVC by default. Set `exports.storage: s3` only when you have configured the typed `exports.s3` block and bucket access. Transaction-history backups use the independent `backup.s3` block. See [`values.yaml`](../chart/noves-canton-data-app/values.yaml) for the Secret key names and optional endpoint and region fields.
 
@@ -297,6 +318,20 @@ curl -fsS http://127.0.0.1:8090/ready
 curl -fsS http://127.0.0.1:8090/api/v2/capture/status | jq
 ```
 
+After DNS and TLS are ready, verify the public backend route:
+
+```bash
+export BACKEND_URL=https://api.data.example.com
+
+curl -fsS "$BACKEND_URL/health"
+curl -fsS "$BACKEND_URL/ready"
+curl -fsS "$BACKEND_URL/docs/v1/openapi.json" | jq '.info'
+```
+
+Open `https://api.data.example.com/docs` for Swagger UI. Requests to `/docs` on
+`data.example.com` still go to the frontend SPA because that hostname routes to the frontend
+Service.
+
 `/ready` proves that startup and database preparation finished. It does not prove that participant capture is running. The capture response should report `captureEnabled: true`; after initial loading, the node should report `initialCaptureComplete: true` and `caughtUp: true`.
 
 ## Troubleshooting
@@ -306,6 +341,8 @@ curl -fsS http://127.0.0.1:8090/api/v2/capture/status | jq
 | `ImagePullBackOff` | `kubectl describe pod`; fix ACR or GHCR access and `imagePullSecrets` |
 | Database pod pending | `kubectl get pvc` and `kubectl describe pvc`; check the StorageClass and zone constraints |
 | Ingress has no address | `kubectl get ingressclass` and `kubectl describe ingress`; confirm `routing.ingress.className` |
+| Backend hostname does not resolve | Check the `api.` DNS record or the explicit `routing.backend.host` value |
+| Backend TLS certificate mismatch | Add both names to the shared certificate or set `routing.backend.tlsSecret` |
 | Istio render fails server dry-run | Install the VirtualService CRD or select `routing.provider: ingress` |
 | Backend stays unready | Read `/startup-status`, then backend logs |
 | Capture disabled or stale | Read `/api/v2/capture/status`; verify the capture Secret, token subject, Canton user, and its exact rights |

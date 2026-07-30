@@ -81,6 +81,11 @@ for contract in \
   'memory only' \
   'final deployment' \
   'routing.provider' \
+  'routing.backend.enabled' \
+  'api.data.example.com' \
+  'BACKEND_BIND_ADDRESS' \
+  '/docs/v1/openapi.json' \
+  '127.0.0.1:8090' \
   'ACCOUNTING_TOKEN_ENCRYPTION_KEY' \
   '/api/v2/capture/status' \
   'kubectl get ingressclass' \
@@ -93,6 +98,18 @@ do
   rg -Fq -- "$contract" "$repo_root/readme.md" "$repo_root/docs" ||
     fail "operator documentation is missing: $contract"
 done
+
+while IFS='|' read -r path contract; do
+  rg -Fq -- "$contract" "$repo_root/$path" ||
+    fail "$path is missing the public backend contract: $contract"
+done <<'EOF'
+readme.md|api.data.example.com
+docs/helm.md|routing.backend.enabled
+docs/helm.md|/docs/v1/openapi.json
+docs/docker-compose.md|BACKEND_BIND_ADDRESS
+docs/docker-compose.md|127.0.0.1:8090
+docs/security.md|routing.backend.enabled
+EOF
 
 if rg -ni 'Capture only|Redact' "$repo_root/docs/authentication"; then
   fail 'authentication guides expose screenshot-production instructions.'

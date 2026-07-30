@@ -24,5 +24,9 @@ oidc:
 routing:
   provider: istio
   host: data.example.com
+  backend:
+    enabled: true
+    host: ""
+    tlsSecret: ""
   istio:
     gateway: cluster-ingress/cn-http-gateway

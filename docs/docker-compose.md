@@ -78,9 +78,33 @@ docker compose --env-file docker-compose/.env \
 ```
 
 The containers are named `noves-canton-backend-v4`, `noves-canton-frontend-v4`, and
-`noves-canton-database-v4`. The backend is bound to localhost by default. The frontend also
-defaults to localhost; put your existing TLS reverse proxy in front of port 8091 or change
-`FRONTEND_BIND_ADDRESS` intentionally.
+`noves-canton-database-v4`. Both application containers bind to localhost by default:
+
+```text
+Frontend/BFF:  http://127.0.0.1:8091
+Backend API:   http://127.0.0.1:8090
+Backend docs:  http://127.0.0.1:8090/docs
+OpenAPI JSON:  http://127.0.0.1:8090/docs/v1/openapi.json
+```
+
+`FRONTEND_BIND_ADDRESS` and `BACKEND_BIND_ADDRESS` control the host interfaces.
+`FRONTEND_PORT` and `BACKEND_PORT` control the published ports.
+
+## TLS reverse proxy
+
+Use two public hostnames and send them to the two loopback ports:
+
+```text
+https://data.example.com      -> http://127.0.0.1:8091
+https://api.data.example.com  -> http://127.0.0.1:8090
+```
+
+Create DNS records for both names, configure TLS in your existing reverse proxy, and keep the
+container ports on loopback. The public Swagger URL is
+`https://api.data.example.com/docs`.
+
+Setting `BACKEND_BIND_ADDRESS=0.0.0.0` publishes the complete API on every host interface. Use
+that setting only when a firewall or trusted private network controls access.
 
 ## Versions
 
@@ -124,6 +148,7 @@ docker compose --env-file docker-compose/.env \
 docker compose --env-file docker-compose/.env \
   -f docker-compose/compose.yaml logs -f backend
 curl http://127.0.0.1:8090/startup-status
+curl http://127.0.0.1:8090/docs/v1/openapi.json
 ```
 
 Stop containers without deleting data:

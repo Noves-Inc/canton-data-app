@@ -44,8 +44,14 @@ rights check before activation.
 
 ## Network exposure
 
-Only the frontend/BFF receives public routing. Keep the backend, PostgreSQL Service, participant
-Ledger API, and setup verification route private. Use HTTPS for the public application URL.
+The standard Helm route publishes the frontend/BFF and backend API on separate HTTPS hostnames.
+The backend hostname exposes the complete API, including Swagger at `/docs`. Protected endpoints
+keep their existing authorization checks. Set `routing.backend.enabled: false` when an external
+gateway or the frontend/BFF is the only permitted backend entry point.
+
+Keep the PostgreSQL Service, participant Ledger API, and setup verification route private. The
+Compose bundle binds both application ports to loopback by default; expose them through a TLS
+reverse proxy instead of opening the container ports directly.
 
 The chart enables a database ingress NetworkPolicy that accepts PostgreSQL traffic only from the
 release's backend pod. Broader frontend and backend policies depend on cluster-specific ingress
@@ -77,7 +83,7 @@ Never:
 
 - reuse a validator, wallet, or administrative credential;
 - put M2M credentials in the browser OIDC client;
-- publish the backend or database;
+- publish the database or participant Ledger API;
 - give the wizard a validator Secret or a broad Kubernetes Role;
 - commit `.env`, `capture.env`, tokens, or client secrets.
 

@@ -78,13 +78,18 @@ See [Docker Compose](docs/docker-compose.md) for the required files.
 You need:
 
 - a running Canton validator and access to its Ledger API;
-- one public HTTPS URL for the frontend/BFF;
+- public HTTPS URLs for the frontend/BFF and backend API;
 - an Auth0 tenant or Keycloak realm;
 - a browser OIDC client for users;
 - a separate M2M client and matching Canton user for capture;
 - a backup plan and durable storage for the shipped database container;
 - for production Kubernetes, encrypted SSD-backed block storage: AKS `managed-csi-premium`,
   encrypted EKS `gp3`, GKE `premium-rwo`, or an equivalent measured on-premises class.
+
+The Helm chart derives the backend hostname by adding `api.` to the frontend hostname. For
+example, `data.example.com` uses `api.data.example.com` for the backend and its `/docs` page.
+Both names can point to the same ingress address. Set `routing.backend.enabled: false` if your
+edge proxy exposes only the frontend/BFF.
 
 The capture identity must have only `CanReadAsAnyParty`. Do not reuse the validator identity.
 Do not grant `ParticipantAdmin`, identity-provider administration, act-as, execute-as, or their
@@ -103,5 +108,6 @@ any-party variants. The wizard rejects those broader rights.
 - [Migrate from Data App v3.16.1](docs/migrate-v3.16.1.md)
 - [v4 upgrades and future major versions](docs/upgrades.md)
 
-Only the database image shipped with Data App v4 is supported. The backend and database stay
-private; only the frontend/BFF is routed to users.
+Only the database image shipped with Data App v4 is supported. The standard routed deployment
+publishes the frontend and backend on separate HTTPS hostnames. PostgreSQL, the participant
+Ledger API, and setup services stay private.

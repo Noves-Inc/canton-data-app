@@ -36,6 +36,10 @@ routing:
   provider: ingress
   host: data.example.com
   tlsSecret: data-example-com-tls
+  backend:
+    enabled: true
+    host: ""
+    tlsSecret: ""
   ingress:
     className: nginx
 
