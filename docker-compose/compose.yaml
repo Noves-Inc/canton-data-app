@@ -2,7 +2,7 @@ name: noves-canton-data-app-v4
 
 services:
   database:
-    image: ghcr.io/noves-inc/noves-canton-database-v4:${IMAGE_VERSION:-4.0.0}
+    image: ${DATABASE_IMAGE:-ghcr.io/noves-inc/noves-canton-database-v4:candidate-30160846627-1@sha256:1482f1bbe6ca9039ebe4bdcdf7442d34acf9389b2799215b95e10ee8d01ba49b}
     container_name: noves-canton-database-v4
     environment:
       POSTGRES_USER: appuser
@@ -22,7 +22,7 @@ services:
     restart: unless-stopped
 
   backend:
-    image: ghcr.io/noves-inc/noves-canton-backend-v4:${IMAGE_VERSION:-4.0.0}
+    image: ${BACKEND_IMAGE:-noves.azurecr.io/cda-backend:prod-3e1a1fde-1785439104@sha256:37cad1fe33871bf08ba1be9699c11e87c643931e51d295c9de7bfed8afe1c793}
     container_name: noves-canton-backend-v4
     environment:
       INDEX_DB_HOST: database
@@ -62,15 +62,24 @@ services:
       ALLOW_PRIVATE_WEBHOOK_TARGETS: ${ALLOW_PRIVATE_WEBHOOK_TARGETS:-false}
       NODES_CONFIG_FILE_PATH: /config/nodes-config.json
       CANTON_NETWORK: ${CANTON_NETWORK:-mainnet}
-      SCAN_PROXY_URL: ${CANTON_VALIDATOR_URL:-http://validator-app:5003}
+      SCAN_PROXY_URL: ${CANTON_VALIDATOR_URL:-http://validator:5003}
       PUBLIC_SCAN_INDEXER_URL: ${CANTON_PUBLIC_SCAN_URL:-}
       NOVES_PUBLIC_API_URL: ${NOVES_PUBLIC_API_URL:-https://api.canton.noves.fi}
       NOVES_GATEWAY_AUTH_TOKEN_FILE: /run/secrets/noves-gateway-auth-token
     env_file:
       - path: ./.state/capture.env
+        required: true
+      - path: ./.state/accounting.env
+        required: true
+      - path: ./.state/storage.env
         required: false
     volumes:
-      - ./.state/nodes-config.json:/config/nodes-config.json:ro
+      - type: bind
+        source: ./.state/nodes-config.json
+        target: /config/nodes-config.json
+        read_only: true
+        bind:
+          create_host_path: false
       - cda-exports:/exports
     secrets:
       - noves-gateway-auth-token
@@ -84,7 +93,7 @@ services:
     restart: unless-stopped
 
   frontend:
-    image: ghcr.io/noves-inc/noves-canton-frontend-v4:${IMAGE_VERSION:-4.0.0}
+    image: ${FRONTEND_IMAGE:-noves.azurecr.io/cda-frontend:prod-c78cdd33-1785419965@sha256:3205d0193e1b493098f9d1704604206f173fb456aa6fb6dbcc8b8529f70266b1}
     container_name: noves-canton-frontend-v4
     environment:
       PORT: "3000"
