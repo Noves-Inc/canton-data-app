@@ -1,4 +1,5 @@
 {{- if and (not .Values.setupWizard.enabled) (eq .Values.routing.provider "istio") }}
+{{- $backendHost := include "cda.backendHost" . }}
 apiVersion: networking.istio.io/v1beta1
 kind: VirtualService
 metadata:
@@ -14,14 +15,32 @@ spec:
     - {{ .Values.routing.istio.gateway }}
   hosts:
     - {{ .Values.routing.host | quote }}
+    {{- if .Values.routing.backend.enabled }}
+    - {{ $backendHost | quote }}
+    {{- end }}
   http:
-    - route:
+    {{- if .Values.routing.backend.enabled }}
+    - match:
+        - authority:
+            exact: {{ $backendHost | quote }}
+      route:
+        - destination:
+            host: {{ include "cda.fullname" . }}-backend
+            port:
+              number: 8090
+    {{- end }}
+    - match:
+        - authority:
+            exact: {{ .Values.routing.host | quote }}
+      route:
         - destination:
             host: {{ include "cda.fullname" . }}-frontend
             port:
               number: 3000
 {{- end }}
 {{- if and (not .Values.setupWizard.enabled) (eq .Values.routing.provider "ingress") }}
+{{- $backendHost := include "cda.backendHost" . }}
+{{- $backendTlsSecret := default .Values.routing.tlsSecret .Values.routing.backend.tlsSecret }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -36,11 +55,21 @@ spec:
   {{- if .Values.routing.ingress.className }}
   ingressClassName: {{ .Values.routing.ingress.className | quote }}
   {{- end }}
-  {{- if .Values.routing.tlsSecret }}
+  {{- if or .Values.routing.tlsSecret (and .Values.routing.backend.enabled $backendTlsSecret) }}
   tls:
+    {{- if .Values.routing.tlsSecret }}
     - hosts:
         - {{ .Values.routing.host | quote }}
+        {{- if and .Values.routing.backend.enabled (eq $backendTlsSecret .Values.routing.tlsSecret) }}
+        - {{ $backendHost | quote }}
+        {{- end }}
       secretName: {{ .Values.routing.tlsSecret }}
+    {{- end }}
+    {{- if and .Values.routing.backend.enabled $backendTlsSecret (ne $backendTlsSecret .Values.routing.tlsSecret) }}
+    - hosts:
+        - {{ $backendHost | quote }}
+      secretName: {{ $backendTlsSecret }}
+    {{- end }}
   {{- end }}
   rules:
     - host: {{ .Values.routing.host | quote }}
@@ -53,4 +82,16 @@ spec:
                 name: {{ include "cda.fullname" . }}-frontend
                 port:
                   number: 3000
+    {{- if .Values.routing.backend.enabled }}
+    - host: {{ $backendHost | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "cda.fullname" . }}-backend
+                port:
+                  number: 8090
+    {{- end }}
 {{- end }}

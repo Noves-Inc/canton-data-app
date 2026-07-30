@@ -75,6 +75,19 @@ helm template cda "$chart" \
   --values "$fixtures/ingress-values.yaml" >"$scratch/ingress.yaml"
 helm template cda "$chart" \
   --namespace validator \
+  --values "$fixtures/ingress-values.yaml" \
+  --show-only templates/routing.yaml \
+  --set-string routing.backend.host=backend.example.com \
+  --set-string routing.backend.tlsSecret=backend-example-com-tls \
+  >"$scratch/backend-override.yaml"
+helm template cda "$chart" \
+  --namespace validator \
+  --values "$fixtures/ingress-values.yaml" \
+  --show-only templates/routing.yaml \
+  --set routing.backend.enabled=false \
+  >"$scratch/backend-disabled.yaml"
+helm template cda "$chart" \
+  --namespace validator \
   --values "$fixtures/migration-values.yaml" >"$scratch/migration.yaml"
 helm template cda "$chart" \
   --namespace validator \
@@ -87,6 +100,15 @@ helm template cda "$chart" \
   --namespace validator \
   --set database.persistence.existingClaim=cda-encrypted-data \
   --values "$fixtures/enterprise-values.yaml" >"$scratch/existing-database-claim.yaml"
+helm install cda-notes "$chart" \
+  --namespace validator \
+  --values "$fixtures/ingress-values.yaml" \
+  --dry-run=client >"$scratch/ingress-notes.txt"
+helm install cda-disabled-notes "$chart" \
+  --namespace validator \
+  --values "$fixtures/ingress-values.yaml" \
+  --set routing.backend.enabled=false \
+  --dry-run=client >"$scratch/backend-disabled-notes.txt"
 
 assert_contains "$chart/Chart.yaml" 'name: noves-canton-data-app'
 assert_contains "$chart/Chart.yaml" 'version: 4.0.0'
@@ -183,6 +205,10 @@ assert_contains "$scratch/enterprise.yaml" 'secretName: data-example-com-tls'
 assert_not_contains "$scratch/enterprise.yaml" 'kind: VirtualService'
 assert_contains "$scratch/istio.yaml" 'kind: VirtualService'
 assert_contains "$scratch/istio.yaml" 'cluster-ingress/cn-http-gateway'
+assert_contains "$scratch/istio.yaml" '- "api.data.example.com"'
+assert_contains "$scratch/istio.yaml" 'exact: "api.data.example.com"'
+assert_contains "$scratch/istio.yaml" 'host: cda-backend'
+assert_contains "$scratch/istio.yaml" 'number: 8090'
 assert_not_contains "$scratch/istio.yaml" 'kind: Ingress'
 assert_not_contains "$scratch/enterprise.yaml" 'kind: Role'
 assert_not_contains "$scratch/enterprise.yaml" 'SETUP_ENABLED'
@@ -233,9 +259,28 @@ assert_contains "$chart/templates/NOTES.txt" 'port-forward deployment/'
 assert_contains "$chart/templates/NOTES.txt" '--context "$KUBE_CONTEXT"'
 assert_contains "$chart/templates/NOTES.txt" ':3000'
 assert_not_contains "$chart/templates/NOTES.txt" '.Values.routing.enabled'
+assert_contains "$scratch/ingress-notes.txt" 'Backend API: https://api.data.example.com'
+assert_contains "$scratch/ingress-notes.txt" 'Backend docs: https://api.data.example.com/docs'
+assert_contains "$scratch/ingress-notes.txt" 'data.example.com'
+assert_contains "$scratch/ingress-notes.txt" 'api.data.example.com'
+assert_not_contains "$scratch/backend-disabled-notes.txt" 'Backend API:'
+assert_not_contains "$scratch/backend-disabled-notes.txt" 'Backend docs:'
 
 assert_contains "$scratch/ingress.yaml" 'kind: Ingress'
 assert_not_contains "$scratch/ingress.yaml" 'kind: VirtualService'
+assert_contains "$scratch/ingress.yaml" 'host: "api.data.example.com"'
+assert_contains "$scratch/ingress.yaml" 'name: cda-backend'
+assert_contains "$scratch/ingress.yaml" 'number: 8090'
+assert_contains "$scratch/backend-override.yaml" 'host: "backend.example.com"'
+assert_contains "$scratch/backend-override.yaml" 'secretName: backend-example-com-tls'
+assert_not_contains "$scratch/backend-override.yaml" 'host: "api.data.example.com"'
+assert_not_contains "$scratch/backend-disabled.yaml" 'api.data.example.com'
+assert_not_contains "$scratch/backend-disabled.yaml" 'name: cda-backend'
+[[ "$(grep -Fxc '        - "data.example.com"' "$scratch/ingress.yaml")" == 1 ]] ||
+  fail 'frontend hostname must appear once in the ingress TLS hosts'
+[[ "$(grep -Fxc '        - "api.data.example.com"' "$scratch/ingress.yaml")" == 1 ]] ||
+  fail 'backend hostname must appear once in the ingress TLS hosts'
+assert_contains "$scratch/ingress.yaml" 'secretName: data-example-com-tls'
 assert_contains "$scratch/migration.yaml" 'claimName: cda-v3-data'
 assert_contains "$scratch/existing-database-claim.yaml" 'claimName: cda-encrypted-data'
 assert_contains "$scratch/migration.yaml" 'SETUP_ENABLED'
@@ -270,6 +315,12 @@ if helm template cda "$chart" --namespace validator \
   fail 'chart accepted an unknown routing provider'
 fi
 assert_contains "$scratch/invalid-provider.out" 'routing.provider'
+
+if helm lint "$chart" --values "$fixtures/ingress-values.yaml" \
+  --set-string routing.backend.enabled=yes >"$scratch/invalid-backend-enabled.out" 2>&1; then
+  fail 'routing.backend.enabled accepted a string'
+fi
+assert_contains "$scratch/invalid-backend-enabled.out" 'routing.backend.enabled'
 
 if helm template cda "$chart" --namespace validator \
   --values "$fixtures/invalid-migration-values.yaml" >"$scratch/invalid-migration.out" 2>&1; then

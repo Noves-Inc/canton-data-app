@@ -157,7 +157,7 @@
     "routing": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["provider", "host", "tlsSecret", "annotations", "istio", "ingress"],
+      "required": ["provider", "host", "tlsSecret", "annotations", "backend", "istio", "ingress"],
       "properties": {
         "provider": { "enum": ["none", "ingress", "istio"] },
         "host": { "type": "string" },
@@ -165,6 +165,16 @@
         "annotations": {
           "type": "object",
           "additionalProperties": { "type": "string" }
+        },
+        "backend": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["enabled", "host", "tlsSecret"],
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "host": { "type": "string" },
+            "tlsSecret": { "type": "string" }
+          }
         },
         "istio": {
           "type": "object",

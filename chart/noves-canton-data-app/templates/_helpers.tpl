@@ -27,6 +27,10 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- printf "%s:%s" .repository .tag -}}{{- with .digest -}}@{{ . }}{{- end -}}
 {{- end -}}
 
+{{- define "cda.backendHost" -}}
+{{- default (printf "api.%s" .Values.routing.host) .Values.routing.backend.host -}}
+{{- end -}}
+
 {{- define "cda.validate" -}}
 {{- if not (or (eq .Values.routing.provider "none") (eq .Values.routing.provider "ingress") (eq .Values.routing.provider "istio")) -}}
 {{- fail "routing.provider must be one of none, ingress, or istio" -}}
