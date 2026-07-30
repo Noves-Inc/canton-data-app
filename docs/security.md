@@ -74,6 +74,11 @@ generated Secret during uninstall and reuses its value during upgrades. Back it 
 database. A replacement key cannot decrypt accounting provider credentials stored with the old
 key.
 
+The Compose installer applies the same rule in
+`.state/accounting.env`: it generates one 32-byte base64 key on first use, sets mode `0600`, and
+reuses the file on later runs. A manual Compose installation must create that file before starting
+the backend. Back it up with the database and never regenerate it during an upgrade.
+
 The Noves gateway credential is installation-specific and separate from both OIDC clients. In
 Kubernetes it is referenced through `novesGateway.existingSecret`. In Compose it is mounted from
 `.secrets/noves-gateway-auth-token`. Rotate it in the source secret, restart both backend and
@@ -87,10 +92,10 @@ Never:
 - give the wizard a validator Secret or a broad Kubernetes Role;
 - commit `.env`, `capture.env`, tokens, or client secrets.
 
-The exception to “never reuse an administrator credential” is the transient guided provisioning
-step described above: it uses the existing validator credential as administrator authority, never
-as the Data App capture credential. Standard Helm and Compose installations do not require this
-assisted path.
+The exception to “never reuse an administrator credential” is transient Canton-user provisioning:
+it may use the existing validator credential as administrator authority, never as the Data App
+capture credential. Standard Helm and Compose operators can instead use their normal Canton
+administrator procedure.
 
 ## Data
 

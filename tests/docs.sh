@@ -108,11 +108,30 @@ docs/helm.md|routing.backend.enabled
 docs/helm.md|/docs/v1/openapi.json
 docs/docker-compose.md|BACKEND_BIND_ADDRESS
 docs/docker-compose.md|127.0.0.1:8090
+docs/docker-compose.md|http://validator:5003
+docs/docker-compose.md|CANTON_NETWORK=testnet
+docs/docker-compose.md|BACKEND_IMAGE=
+docs/docker-compose.md|APP_INSTALL_DIR
+docs/docker-compose.md|.state/accounting.env
+docs/docker-compose.md|storage.env.example
+docs/docker-compose.md|docker-compose/nginx/cda.conf.example
 docs/security.md|routing.backend.enabled
+docs/authentication/keycloak.md|VITE_KEYCLOAK_URL=
+docs/authentication/keycloak.md|noves-canton-data-app-capture
 EOF
+
+if rg -Fq 'validator-app:5003' \
+  "$repo_root/docs/docker-compose.md" "$repo_root/docker-compose"; then
+  fail 'Compose documentation or manifests still use the Helm validator service name.'
+fi
 
 if rg -ni 'Capture only|Redact' "$repo_root/docs/authentication"; then
   fail 'authentication guides expose screenshot-production instructions.'
+fi
+
+if rg -n '\bCDA\b|CDA_[A-Z0-9_]*' \
+  "$repo_root/readme.md" "$repo_root/docs" --glob '*.md'; then
+  fail 'public documentation uses the retired product name or variable prefix.'
 fi
 
 if rg -ni 'wizard (creates|will create).*(Auth0|Keycloak).*(client|application)' \

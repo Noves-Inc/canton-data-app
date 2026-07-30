@@ -1,13 +1,13 @@
 # Noves Canton Data App v4
 
 Self-host the Noves Canton Data App next to a validator installed with the standard Canton
-Helm chart or Docker Compose bundle. The supplied defaults use the validator namespace,
-`participant:5001`, `http://validator-app:5003`, and the standard Compose network
+Helm chart or Docker Compose bundle. Both deployments use `participant:5001`. Helm uses
+`http://validator-app:5003`; Compose uses `http://validator:5003` on the standard network
 `splice-validator_splice_validator`.
 
 The current prerelease deployment uses three private images:
 
-- `noves.azurecr.io/cda-backend:prod-f3f61cc1-1785419885`
+- `noves.azurecr.io/cda-backend:prod-3e1a1fde-1785439104`
 - `noves.azurecr.io/cda-frontend:prod-c78cdd33-1785419965`
 - `ghcr.io/noves-inc/noves-canton-database-v4:candidate-30160846627-1`
 
@@ -67,6 +67,8 @@ cp docker-compose/config/nodes-config.json docker-compose/.state/nodes-config.js
 # Add dedicated M2M settings to .state/capture.env and the installation
 # gateway credential to .secrets/noves-gateway-auth-token, then:
 chmod 600 docker-compose/.env docker-compose/.state/capture.env \
+  docker-compose/.state/nodes-config.json \
+  docker-compose/.state/accounting.env \
   docker-compose/.secrets/noves-gateway-auth-token
 docker compose --env-file docker-compose/.env -f docker-compose/compose.yaml up -d
 ```
@@ -94,6 +96,10 @@ edge proxy exposes only the frontend/BFF.
 The capture identity must have only `CanReadAsAnyParty`. Do not reuse the validator identity.
 Do not grant `ParticipantAdmin`, identity-provider administration, act-as, execute-as, or their
 any-party variants. The wizard rejects those broader rights.
+
+Compose currently requires an explicit `CANTON_NETWORK=testnet` or
+`CANTON_NETWORK=devnet` on non-mainnet validators. The backend validates that setting against the
+participant before capture.
 
 ## Documentation
 

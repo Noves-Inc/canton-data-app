@@ -88,7 +88,7 @@ same value. The guide requires operators who install manually to generate,
 protect, and back up the value with the database.
 
 The capture environment file is required in the normal application manifest.
-An absent file fails before containers start instead of launching CDA without
+An absent file fails before containers start instead of launching the app without
 capture.
 
 The Noves gateway credential remains a Compose secret backed by
@@ -155,7 +155,7 @@ configured.
 
 Use of the validator's participant-admin machine credential is transient and
 limited to creating or verifying that Canton user after explicit operator
-approval. The credential is not written to CDA files or containers.
+approval. The credential is not written to Noves App files or containers.
 
 ## NGINX and public URLs
 
@@ -175,7 +175,7 @@ Both names are one label below `noves.fi`, so the host's existing
 The frontend location forwards WebSocket upgrades with HTTP/1.1. Both
 locations preserve `Host`, `X-Forwarded-For`, `X-Forwarded-Host`, and
 `X-Forwarded-Proto`. Upstreams use Docker-aware or otherwise restart-safe
-resolution so an NGINX reload does not fail solely because CDA is temporarily
+resolution so an NGINX reload does not fail solely because the app is temporarily
 stopped.
 
 The example is syntax-tested with NGINX in the repository test suite and again
@@ -204,13 +204,13 @@ consolidated into the step where they affect an operator decision.
 
 The testnet rehearsal is complete when:
 
-- CDA starts from new database and export volumes;
+- the Noves App starts from new database and export volumes;
 - all three containers use the pinned digests;
 - the backend reports ready and `/docs/v1/openapi.json` returns JSON;
 - both public hostnames work through NGINX and TLS;
 - the frontend runtime configuration selects the `canton-testnet` Keycloak
   realm;
-- browser login reaches the CDA callback;
+- browser login reaches the Noves App callback;
 - the capture token subject equals the Canton user ID;
 - that user has exactly `CanReadAsAnyParty`;
 - participant-wide capture is running without a network mismatch;

@@ -20,7 +20,7 @@ chart upgrade and its migration guide.
 The prerelease chart currently uses private images:
 
 ```text
-noves.azurecr.io/cda-backend:prod-f3f61cc1-1785419885
+noves.azurecr.io/cda-backend:prod-3e1a1fde-1785439104
 noves.azurecr.io/cda-frontend:prod-c78cdd33-1785419965
 ghcr.io/noves-inc/noves-canton-database-v4:candidate-30160846627-1
 ```
@@ -31,7 +31,7 @@ The chart defaults pin each image by tag and digest. Override both fields togeth
 backend:
   image:
     repository: noves.azurecr.io/cda-backend
-    tag: prod-f3f61cc1-1785419885
+    tag: prod-3e1a1fde-1785439104
     digest: sha256:replace-with-a-64-character-digest
 ```
 
@@ -56,6 +56,17 @@ gh attestation verify release-manifest.json \
   --repo Noves-Inc/canton-data-app
 ```
 
+Compose pins the same artifacts as complete per-service references in `.env`:
+
+```dotenv
+BACKEND_IMAGE=noves.azurecr.io/cda-backend:prod-3e1a1fde-1785439104@sha256:37cad1fe33871bf08ba1be9699c11e87c643931e51d295c9de7bfed8afe1c793
+FRONTEND_IMAGE=noves.azurecr.io/cda-frontend:prod-c78cdd33-1785419965@sha256:3205d0193e1b493098f9d1704604206f173fb456aa6fb6dbcc8b8529f70266b1
+DATABASE_IMAGE=ghcr.io/noves-inc/noves-canton-database-v4:candidate-30160846627-1@sha256:1482f1bbe6ca9039ebe4bdcdf7442d34acf9389b2799215b95e10ee8d01ba49b
+```
+
+Update one or more complete references only after verifying that the selected backend, frontend,
+and database builds belong to the same Noves App release.
+
 ## Upgrade procedure
 
 1. Read the release notes.
@@ -63,6 +74,11 @@ gh attestation verify release-manifest.json \
 3. Update the exact v4 chart or image version.
 4. Watch `/startup-status` and readiness.
 5. Verify sign-in, participant identity, capture, and a representative query.
+
+For Compose, preserve the named database and export volumes and
+`.state/accounting.env`. Run `docker compose down` without `--volumes`, update the three image
+references, then rerun `install-compose.sh --standard`. The installer reuses the accounting key and
+waits for backend readiness.
 
 Database migrations are forward-only. Rollback means starting a compatible older v4 image when
 the release allows it, or restoring the pre-upgrade backup. Never point a different PostgreSQL

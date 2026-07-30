@@ -4,7 +4,7 @@
 
 **Goal:** Make a fresh v4 Docker Compose installation work beside Canton's standard validator Compose deployment, with private digest-pinned images, Keycloak browser and capture clients, durable local volumes, and a tested NGINX proxy.
 
-**Architecture:** Keep CDA's three application services on the validator's existing external Docker network. Split service image references and secret-bearing environment files by responsibility, add fail-fast Compose and installer checks, and provide a focused NGINX include for the existing proxy. Rehearse the result on `canton-testnet` with `CANTON_NETWORK=testnet`; automatic network detection remains deferred.
+**Architecture:** Keep the Noves App's three services on the validator's existing external Docker network. Split service image references and secret-bearing environment files by responsibility, add fail-fast Compose and installer checks, and provide a focused NGINX include for the existing proxy. Rehearse the result on `canton-testnet` with `CANTON_NETWORK=testnet`; automatic network detection remains deferred.
 
 **Tech Stack:** Docker Compose v2+, Bash, NGINX 1.27, Keycloak 26, .NET 9 health and OpenAPI endpoints, Markdown operator documentation.
 
@@ -19,8 +19,8 @@
 - Require the capture environment file; keep the optional S3 environment file optional.
 - Use `participant:5001` and `http://validator:5003` on the standard Compose network.
 - Set `CANTON_NETWORK=testnet` for the live rehearsal.
-- Do not reuse the validator's OIDC client for CDA.
-- Do not persist the validator participant-admin credential in CDA.
+- Do not reuse the validator's OIDC client for the Noves App.
+- Do not persist the validator participant-admin credential in Noves App files.
 - Do not delete validator, Keycloak, or unrelated Docker resources.
 - Do not log registry passwords, Keycloak client secrets, M2M tokens, or participant-admin credentials.
 
@@ -317,7 +317,7 @@ Then run:
 
 ```bash
 docker compose --env-file .env -f compose.yaml pull ||
-  die "Could not pull the CDA images. Log in to the configured registries and retry."
+  die "Could not pull the Noves App images. Log in to the configured registries and retry."
 ```
 
 - [ ] **Step 8: Start and wait for backend readiness**
@@ -330,7 +330,7 @@ backend_port="$(sed -n 's/^BACKEND_PORT=//p' .env | tail -1)"
 backend_port="${backend_port:-8090}"
 backend_origin="http://127.0.0.1:$backend_port"
 wait_for_backend_ready "$backend_origin" ||
-  die "CDA did not become ready. Run: docker compose --env-file .env -f compose.yaml logs backend"
+  die "The Noves App did not become ready. Run: docker compose --env-file .env -f compose.yaml logs backend"
 printf 'Installation complete. Backend status: %s/startup-status\n' "$backend_origin"
 ```
 
@@ -370,7 +370,7 @@ git commit -m "fix: preflight Compose installations"
 - Modify: `tests/all.sh`
 
 **Interfaces:**
-- Consumes: the stable CDA container names and the shared validator Docker network.
+- Consumes: the stable Noves App container names and the shared validator Docker network.
 - Produces: two TLS virtual hosts with restart-safe Docker DNS resolution and frontend WebSocket forwarding.
 
 - [ ] **Step 1: Write the failing proxy contract test**
@@ -620,7 +620,7 @@ git commit -m "docs: make Compose Keycloak setup reproducible"
 
 **Interfaces:**
 - Consumes: committed local v4 files, existing registry credentials, operator-created Keycloak clients, and the approved participant-admin operation.
-- Produces: a fresh running CDA installation and a list of any remaining defects.
+- Produces: a fresh running Noves App installation and a list of any remaining defects.
 
 - [ ] **Step 1: Run the complete local gate**
 

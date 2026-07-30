@@ -1,76 +1,170 @@
 # Keycloak configuration
 
-Create separate Keycloak clients for browser login and background capture. The browser client
-is public and uses the authorization-code flow with PKCE. The capture client is confidential
-and uses service accounts.
+The Noves App needs two Keycloak clients:
 
-In the examples below, `APP_URL` is the exact public Data App URL and `REALM` is the validator's
-realm.
+| Client | Type | Use |
+|---|---|---|
+| `noves-canton-data-app-browser` | Public, authorization code with PKCE | Human sign-in |
+| `noves-canton-data-app-capture` | Confidential, service account | Background participant capture |
 
-## 1. Browser client
+Do not reuse the validator client. In the examples, replace:
 
-1. Open **Clients > Create client** and select **OpenID Connect**.
-2. Set a distinct client ID, such as `noves-canton-data-app-browser`.
-3. Enable **Standard flow**.
-4. Disable **Client authentication** so the client is public.
-5. Set:
+- `APP_URL` with the exact public frontend URL;
+- `KEYCLOAK_URL` with the Keycloak base URL, without `/realms/...`;
+- `REALM` with the validator realm; and
+- `AUDIENCE` with the validator Ledger API audience, normally
+  `https://canton.network.global`.
+
+You can verify the issuer and token endpoint before opening the admin console:
+
+```bash
+curl -fsS \
+  "$KEYCLOAK_URL/realms/$REALM/.well-known/openid-configuration" |
+  jq '{issuer, token_endpoint}'
+```
+
+## 1. Create the browser client
+
+In the Keycloak admin console:
+
+1. Select the validator realm.
+2. Open **Clients**, select **Create client**, and choose
+   **OpenID Connect**.
+3. Set **Client ID** to `noves-canton-data-app-browser`.
+4. In **Capability config**:
+   - disable **Client authentication**;
+   - enable **Standard flow**;
+   - disable **Direct access grants**; and
+   - leave service accounts disabled.
+5. In **Login settings**, set:
    - **Valid redirect URIs:** `APP_URL/callback`
    - **Valid post logout redirect URIs:** `APP_URL`
    - **Web origins:** `APP_URL`
-6. Require PKCE with `S256` when that option is available.
-7. Add the validator's `daml_ledger_api` client scope as a default scope.
+6. Save the client.
+7. Under the client's advanced OpenID Connect settings, set
+   **Proof Key for Code Exchange Code Challenge Method** to `S256`.
+8. Open **Client scopes** and add `daml_ledger_api` as a default scope.
 
-Use these Helm values:
+The browser client has no secret. Put only these public values in Compose
+`.env`:
+
+```dotenv
+APP_URL=https://data.example.com
+VITE_AUTH0_DOMAIN=
+VITE_AUTH0_CLIENT_ID=
+VITE_AUTH0_AUDIENCE=
+VITE_KEYCLOAK_URL=https://keycloak.example.com
+VITE_KEYCLOAK_REALM=canton
+VITE_KEYCLOAK_CLIENT_ID=noves-canton-data-app-browser
+```
+
+Equivalent Helm values are:
 
 ```yaml
 oidc:
   provider: keycloak
   appUrl: https://data.example.com
   keycloak:
-    url: https://sso.example.com
+    url: https://keycloak.example.com
     realm: canton
     clientId: noves-canton-data-app-browser
 ```
 
-For Compose, use the equivalent `VITE_KEYCLOAK_*` values in `.env`.
+## 2. Create the capture client
 
-## 2. Dedicated capture client
+1. Create another OpenID Connect client with client ID
+   `noves-canton-data-app-capture`.
+2. In **Capability config**:
+   - enable **Client authentication**;
+   - disable **Standard flow**;
+   - disable **Direct access grants**; and
+   - enable **Service accounts roles**.
+3. Save the client.
+4. Open **Client scopes** and add `daml_ledger_api` as a default scope.
+5. Open **Credentials** and record the generated client secret.
 
-1. Create another OpenID Connect client, such as `noves-canton-data-app-capture`.
-2. Enable **Client authentication** and **Service accounts roles**.
-3. Disable browser-oriented flows for this client.
-4. Add `daml_ledger_api` as a default client scope.
-5. In the audience mapper used by the validator, include the Canton Ledger API audience.
-6. Record the client ID and generated secret. The token endpoint is:
+The access token must contain the Ledger API audience. Request a token in the
+next section and inspect `aud` first. If `AUDIENCE` is absent, add an audience
+mapper to this client's dedicated scope:
 
-   ```text
-   KEYCLOAK_URL/realms/REALM/protocol/openid-connect/token
-   ```
+1. Open the capture client and select **Client scopes**.
+2. Open the row whose name ends in `-dedicated`.
+3. Select **Add mapper > By configuration > Audience**.
+4. Set **Included Custom Audience** to `AUDIENCE`.
+5. Enable **Add to access token** and save.
 
-## 3. Observe the exact token subject
+This keeps the app-specific mapper on the capture client instead of changing a
+realm-wide scope.
 
-Request one token locally:
+Use this private Compose file:
 
-```bash
-TOKEN_RESPONSE="$(
-  curl -fsS -X POST \
-    -d grant_type=client_credentials \
-    -d client_id="$M2M_CLIENT_ID" \
-    -d client_secret="$M2M_CLIENT_SECRET" \
-    "$KEYCLOAK_URL/realms/$REALM/protocol/openid-connect/token"
-)"
-TOKEN="$(jq -r '.access_token' <<<"$TOKEN_RESPONSE")"
-PAYLOAD="$(cut -d. -f2 <<<"$TOKEN" | tr '_-' '/+')"
-printf '%s' "$PAYLOAD===" | base64 -d 2>/dev/null | jq '{sub,iss,aud}'
-unset TOKEN TOKEN_RESPONSE PAYLOAD
+```dotenv
+M2M_INDEXER_ENABLED=true
+M2M_TOKEN_ENDPOINT=https://keycloak.example.com/realms/canton/protocol/openid-connect/token
+M2M_CLIENT_ID=noves-canton-data-app-capture
+M2M_CLIENT_SECRET=replace-with-the-generated-client-secret
+M2M_AUDIENCE=https://canton.network.global
+M2M_SCOPE=daml_ledger_api
 ```
 
-Copy the exact, case-sensitive `sub`. Do not assume it is the client ID or service-account
-display name.
+Store it at `docker-compose/.state/capture.env` with mode `0600`.
 
-## 4. Matching Canton user
+## 3. Read the exact capture subject
 
-Create a Canton user whose ID exactly equals the observed `sub`:
+Set shell variables without adding the secret to shell history, then request
+one client-credentials token:
+
+```bash
+read -r -p 'Keycloak URL: ' KEYCLOAK_URL
+read -r -p 'Realm: ' REALM
+read -r -p 'Capture client ID: ' M2M_CLIENT_ID
+read -r -s -p 'Capture client secret: ' M2M_CLIENT_SECRET
+printf '\n'
+M2M_AUDIENCE=https://canton.network.global
+
+TOKEN_RESPONSE="$(
+  curl -fsS --request POST \
+    "$KEYCLOAK_URL/realms/$REALM/protocol/openid-connect/token" \
+    --data-urlencode grant_type=client_credentials \
+    --data-urlencode client_id="$M2M_CLIENT_ID" \
+    --data-urlencode client_secret="$M2M_CLIENT_SECRET" \
+    --data-urlencode scope=daml_ledger_api
+)"
+TOKEN="$(jq -er '.access_token' <<<"$TOKEN_RESPONSE")"
+PAYLOAD="$(cut -d. -f2 <<<"$TOKEN" | tr '_-' '/+')"
+printf '%s' "$PAYLOAD===" | base64 -d 2>/dev/null |
+  jq --arg audience "$M2M_AUDIENCE" \
+    '{
+      sub,
+      iss,
+      aud,
+      audiencePresent: (
+        if (.aud | type) == "array"
+        then (.aud | index($audience) != null)
+        else .aud == $audience
+        end
+      )
+    }'
+```
+
+Confirm:
+
+- `iss` is `KEYCLOAK_URL/realms/REALM`;
+- `audiencePresent` is `true`; and
+- `sub` is non-empty.
+
+Copy the exact, case-sensitive `sub`. It is not necessarily the client ID or
+service-account display name.
+
+Clear the credential and token variables when the check is complete:
+
+```bash
+unset M2M_CLIENT_SECRET TOKEN TOKEN_RESPONSE PAYLOAD
+```
+
+## 4. Create the matching Canton user
+
+Create a Canton user whose ID exactly equals the observed token `sub`:
 
 ```scala
 participant.ledger_api.users.create(
@@ -79,17 +173,28 @@ participant.ledger_api.users.create(
 )
 ```
 
-Grant no other rights. In particular, leave participant administration, identity-provider
-administration, act-as, and execute-as disabled.
+If the user already exists, grant `CanReadAsAnyParty` and list its rights.
+Remove anything else. In particular, the user must not have participant or
+identity-provider administration, act-as, execute-as, or per-party rights.
 
-In guided setup, the installer can detect the Keycloak URL, realm, Ledger API audience, and scope
-from the validator configuration. After you create and enter the separate capture client, the
-wizard asks for explicit confirmation and can create this Canton user automatically. It does not
-create or modify a Keycloak client. If automatic participant provisioning is unavailable, use
-the copyable `grpcurl -expand-headers` commands shown by the wizard.
+The guided installer can perform this Canton operation after explicit
+confirmation when it can read the validator's participant-admin machine
+configuration. It never creates or modifies a Keycloak client. For a standard
+installation, use your validator's normal Canton administrator procedure.
 
-## 5. Verify
+## 5. Verify the Noves App configuration
 
-The setup wizard checks discovery, client-credentials exchange, exact subject equality, rights,
-participant identity, network, and database readiness. A broader Canton user is rejected rather
-than accepted with a warning.
+Before starting the Noves App, request a second capture token and confirm its `sub` still
+matches the Canton user. After installation, verify:
+
+```bash
+curl -fsS http://127.0.0.1:8090/ready
+curl -fsS http://127.0.0.1:8090/api/v2/capture/status | jq
+```
+
+Then open `APP_URL`, sign in through Keycloak, and confirm the browser returns
+to `APP_URL/callback`.
+
+Capture is not correctly configured merely because token exchange succeeds.
+The app must also report the expected participant identity, network, exact subject
+match, and `CanReadAsAnyParty` without broader rights.

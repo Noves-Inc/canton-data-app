@@ -1,165 +1,298 @@
 # Docker Compose installation
 
-The Compose bundle assumes the standard validator network
-`splice-validator_splice_validator`. The participant is reached at `participant:5001`, and the
-optional validator API at `http://validator-app:5003`.
+This path installs the Noves App beside a validator deployed with Canton's standard
+Docker Compose bundle. It uses the existing
+`splice-validator_splice_validator` network, `participant:5001`, and
+`http://validator:5003`.
 
-## Guided localhost setup
+The setup wizard is optional. The steps below describe a standard installation
+whose configuration stays in local files.
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/Noves-Inc/canton-data-app/v4/install.sh | bash -s -- compose
-```
+## 1. Check the host
 
-The installer creates `noves-canton-data-app-v4/docker-compose`, generates local credentials,
-opens `http://127.0.0.1:8099`, and waits for the wizard. When verification succeeds, it starts
-the normal three-container deployment.
+The Noves App adds a database, backend, and frontend to the validator host. Check CPU,
+memory, and disk before starting; initial capture and read-model catch-up add
+load until the app reaches the ledger end.
 
-The installer looks for exactly one running container labelled
-`com.docker.compose.service=validator`, reads its existing participant-admin machine
-configuration, and streams the filtered values directly into setup-service memory. It does not
-run shell commands inside the wizard, mount the Docker socket, add the values to `.env`, or retain
-them in the final deployment. If more than one validator is running, select it explicitly:
+Confirm the standard network and services:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Noves-Inc/canton-data-app/v4/install.sh |
-  bash -s -- compose --validator-container my-validator-container
+docker network inspect splice-validator_splice_validator >/dev/null
+docker ps \
+  --filter label=com.docker.compose.service=participant \
+  --filter network=splice-validator_splice_validator
+docker ps \
+  --filter label=com.docker.compose.service=validator \
+  --filter network=splice-validator_splice_validator
 ```
 
-Discovery failure is non-fatal: the wizard opens and shows manual
-`grpcurl -expand-headers` participant commands. Operators still create the separate Auth0 or
-Keycloak browser and capture clients themselves.
+Both commands must list a running container. If your Compose project uses
+another network, record its name for `CANTON_DOCKER_NETWORK`.
 
-## Standard setup
-
-Prepare the files:
+The current v4 prerelease images are private. Authenticate before installation:
 
 ```bash
-cp docker-compose/.env.example docker-compose/.env
-mkdir -p docker-compose/.state
-mkdir -p docker-compose/.secrets
-cp docker-compose/config/nodes-config.json docker-compose/.state/nodes-config.json
+docker login noves.azurecr.io
+docker login ghcr.io
 ```
 
-Edit `.env` for the public application URL and one OIDC provider. The backend uses
-`NOVES_PUBLIC_API_URL`, which defaults to `https://api.canton.noves.fi`; set it only when your
-deployment uses a different Noves public API endpoint. The endpoint must use HTTPS. Plain HTTP is
-accepted only for loopback addresses used during local testing. Edit `.state/nodes-config.json` with the
-exact participant ID.
+The shipped `.env.example` pins `BACKEND_IMAGE=`, `FRONTEND_IMAGE=`, and
+`DATABASE_IMAGE=` independently by tag and digest. Do not remove a digest
+unless you are deliberately testing a different build.
 
-Create `.state/capture.env`:
+## 2. Prepare the installation files
+
+From a checkout of this repository:
+
+```bash
+export APP_INSTALL_DIR=/opt/noves-canton-data-app-v4
+mkdir -p "$APP_INSTALL_DIR/docker-compose/.state"
+mkdir -p "$APP_INSTALL_DIR/docker-compose/.secrets"
+cp docker-compose/.env.example "$APP_INSTALL_DIR/docker-compose/.env"
+cp docker-compose/config/nodes-config.json \
+  "$APP_INSTALL_DIR/docker-compose/.state/nodes-config.json"
+```
+
+Edit `.env`:
+
+- replace `APP_URL` with the public frontend URL;
+- leave the three image references pinned;
+- set `CANTON_DOCKER_NETWORK` if the validator uses a nonstandard network;
+- set `CANTON_VALIDATOR_URL` only if `http://validator:5003` is not reachable;
+- set `NOVES_PUBLIC_API_URL` only when Noves supplied a non-default public API
+  endpoint; the default is `https://api.canton.noves.fi`;
+- set `CANTON_NETWORK=testnet` or `CANTON_NETWORK=devnet` for a non-mainnet
+  participant; and
+- configure exactly one browser OIDC provider.
+
+The app does not yet detect the network early enough to configure every
+network-dependent subsystem. Omitting `CANTON_NETWORK=testnet` on testnet makes
+the backend assume mainnet and quarantine capture when it detects the
+mismatch.
+
+Replace `REPLACE_WITH_PARTICIPANT_ID` in
+`.state/nodes-config.json` with the complete participant ID returned by the
+participant. Keep the address as `participant:5001` for the standard bundle.
+
+## 3. Configure browser login and capture
+
+Create separate browser and capture clients. Do not reuse the validator's
+client.
+
+- [Keycloak](authentication/keycloak.md)
+- [Auth0](authentication/auth0.md)
+
+For Keycloak, `.env` contains the public browser settings:
+
+```dotenv
+APP_URL=https://data.example.com
+VITE_AUTH0_DOMAIN=
+VITE_AUTH0_CLIENT_ID=
+VITE_AUTH0_AUDIENCE=
+VITE_KEYCLOAK_URL=https://keycloak.example.com
+VITE_KEYCLOAK_REALM=canton
+VITE_KEYCLOAK_CLIENT_ID=noves-canton-data-app-browser
+```
+
+Create `.state/capture.env` with the dedicated machine client:
 
 ```dotenv
 M2M_INDEXER_ENABLED=true
-M2M_TOKEN_ENDPOINT=https://issuer.example.com/oauth/token
-M2M_CLIENT_ID=replace-me
-M2M_CLIENT_SECRET=replace-me
+M2M_TOKEN_ENDPOINT=https://keycloak.example.com/realms/canton/protocol/openid-connect/token
+M2M_CLIENT_ID=noves-canton-data-app-capture
+M2M_CLIENT_SECRET=replace-with-the-generated-client-secret
 M2M_AUDIENCE=https://canton.network.global
-M2M_SCOPE=
+M2M_SCOPE=daml_ledger_api
 ```
 
-Write the installation-specific Noves gateway credential without putting it in `.env`:
+The capture token's exact `sub` must match a Canton user with only
+`CanReadAsAnyParty`. The installer treats a missing or incomplete capture file
+as an error instead of silently starting without capture.
+
+## 4. Create local secrets
+
+Obtain the installation-specific Noves gateway credential from Noves, then
+write it without adding it to `.env`:
 
 ```bash
 umask 077
-printf '%s\n' 'replace-with-this-installation-credential' \
-  > docker-compose/.secrets/noves-gateway-auth-token
-chmod 600 docker-compose/.secrets/noves-gateway-auth-token
+printf '%s\n' 'replace-with-the-installation-credential' \
+  > "$APP_INSTALL_DIR/docker-compose/.secrets/noves-gateway-auth-token"
 ```
 
-Protect the files and start:
+`install-compose.sh` generates the database password when `.env` still
+contains the example placeholder. It also creates
+`.state/accounting.env` with a random 32-byte
+`ACCOUNTING_TOKEN_ENCRYPTION_KEY`. The file is reused on every installer run.
+Back it up with the database: replacing it makes stored accounting-provider
+credentials unreadable.
+
+For a manual installation that does not use the installer, generate it once:
 
 ```bash
-chmod 600 docker-compose/.env \
-  docker-compose/.state/capture.env \
-  docker-compose/.state/nodes-config.json \
-  docker-compose/.secrets/noves-gateway-auth-token
-docker compose --env-file docker-compose/.env \
-  -f docker-compose/compose.yaml up -d
+umask 077
+printf 'ACCOUNTING_TOKEN_ENCRYPTION_KEY=%s\n' \
+  "$(openssl rand -base64 32 | tr -d '\n')" \
+  > "$APP_INSTALL_DIR/docker-compose/.state/accounting.env"
 ```
 
-The containers are named `noves-canton-backend-v4`, `noves-canton-frontend-v4`, and
-`noves-canton-database-v4`. Both application containers bind to localhost by default:
+Protect all local configuration:
+
+```bash
+chmod 600 \
+  "$APP_INSTALL_DIR/docker-compose/.env" \
+  "$APP_INSTALL_DIR/docker-compose/.state/capture.env" \
+  "$APP_INSTALL_DIR/docker-compose/.state/nodes-config.json" \
+  "$APP_INSTALL_DIR/docker-compose/.secrets/noves-gateway-auth-token"
+```
+
+The installer applies mode `0600` to the generated accounting file.
+
+### Optional S3-compatible storage
+
+The default deployment writes exports to the named `cda-exports` volume. No S3
+settings are required.
+
+To use S3-compatible export or backup storage, copy the separate example and
+fill only the block you need:
+
+```bash
+cp docker-compose/config/storage.env.example \
+  "$APP_INSTALL_DIR/docker-compose/.state/storage.env"
+chmod 600 "$APP_INSTALL_DIR/docker-compose/.state/storage.env"
+```
+
+The supported settings are `EXPORTS_S3_*` and `BACKUP_S3_*`. The local export
+volume remains mounted even when the optional file is present.
+
+## 5. Install and wait for readiness
+
+Run:
+
+```bash
+./scripts/install-compose.sh \
+  --standard \
+  --directory "$APP_INSTALL_DIR"
+```
+
+The installer validates required files and placeholders, confirms the external
+network and standard validator services, pulls the three images, starts the
+project, and waits for `http://127.0.0.1:8090/ready`.
+
+Useful local endpoints:
 
 ```text
 Frontend/BFF:  http://127.0.0.1:8091
 Backend API:   http://127.0.0.1:8090
+Startup:       http://127.0.0.1:8090/startup-status
 Backend docs:  http://127.0.0.1:8090/docs
 OpenAPI JSON:  http://127.0.0.1:8090/docs/v1/openapi.json
 ```
 
-`FRONTEND_BIND_ADDRESS` and `BACKEND_BIND_ADDRESS` control the host interfaces.
-`FRONTEND_PORT` and `BACKEND_PORT` control the published ports.
+`FRONTEND_BIND_ADDRESS`, `FRONTEND_PORT`, `BACKEND_BIND_ADDRESS`, and
+`BACKEND_PORT` control the published host bindings. Keep both addresses on
+`127.0.0.1` when a reverse proxy runs directly on the host.
 
-## TLS reverse proxy
+## 6. Add DNS, TLS, and NGINX
 
-Use two public hostnames and send them to the two loopback ports:
+Use two public names:
 
 ```text
-https://data.example.com      -> http://127.0.0.1:8091
-https://api.data.example.com  -> http://127.0.0.1:8090
+data.example.com      -> frontend/BFF
+api.data.example.com  -> backend API and /docs
 ```
 
-Create DNS records for both names, configure TLS in your existing reverse proxy, and keep the
-container ports on loopback. The public Swagger URL is
-`https://api.data.example.com/docs`.
+Both A records can point to the validator host.
 
-Setting `BACKEND_BIND_ADDRESS=0.0.0.0` publishes the complete API on every host interface. Use
-that setting only when a firewall or trusted private network controls access.
-
-## Versions
-
-`IMAGE_VERSION=4.0.0` pins all three images. `IMAGE_VERSION=latest` opts into the newest release in
-the v4-only repositories. It cannot select a future v5 image.
-
-## Performance tuning
-
-The final section of `.env.example` keeps all supported database and read-model controls
-available. The most common are:
-
-- `INDEX_DB_WRITE_BATCH_SIZE`: write batch size, capped at 250;
-- `DATABASE_MAX_PARALLEL_WORKERS_PER_GATHER`: per-query database parallelism;
-- `DATABASE_SYNCHRONOUS_COMMIT`: durability/latency policy;
-- `DATABASE_MAX_WAL_SIZE`: write-ahead-log allowance during heavy ingestion;
-- `READ_MODEL_TOTAL_CAPACITY`: total concurrent read-model work;
-- `READ_MODEL_RESERVED_LIVE_CAPACITY`: capacity reserved for current traffic;
-- `READ_MODEL_BOOTSTRAP_BATCH_SIZE`: historical catch-up batch size;
-- `BACKGROUND_INDEXING_DUTY_PERCENT`: controlled-batch wall duty from `1` through `100`. The
-  default `100` is a true bypass that preserves normal indexing concurrency. A lower value uses
-  one shared lane for capture, classification, and derived indexing, then applies a proportional
-  cooldown after non-empty or failed batches. One cooldown is capped at 30 seconds. This is not a
-  CPU-utilization percentage;
-- `PARTY_EVENTS_INDEXING_DELAY_MS`: deprecated fixed-delay compatibility control. Keep it at `0`
-  whenever `BACKGROUND_INDEXING_DUTY_PERCENT` is below `100`; invalid combinations fail startup.
-
-The remaining pressure thresholds let large operators match scheduling to their database and
-container limits. Keep the supplied defaults initially. Increase capacity only after increasing
-CPU, memory, and database connections, and observe capture lag and write latency between changes.
-
-The `STREAM_*` variables in `.env.example` retain stream-delivery throughput controls without
-requiring another service. Keep `ALLOW_PRIVATE_WEBHOOK_TARGETS=false` unless callback receivers
-intentionally live on a private network. See
-[Streams, alerts, and connectors](streaming.md).
-
-## Operations
+For NGINX running as a container on the validator network, start with
+[`docker-compose/nginx/cda.conf.example`](../docker-compose/nginx/cda.conf.example).
+Replace its hostnames and certificate paths, mount the include into the
+existing NGINX configuration, then check and reload:
 
 ```bash
-docker compose --env-file docker-compose/.env \
-  -f docker-compose/compose.yaml ps
-docker compose --env-file docker-compose/.env \
-  -f docker-compose/compose.yaml logs -f backend
-curl http://127.0.0.1:8090/startup-status
-curl http://127.0.0.1:8090/docs/v1/openapi.json
+docker exec <nginx-container> nginx -t
+docker exec <nginx-container> nginx -s reload
 ```
 
-Stop containers without deleting data:
+The example resolves the app container names at request time, so NGINX can reload
+while the app is stopped. It also forwards the HTTP/1.1 upgrade headers required by
+frontend WebSockets.
+
+If NGINX runs directly on the host instead of in Docker, use loopback upstreams:
+
+```text
+http://127.0.0.1:8091
+http://127.0.0.1:8090
+```
+
+Do not set either bind address to `0.0.0.0` unless a firewall or trusted private
+network controls direct access.
+
+## 7. Verify
+
+Check local readiness before diagnosing DNS or TLS:
 
 ```bash
-docker compose --env-file docker-compose/.env \
-  -f docker-compose/compose.yaml down
+curl -fsS http://127.0.0.1:8090/health
+curl -fsS http://127.0.0.1:8090/ready
+curl -fsS http://127.0.0.1:8090/startup-status | jq
+curl -fsS http://127.0.0.1:8090/docs/v1/openapi.json | jq '.info'
 ```
 
-The named database and export volumes remain. Do not use `down --volumes` unless permanent
-data deletion is intended and backups have been verified.
+Then check both public hosts:
 
-For encrypted storage, set `DATABASE_DATA_PATH` to an absolute path on an encrypted
-filesystem. See [Encryption at rest](../encryption_at_rest.md).
+```bash
+curl -fsS https://data.example.com >/dev/null
+curl -fsS https://api.data.example.com/ready
+curl -fsS https://api.data.example.com/docs/v1/openapi.json | jq '.info'
+```
+
+Open `https://data.example.com`, sign in, and confirm the browser returns to
+`https://data.example.com/callback`. Check capture separately:
+
+```bash
+curl -fsS http://127.0.0.1:8090/api/v2/capture/status | jq
+```
+
+The capture status must show the participant-wide indexer running without a
+network or token error.
+
+## Operations and upgrades
+
+```bash
+cd "$APP_INSTALL_DIR/docker-compose"
+docker compose --env-file .env -f compose.yaml ps
+docker compose --env-file .env -f compose.yaml logs -f backend
+docker compose --env-file .env -f compose.yaml down
+```
+
+`down` preserves the named database and export volumes. Never use
+`down --volumes` during an upgrade. Preserve `.state/accounting.env` along with
+the database.
+
+For encrypted local storage, set `DATABASE_DATA_PATH` to an absolute path on an
+encrypted filesystem. See [Encryption at rest](../encryption_at_rest.md).
+
+Performance and stream-delivery controls are listed in `.env.example`. Keep
+their defaults for the first installation. Change one group at a time after
+observing database CPU, memory, connections, capture lag, and write latency.
+The broadest controls are `DATABASE_MAX_PARALLEL_WORKERS_PER_GATHER`,
+`READ_MODEL_TOTAL_CAPACITY`, and `BACKGROUND_INDEXING_DUTY_PERCENT`.
+See [Streams, alerts, and connectors](streaming.md) for `STREAM_*` and
+`ALLOW_PRIVATE_WEBHOOK_TARGETS`.
+
+## Optional guided setup
+
+The localhost wizard detects safe validator and OIDC values but does not create
+Keycloak or Auth0 clients:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Noves-Inc/canton-data-app/v4/install.sh |
+  bash -s -- compose
+```
+
+If more than one validator is running, add
+`--validator-container <container-name>`. The host installer may stream the
+selected validator's participant-admin machine configuration into setup
+service memory. It never adds that credential to Noves App files or the final
+deployment.

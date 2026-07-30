@@ -163,13 +163,13 @@ if [[ "$mode" == standard ]]; then
   [[ -n "$validator_service_container" ]] ||
     die "No running validator service is attached to '$canton_docker_network'."
   docker compose --env-file .env -f compose.yaml pull ||
-    die "Could not pull the CDA images. Log in to the configured registries and retry."
+    die "Could not pull the Noves App images. Log in to the configured registries and retry."
   docker compose --env-file .env -f compose.yaml up -d
   backend_port="$(env_value BACKEND_PORT)"
   backend_port="${backend_port:-8090}"
   backend_origin="http://127.0.0.1:$backend_port"
   wait_for_backend_ready "$backend_origin" ||
-    die "CDA did not become ready. Run: docker compose --env-file .env -f compose.yaml logs backend"
+    die "The Noves App did not become ready. Run: docker compose --env-file .env -f compose.yaml logs backend"
   printf 'Installation complete. Backend status: %s/startup-status\n' "$backend_origin"
   exit 0
 fi
