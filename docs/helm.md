@@ -54,7 +54,7 @@ Production database storage needs encrypted SSD-backed `ReadWriteOnce` block sto
 The prerelease chart uses:
 
 ```text
-noves.azurecr.io/cda-backend:prod-f3f61cc1-1785419885
+noves.azurecr.io/cda-backend:prod-3e1a1fde-1785439104
 noves.azurecr.io/cda-frontend:prod-c78cdd33-1785419965
 ghcr.io/noves-inc/noves-canton-database-v4:candidate-30160846627-1
 ```
