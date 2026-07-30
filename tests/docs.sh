@@ -118,6 +118,8 @@ docs/docker-compose.md|docker-compose/nginx/cda.conf.example
 docs/security.md|routing.backend.enabled
 docs/authentication/keycloak.md|VITE_KEYCLOAK_URL=
 docs/authentication/keycloak.md|noves-canton-data-app-capture
+docs/authentication/keycloak.md|**Settings > Capability config**
+docs/authentication/keycloak.md|**PKCE Method** to `S256`
 EOF
 
 if rg -Fq 'validator-app:5003' \

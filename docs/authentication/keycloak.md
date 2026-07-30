@@ -41,8 +41,7 @@ In the Keycloak admin console:
    - **Valid post logout redirect URIs:** `APP_URL`
    - **Web origins:** `APP_URL`
 6. Save the client.
-7. Under the client's advanced OpenID Connect settings, set
-   **Proof Key for Code Exchange Code Challenge Method** to `S256`.
+7. On **Settings > Capability config**, set **PKCE Method** to `S256`.
 8. Open **Client scopes** and add `daml_ledger_api` as a default scope.
 
 The browser client has no secret. Put only these public values in Compose
