@@ -7,11 +7,11 @@ Helm chart or Docker Compose bundle. The supplied defaults use the validator nam
 
 The current prerelease deployment uses three private images:
 
-- `noves.azurecr.io/cda-backend:prod-19b8de69-1785353655`
-- `noves.azurecr.io/cda-frontend:prod-df73e5ab-1785364651`
+- `noves.azurecr.io/cda-backend:prod-f3f61cc1-1785419885`
+- `noves.azurecr.io/cda-frontend:prod-c78cdd33-1785419965`
 - `ghcr.io/noves-inc/noves-canton-database-v4:candidate-30160846627-1`
 
-The database image is also digest-pinned in Helm values. Configure `imagePullSecrets` or the
+Helm pins all three images by tag and digest. Configure `imagePullSecrets` or the
 cluster registry identity before installing. Noves will replace these references when the public
 v4 artifacts ship.
 

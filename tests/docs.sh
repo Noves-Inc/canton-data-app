@@ -73,6 +73,8 @@ for contract in \
   'BACKGROUND_INDEXING_DUTY_PERCENT' \
   'STREAM_PAGE_SIZE' \
   'splice-app-validator-ledger-api-auth' \
+  'ADMIN_DISCOVERY_URL' \
+  "jq -er '.token_endpoint'" \
   '--participant-admin-secret' \
   '--validator-container' \
   'grpcurl -expand-headers' \

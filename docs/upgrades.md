@@ -20,18 +20,18 @@ chart upgrade and its migration guide.
 The prerelease chart currently uses private images:
 
 ```text
-noves.azurecr.io/cda-backend:prod-19b8de69-1785353655
-noves.azurecr.io/cda-frontend:prod-df73e5ab-1785364651
+noves.azurecr.io/cda-backend:prod-f3f61cc1-1785419885
+noves.azurecr.io/cda-frontend:prod-c78cdd33-1785419965
 ghcr.io/noves-inc/noves-canton-database-v4:candidate-30160846627-1
 ```
 
-The database default also pins its digest. Each image accepts an explicit digest:
+The chart defaults pin each image by tag and digest. Override both fields together when selecting another build:
 
 ```yaml
 backend:
   image:
     repository: noves.azurecr.io/cda-backend
-    tag: prod-19b8de69-1785353655
+    tag: prod-f3f61cc1-1785419885
     digest: sha256:replace-with-a-64-character-digest
 ```
 

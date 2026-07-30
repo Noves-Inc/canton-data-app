@@ -42,12 +42,12 @@ Production database storage needs encrypted SSD-backed `ReadWriteOnce` block sto
 The prerelease chart uses:
 
 ```text
-noves.azurecr.io/cda-backend:prod-19b8de69-1785353655
-noves.azurecr.io/cda-frontend:prod-df73e5ab-1785364651
+noves.azurecr.io/cda-backend:prod-f3f61cc1-1785419885
+noves.azurecr.io/cda-frontend:prod-c78cdd33-1785419965
 ghcr.io/noves-inc/noves-canton-database-v4:candidate-30160846627-1
 ```
 
-The database image also carries a digest in the chart. An AKS cluster attached to the Noves ACR can pull the first two images through its kubelet identity. Other clusters need registry pull credentials.
+The chart pins all three images by tag and digest. An AKS cluster attached to the Noves ACR can pull the first two images through its kubelet identity. Other clusters need registry pull credentials.
 
 Create one or more `kubernetes.io/dockerconfigjson` Secrets through your secret manager, then list them:
 
@@ -73,9 +73,12 @@ The standard validator stores an administrator client in `splice-app-validator-l
 ```bash
 ADMIN_SECRET=splice-app-validator-ledger-api-auth
 
-ADMIN_TOKEN_URL="$(
+ADMIN_DISCOVERY_URL="$(
   kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
     get secret "$ADMIN_SECRET" -o jsonpath='{.data.url}' | base64 -d
+)"
+ADMIN_TOKEN_URL="$(
+  curl -fsS "$ADMIN_DISCOVERY_URL" | jq -er '.token_endpoint'
 )"
 ADMIN_CLIENT_ID="$(
   kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
@@ -155,10 +158,12 @@ grpcurl -plaintext -expand-headers \
   localhost:5001 \
   com.daml.ledger.api.v2.admin.UserManagementService/ListUserRights
 
-unset PARTICIPANT_ADMIN_TOKEN ADMIN_CLIENT_ID ADMIN_TOKEN_URL \
+unset PARTICIPANT_ADMIN_TOKEN ADMIN_CLIENT_ID ADMIN_DISCOVERY_URL ADMIN_TOKEN_URL \
   ADMIN_AUDIENCE ADMIN_SCOPE
 ```
 
+The Secret's `url` field points to the OpenID Connect discovery document, not
+the token endpoint. Resolve `token_endpoint` from that document as shown above.
 Do not place the administrator client or token in a Data App Secret.
 
 ## 4. Create application Secrets

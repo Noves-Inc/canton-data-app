@@ -8,8 +8,8 @@ backend:
   publicApiUrl: https://api.canton.noves.fi
   image:
     repository: noves.azurecr.io/cda-backend
-    tag: "prod-19b8de69-1785353655"
-    digest: ""
+    tag: "prod-f3f61cc1-1785419885"
+    digest: "sha256:05d1ea7b8c1ae7c194b0f1a522ac17a75310928f5c425ebc7205b9c4560f0317"
     pullPolicy: IfNotPresent
   podSecurityContext:
     fsGroup: 1654
@@ -70,8 +70,8 @@ frontend:
   replicaCount: 1
   image:
     repository: noves.azurecr.io/cda-frontend
-    tag: "prod-df73e5ab-1785364651"
-    digest: ""
+    tag: "prod-c78cdd33-1785419965"
+    digest: "sha256:3205d0193e1b493098f9d1704604206f173fb456aa6fb6dbcc8b8529f70266b1"
     pullPolicy: IfNotPresent
   podSecurityContext:
     seccompProfile:
@@ -79,6 +79,8 @@ frontend:
   containerSecurityContext:
     allowPrivilegeEscalation: false
     runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
     capabilities:
       drop:
         - ALL
