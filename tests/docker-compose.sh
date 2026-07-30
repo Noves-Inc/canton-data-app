@@ -30,6 +30,10 @@ docker compose --env-file "$compose_dir/.env.example" \
 NOVES_PUBLIC_API_URL=https://api.example.test \
 docker compose --env-file "$compose_dir/.env.example" \
   -f "$compose_dir/compose.yaml" config >"$scratch/public-api-url.yaml"
+BACKEND_BIND_ADDRESS=192.0.2.10 \
+BACKEND_PORT=18090 \
+docker compose --env-file "$compose_dir/.env.example" \
+  -f "$compose_dir/compose.yaml" config >"$scratch/backend-binding.yaml"
 SETUP_TOKEN=test-setup-token \
 SETUP_SESSION_TOKEN=test-session-token \
 SETUP_USER=1000:1000 \
@@ -50,6 +54,10 @@ assert_contains "$scratch/standard.yaml" 'name: splice-validator_splice_validato
 assert_contains "$scratch/standard.yaml" 'SCAN_PROXY_URL: http://validator-app:5003'
 assert_contains "$scratch/standard.yaml" 'NOVES_PUBLIC_API_URL: https://api.canton.noves.fi'
 assert_contains "$scratch/public-api-url.yaml" 'NOVES_PUBLIC_API_URL: https://api.example.test'
+assert_contains "$scratch/standard.yaml" 'host_ip: 127.0.0.1'
+assert_contains "$scratch/standard.yaml" 'published: "8090"'
+assert_contains "$scratch/backend-binding.yaml" 'host_ip: 192.0.2.10'
+assert_contains "$scratch/backend-binding.yaml" 'published: "18090"'
 assert_not_contains "$scratch/standard.yaml" 'CDA_PUBLIC_API_URL'
 assert_contains "$scratch/standard.yaml" 'DATABASE_MAX_PARALLEL_WORKERS_PER_GATHER: "0"'
 assert_contains "$scratch/standard.yaml" 'DATABASE_SYNCHRONOUS_COMMIT: "off"'
@@ -95,6 +103,7 @@ assert_not_contains "$scratch/migration.yaml" 'MIGRATION_OLD_WORKLOAD_STOPPED'
 assert_not_contains "$scratch/migration.yaml" 'kind: Job'
 
 assert_contains "$compose_dir/.env.example" 'IMAGE_VERSION=4.0.0'
+assert_contains "$compose_dir/.env.example" 'BACKEND_BIND_ADDRESS=127.0.0.1'
 assert_not_contains "$compose_dir/.env.example" 'IMAGE_VERSION=latest'
 assert_not_contains "$compose_dir/.env.example" 'CANTON_STREAM_URL'
 
