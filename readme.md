@@ -1,11 +1,11 @@
-# Noves Canton Data App v4
+# v4 of the Noves App
 
-Self-host the Noves Canton Data App next to a validator installed with the standard Canton
+Self-host the Noves App next to a validator installed with the standard Canton
 Helm chart or Docker Compose bundle. Both deployments use `participant:5001`. Helm uses
 `http://validator-app:5003`; Compose uses `http://validator:5003` on the standard network
 `splice-validator_splice_validator`.
 
-The current prerelease deployment uses three private images:
+The prerelease uses three private images:
 
 - `noves.azurecr.io/cda-backend:prod-3e1a1fde-1785439104`
 - `noves.azurecr.io/cda-frontend:prod-c78cdd33-1785419965`
@@ -20,7 +20,7 @@ v4 artifacts ship.
 The optional setup wizard opens on localhost, verifies the participant and OIDC configuration,
 and then removes itself. The host installer can stream the validator's existing
 participant-admin machine credential into setup-service memory only. The credential never
-reaches the browser, a Data App Secret, a values file, the database, or the final deployment.
+reaches the browser, an app Secret, a values file, the database, or the final deployment.
 
 Helm:
 
@@ -62,13 +62,12 @@ For a standard Compose installation:
 ```bash
 export APP_INSTALL_DIR=/opt/noves-canton-data-app-v4
 mkdir -p "$APP_INSTALL_DIR/docker-compose/.state"
-mkdir -p "$APP_INSTALL_DIR/docker-compose/.secrets"
 cp docker-compose/.env.example "$APP_INSTALL_DIR/docker-compose/.env"
 cp docker-compose/config/nodes-config.json \
   "$APP_INSTALL_DIR/docker-compose/.state/nodes-config.json"
 
-# Edit .env and nodes-config.json, then create capture.env and the Noves
-# gateway credential as described in the full guide.
+# Edit .env and nodes-config.json, then create capture.env and gateway.env as
+# described in the full guide.
 ./scripts/install-compose.sh \
   --standard \
   --directory "$APP_INSTALL_DIR"
@@ -114,9 +113,9 @@ participant before capture.
 - [Security model](docs/security.md)
 - [Streams, alerts, connectors, and WebSockets](docs/streaming.md)
 - [Encryption at rest](encryption_at_rest.md)
-- [Migrate from Data App v3.16.1](docs/migrate-v3.16.1.md)
+- [Migrate from v3.16.1 of the Noves App](docs/migrate-v3.16.1.md)
 - [v4 upgrades and future major versions](docs/upgrades.md)
 
-Only the database image shipped with Data App v4 is supported. The standard routed deployment
+Use only the database image shipped with v4 of the Noves App. The standard routed deployment
 publishes the frontend and backend on separate HTTPS hostnames. PostgreSQL, the participant
 Ledger API, and setup services stay private.

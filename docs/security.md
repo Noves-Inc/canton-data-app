@@ -39,7 +39,7 @@ participant.ledger_api.users.rights.grant(
 )
 ```
 
-List the rights afterward and remove anything broader. The Data App wizard performs the same
+List the rights afterward and remove anything broader. The Noves App wizard performs the same
 rights check before activation.
 
 ## Network exposure
@@ -80,9 +80,11 @@ reuses the file on later runs. A manual Compose installation must create that fi
 the backend. Back it up with the database and never regenerate it during an upgrade.
 
 The Noves gateway credential is installation-specific and separate from both OIDC clients. In
-Kubernetes it is referenced through `novesGateway.existingSecret`. In Compose it is mounted from
-`.secrets/noves-gateway-auth-token`. Rotate it in the source secret, restart both backend and
-frontend, and verify readiness without printing the credential.
+Kubernetes it is referenced through `novesGateway.existingSecret`. Compose reads it from the
+mode-`0600` `.state/gateway.env` file because both application images run as non-root users and
+Docker Compose file-backed secrets retain the host file's ownership. Docker administrators can
+read container environment values, just as they can read mounted secrets. Rotate the value,
+restart both backend and frontend, and verify readiness without printing the credential.
 
 Never:
 
@@ -93,7 +95,7 @@ Never:
 - commit `.env`, `capture.env`, tokens, or client secrets.
 
 The exception to “never reuse an administrator credential” is transient Canton-user provisioning:
-it may use the existing validator credential as administrator authority, never as the Data App
+it may use the existing validator credential as administrator authority, never as the app's
 capture credential. Standard Helm and Compose operators can instead use their normal Canton
 administrator procedure.
 

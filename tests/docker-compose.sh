@@ -6,12 +6,16 @@ compose_dir="$repo_root/docker-compose"
 scratch="$(mktemp -d)"
 created_capture_env=false
 created_accounting_env=false
+created_gateway_env=false
 cleanup() {
   if [[ "$created_capture_env" == true ]]; then
     rm -f "$compose_dir/.state/capture.env"
   fi
   if [[ "$created_accounting_env" == true ]]; then
     rm -f "$compose_dir/.state/accounting.env"
+  fi
+  if [[ "$created_gateway_env" == true ]]; then
+    rm -f "$compose_dir/.state/gateway.env"
   fi
   rm -rf "$scratch"
 }
@@ -25,6 +29,11 @@ fi
 if [[ ! -e "$compose_dir/.state/accounting.env" ]]; then
   touch "$compose_dir/.state/accounting.env"
   created_accounting_env=true
+fi
+if [[ ! -e "$compose_dir/.state/gateway.env" ]]; then
+  printf 'NOVES_GATEWAY_AUTH_TOKEN=gateway-token\n' \
+    >"$compose_dir/.state/gateway.env"
+  created_gateway_env=true
 fi
 
 fail() {
@@ -110,10 +119,10 @@ assert_contains "$compose_dir/compose.yaml" 'required: false'
 assert_contains "$compose_dir/config/storage.env.example" 'EXPORTS_S3_BUCKET='
 assert_contains "$compose_dir/config/storage.env.example" 'BACKUP_S3_BUCKET='
 assert_not_contains "$scratch/standard.yaml" 'externalDatabase'
-[[ "$(grep -c 'NOVES_GATEWAY_AUTH_TOKEN_FILE: /run/secrets/noves-gateway-auth-token' "$scratch/standard.yaml")" == 2 ]] ||
-  fail 'gateway credential file must be configured for backend and frontend'
-[[ "$(grep -c 'target: /run/secrets/noves-gateway-auth-token' "$scratch/standard.yaml")" == 2 ]] ||
-  fail 'gateway credential must be mounted into backend and frontend'
+[[ "$(grep -c 'NOVES_GATEWAY_AUTH_TOKEN: gateway-token' "$scratch/standard.yaml")" == 2 ]] ||
+  fail 'gateway credential env file must configure backend and frontend'
+assert_not_contains "$scratch/standard.yaml" 'NOVES_GATEWAY_AUTH_TOKEN_FILE'
+assert_not_contains "$scratch/standard.yaml" 'target: /run/secrets/noves-gateway-auth-token'
 
 assert_contains "$scratch/setup.yaml" 'host_ip: 127.0.0.1'
 assert_contains "$scratch/setup.yaml" 'published: "8099"'
@@ -125,7 +134,8 @@ assert_contains "$scratch/setup.yaml" 'SETUP_STORAGE_MODE: file'
 assert_contains "$scratch/setup.yaml" 'user: 1000:1000'
 assert_not_contains "$scratch/setup.yaml" '/var/run/docker.sock'
 assert_not_contains "$scratch/setup.yaml" 'M2M_CLIENT_SECRET'
-assert_contains "$scratch/setup.yaml" 'NOVES_GATEWAY_AUTH_TOKEN_FILE: /run/secrets/noves-gateway-auth-token'
+assert_contains "$scratch/setup.yaml" 'NOVES_GATEWAY_AUTH_TOKEN: gateway-token'
+assert_not_contains "$scratch/setup.yaml" 'NOVES_GATEWAY_AUTH_TOKEN_FILE'
 
 assert_contains "$scratch/migration.yaml" 'name: cda-v3-data'
 assert_contains "$scratch/migration.yaml" 'SETUP_ENABLED: "false"'

@@ -26,6 +26,14 @@ for path in "${required[@]}"; do
   [[ -s "$repo_root/$path" ]] || fail "missing required file: $path"
 done
 
+customer_docs=("$repo_root/readme.md" "$repo_root/encryption_at_rest.md")
+for path in "${required[@]}"; do
+  customer_docs+=("$repo_root/$path")
+done
+if rg -n 'Noves App v[0-9]|\bData App\b|Canton Data App' "${customer_docs[@]}"; then
+  fail 'customer documentation uses an obsolete or awkward product name.'
+fi
+
 while IFS= read -r markdown; do
   while IFS= read -r target; do
     target="${target#<}"
@@ -76,7 +84,7 @@ done
 
 for contract in \
   'novesGateway.existingSecret' \
-  '.secrets/noves-gateway-auth-token' \
+  '.state/gateway.env' \
   'NOVES_GATEWAY_AUTH_TOKEN_FILE' \
   'NOVES_PUBLIC_API_URL' \
   'https://api.canton.noves.fi' \
@@ -128,6 +136,13 @@ docs/docker-compose.md|CANTON_NETWORK=testnet
 docs/docker-compose.md|BACKEND_IMAGE=
 docs/docker-compose.md|APP_INSTALL_DIR
 docs/docker-compose.md|.state/accounting.env
+docs/docker-compose.md|AUTH_WELLKNOWN_URL
+docs/docker-compose.md|.token_endpoint
+docs/docker-compose.md|GetParticipantId
+docs/docker-compose.md|CreateUser
+docs/docker-compose.md|ListUserRights
+docs/docker-compose.md|participant_id
+docs/docker-compose.md|.state/gateway.env
 docs/docker-compose.md|storage.env.example
 docs/docker-compose.md|docker-compose/nginx/cda.conf.example
 docs/docker-compose.md|`noves-canton-data-app-v4-exports`

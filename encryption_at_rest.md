@@ -1,8 +1,13 @@
 # Encryption at Rest (v4)
 
-Starting with v4, deployments of the Data App are expected to keep the indexed ledger data **encrypted at rest**. The application itself already encrypts stored credentials (OAuth tokens and similar secrets) at the column level; the indexed transaction data is protected by **transparent encryption of the storage that backs the database volume**. This is deliberate: transparent (disk/volume-level) encryption protects the data on disk with zero impact on queries, search, or dashboard aggregations, and requires no changes to the application containers.
+V4 of the Noves App requires encrypted storage for indexed ledger data. The app
+encrypts stored credentials, such as OAuth tokens, at the column level. Encrypt
+the storage that backs the database volume to protect transaction data without
+changing the application containers or query behavior.
 
-Because the Data App runs in **your** infrastructure, the encrypted storage is something you configure in your environment. This guide tells you exactly what needs to be encrypted, how to do it in each deployment mode, how to migrate an existing unencrypted deployment, and how to verify the result.
+You configure this storage in the infrastructure where you run the Noves App.
+This guide covers Helm and Docker Compose, migration from unencrypted storage,
+and verification.
 
 ## You May Already Be Done
 

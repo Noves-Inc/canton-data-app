@@ -1,6 +1,6 @@
-# Migrate Data App v3.16.1 to v4
+# Migrate from v3.16.1 to v4 of the Noves App
 
-Data App v4 upgrades databases from v3.16.1. Upgrade an older v3 release to v3.16.1 and confirm that it works before starting this procedure.
+V4 of the Noves App upgrades databases from v3.16.1. If you run an older v3 release, upgrade it to v3.16.1 and confirm that it works before starting this procedure.
 
 The v3 and v4 database workloads must never mount the same PVC at the same time. Keep a tested pre-upgrade backup until you finish application and capture verification.
 
@@ -188,4 +188,4 @@ Keep v3 stopped. Do not attach the converted claim to a v3 workload.
 
 ## Rollback
 
-Stop v4. Restore the verified pre-upgrade backup into a clean PVC, then start the recorded v3.16.1 workloads against the restored claim. Do not point v3 at the converted volume. Data App does not run automatic down migrations.
+Stop v4. Restore the verified pre-upgrade backup into a clean PVC, then start the recorded v3.16.1 workloads against the restored claim. Do not point v3 at the converted volume. The Noves App does not run automatic down migrations.

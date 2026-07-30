@@ -38,7 +38,7 @@ backend:
 The public release will replace these defaults with immutable v4 release images. Each chart
 release will publish `release-manifest.json` beside the packaged chart. It records the
 chart commit and the public source repository, commit, and exact digest for each of the three
-Data App images. It contains no internal dependency identity. Use those digests as release evidence
+Noves App images. It contains no internal dependency identity. Use those digests as release evidence
 or pin them directly in environments that require digest-only deployment.
 
 After publication, download and verify a release before promoting it:
@@ -65,7 +65,7 @@ DATABASE_IMAGE=ghcr.io/noves-inc/noves-canton-database-v4:candidate-30160846627-
 ```
 
 Update one or more complete references only after verifying that the selected backend, frontend,
-and database builds belong to the same Noves App release.
+and database builds belong to the same release of the Noves App.
 
 ## Upgrade procedure
 

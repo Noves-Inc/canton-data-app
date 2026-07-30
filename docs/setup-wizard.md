@@ -23,7 +23,7 @@ The wizard uses the validator OIDC URL, audience, and scope to pre-fill safe sug
 not create Auth0 applications or Keycloak clients. Create a separate browser client and a
 separate capture client using the linked provider guide, then enter the capture credentials.
 Choose Kubernetes Ingress or Istio for the public route. Ingress also needs its class name and
-can reference a TLS Secret in the Data App namespace. Istio needs the Gateway name, including
+can reference a TLS Secret in the Noves App namespace. Istio needs the Gateway name, including
 its namespace when the Gateway is elsewhere. Routing annotations are entered as a JSON object
 with string values.
 Before any participant mutation, the wizard shows the exact capture token subject and the one

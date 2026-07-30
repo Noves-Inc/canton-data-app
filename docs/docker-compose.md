@@ -1,12 +1,12 @@
 # Docker Compose installation
 
-This path installs the Noves App beside a validator deployed with Canton's standard
+Use these instructions to install the Noves App beside a validator deployed with Canton's standard
 Docker Compose bundle. It uses the existing
 `splice-validator_splice_validator` network, `participant:5001`, and
 `http://validator:5003`.
 
-The setup wizard is optional. The steps below describe a standard installation
-whose configuration stays in local files.
+These instructions keep the configuration in local files. You can use the
+optional setup wizard instead.
 
 ## 1. Check the host
 
@@ -29,7 +29,7 @@ docker ps \
 Both commands must list a running container. If your Compose project uses
 another network, record its name for `CANTON_DOCKER_NETWORK`.
 
-The current v4 prerelease images are private. Authenticate before installation:
+The prerelease images for v4 are private. Authenticate before installation:
 
 ```bash
 docker login noves.azurecr.io
@@ -47,7 +47,6 @@ From a checkout of this repository:
 ```bash
 export APP_INSTALL_DIR=/opt/noves-canton-data-app-v4
 mkdir -p "$APP_INSTALL_DIR/docker-compose/.state"
-mkdir -p "$APP_INSTALL_DIR/docker-compose/.secrets"
 cp docker-compose/.env.example "$APP_INSTALL_DIR/docker-compose/.env"
 cp docker-compose/config/nodes-config.json \
   "$APP_INSTALL_DIR/docker-compose/.state/nodes-config.json"
@@ -65,14 +64,13 @@ Edit `.env`:
   participant; and
 - configure exactly one browser OIDC provider.
 
-The app does not yet detect the network early enough to configure every
-network-dependent subsystem. Omitting `CANTON_NETWORK=testnet` on testnet makes
-the backend assume mainnet and quarantine capture when it detects the
-mismatch.
+The backend cannot detect the network before it configures every
+network-dependent subsystem. On testnet, omitting `CANTON_NETWORK=testnet`
+makes the backend assume mainnet and quarantine capture.
 
-Replace `REPLACE_WITH_PARTICIPANT_ID` in
-`.state/nodes-config.json` with the complete participant ID returned by the
-participant. Keep the address as `participant:5001` for the standard bundle.
+Leave `REPLACE_WITH_PARTICIPANT_ID` in `.state/nodes-config.json` until step 4,
+where you read the complete ID from the participant. Keep the address as
+`participant:5001` for the standard bundle.
 
 ## 3. Configure browser login and capture
 
@@ -109,15 +107,116 @@ The capture token's exact `sub` must match a Canton user with only
 `CanReadAsAnyParty`. The installer treats a missing or incomplete capture file
 as an error instead of silently starting without capture.
 
-## 4. Create local secrets
+## 4. Read the participant ID and create the capture user
 
-Obtain the installation-specific Noves gateway credential from Noves, then
-write it without adding it to `.env`:
+Run these commands on the validator host. Point `VALIDATOR_DIR` at the standard
+validator Compose directory, and set `CAPTURE_USER_ID` to the exact `sub` from
+the capture-token check in the Keycloak or Auth0 guide:
+
+```bash
+export VALIDATOR_DIR=/path/to/splice-node/docker-compose/validator
+export CAPTURE_USER_ID='replace-with-the-exact-capture-token-subject'
+
+set -a
+. "$VALIDATOR_DIR/.env"
+. "$APP_INSTALL_DIR/docker-compose/.env"
+set +a
+
+: "${AUTH_WELLKNOWN_URL:?missing from the validator .env}"
+: "${VALIDATOR_AUTH_CLIENT_ID:?missing from the validator .env}"
+: "${VALIDATOR_AUTH_CLIENT_SECRET:?missing from the validator .env}"
+: "${LEDGER_API_AUTH_AUDIENCE:?missing from the validator .env}"
+: "${LEDGER_API_AUTH_SCOPE:?missing from the validator .env}"
+
+ADMIN_TOKEN_URL="$(
+  curl -fsS "$AUTH_WELLKNOWN_URL" | jq -er '.token_endpoint'
+)"
+export PARTICIPANT_ADMIN_TOKEN="$(
+  curl -fsS --request POST "$ADMIN_TOKEN_URL" \
+    --header 'content-type: application/x-www-form-urlencoded' \
+    --data-urlencode grant_type=client_credentials \
+    --data-urlencode client_id="$VALIDATOR_AUTH_CLIENT_ID" \
+    --data-urlencode client_secret="$VALIDATOR_AUTH_CLIENT_SECRET" \
+    --data-urlencode audience="$LEDGER_API_AUTH_AUDIENCE" \
+    --data-urlencode scope="$LEDGER_API_AUTH_SCOPE" |
+    jq -er '.access_token'
+)"
+unset VALIDATOR_AUTH_CLIENT_SECRET
+```
+
+The validator's `AUTH_WELLKNOWN_URL` is an OpenID Connect discovery URL. It is
+not a token endpoint; the command above resolves `token_endpoint` from the
+discovery document.
+
+Use a pinned `grpcurl` container on the validator network:
+
+```bash
+export GRPCURL_IMAGE='fullstorydev/grpcurl:v1.9.3@sha256:085e183ca334eb4e81ca81ee12cbb2b2737505d1d77f5e33dabc5d066593d998'
+
+PARTICIPANT_ID="$(
+  docker run --rm \
+    --network "$CANTON_DOCKER_NETWORK" \
+    --env PARTICIPANT_ADMIN_TOKEN \
+    "$GRPCURL_IMAGE" \
+    -plaintext -expand-headers \
+    -H 'authorization: Bearer ${PARTICIPANT_ADMIN_TOKEN}' \
+    -d '{}' \
+    participant:5001 \
+    com.daml.ledger.api.v2.admin.PartyManagementService/GetParticipantId |
+    jq -er '.participant_id // .participantId'
+)"
+printf '%s\n' "$PARTICIPANT_ID"
+```
+
+`grpcurl` currently prints the field as `participant_id`; the fallback also
+accepts camel case. Put the printed value in
+`.state/nodes-config.json` as `expectedParticipantId`.
+
+Create the Canton user with the capture token's exact subject:
+
+```bash
+docker run --rm \
+  --network "$CANTON_DOCKER_NETWORK" \
+  --env PARTICIPANT_ADMIN_TOKEN \
+  "$GRPCURL_IMAGE" \
+  -plaintext -expand-headers \
+  -H 'authorization: Bearer ${PARTICIPANT_ADMIN_TOKEN}' \
+  -d "{\"user\":{\"id\":\"${CAPTURE_USER_ID}\"},\"rights\":[{\"canReadAsAnyParty\":{}}]}" \
+  participant:5001 \
+  com.daml.ledger.api.v2.admin.UserManagementService/CreateUser
+```
+
+If `CreateUser` reports that the user already exists, inspect its rights before
+changing anything:
+
+```bash
+docker run --rm \
+  --network "$CANTON_DOCKER_NETWORK" \
+  --env PARTICIPANT_ADMIN_TOKEN \
+  "$GRPCURL_IMAGE" \
+  -plaintext -expand-headers \
+  -H 'authorization: Bearer ${PARTICIPANT_ADMIN_TOKEN}' \
+  -d "{\"userId\":\"${CAPTURE_USER_ID}\"}" \
+  participant:5001 \
+  com.daml.ledger.api.v2.admin.UserManagementService/ListUserRights
+
+unset PARTICIPANT_ADMIN_TOKEN VALIDATOR_AUTH_CLIENT_ID AUTH_WELLKNOWN_URL \
+  ADMIN_TOKEN_URL LEDGER_API_AUTH_AUDIENCE LEDGER_API_AUTH_SCOPE
+```
+
+The final rights response must contain only `can_read_as_any_party`. Do not
+place the validator administrator client or token in Noves App files.
+
+## 5. Create local secrets
+
+Obtain the installation-specific Noves gateway credential from Noves. Store it
+in a separate private environment file, not in `.env`:
 
 ```bash
 umask 077
-printf '%s\n' 'replace-with-the-installation-credential' \
-  > "$APP_INSTALL_DIR/docker-compose/.secrets/noves-gateway-auth-token"
+printf 'NOVES_GATEWAY_AUTH_TOKEN=%s\n' \
+  'replace-with-the-installation-credential' \
+  > "$APP_INSTALL_DIR/docker-compose/.state/gateway.env"
 ```
 
 `install-compose.sh` generates the database password when `.env` still
@@ -142,11 +241,13 @@ Protect all local configuration:
 chmod 600 \
   "$APP_INSTALL_DIR/docker-compose/.env" \
   "$APP_INSTALL_DIR/docker-compose/.state/capture.env" \
-  "$APP_INSTALL_DIR/docker-compose/.state/nodes-config.json" \
-  "$APP_INSTALL_DIR/docker-compose/.secrets/noves-gateway-auth-token"
+  "$APP_INSTALL_DIR/docker-compose/.state/gateway.env"
+chmod 644 "$APP_INSTALL_DIR/docker-compose/.state/nodes-config.json"
 ```
 
-The installer applies mode `0600` to the generated accounting file.
+The installer applies mode `0600` to the generated accounting file. The node
+configuration contains no credential; mode `0644` lets the non-root backend
+read its bind mount.
 
 ### Optional S3-compatible storage
 
@@ -166,7 +267,7 @@ chmod 600 "$APP_INSTALL_DIR/docker-compose/.state/storage.env"
 The supported settings are `EXPORTS_S3_*` and `BACKUP_S3_*`. The local export
 volume remains mounted even when the optional file is present.
 
-## 5. Install and wait for readiness
+## 6. Install and wait for readiness
 
 Run:
 
@@ -194,7 +295,7 @@ OpenAPI JSON:  http://127.0.0.1:8090/docs/v1/openapi.json
 `BACKEND_PORT` control the published host bindings. Keep both addresses on
 `127.0.0.1` when a reverse proxy runs directly on the host.
 
-## 6. Add DNS, TLS, and NGINX
+## 7. Add DNS, TLS, and NGINX
 
 Use two public names:
 
@@ -207,13 +308,33 @@ Both A records can point to the validator host.
 
 For NGINX running as a container on the validator network, start with
 [`docker-compose/nginx/cda.conf.example`](../docker-compose/nginx/cda.conf.example).
-Replace its hostnames and certificate paths, mount the include into the
-existing NGINX configuration, then check and reload:
+Replace its hostnames and certificate paths and mount the include into the
+existing NGINX configuration.
+
+If you added a mount or changed the bind-mounted `nginx.conf`, recreate only
+the validator's NGINX service with the same Compose files used for the
+validator deployment:
+
+```bash
+cd "$VALIDATOR_DIR"
+docker compose -f compose.yaml -f compose-traffic-topups.yaml \
+  up -d --no-deps --force-recreate nginx
+docker exec <nginx-container> nginx -t
+```
+
+Use the same `-f` arguments as your validator deployment if it uses different
+override files.
+
+A reload is enough after editing an include that was already mounted:
 
 ```bash
 docker exec <nginx-container> nginx -t
 docker exec <nginx-container> nginx -s reload
 ```
+
+Some editors, including `sed -i`, replace a file instead of updating its
+existing inode. A running container keeps the old bind-mounted inode until the
+service is recreated.
 
 The example resolves the app container names at request time, so NGINX can reload
 while the app is stopped. It also forwards the HTTP/1.1 upgrade headers required by
@@ -229,7 +350,7 @@ http://127.0.0.1:8090
 Do not set either bind address to `0.0.0.0` unless a firewall or trusted private
 network controls direct access.
 
-## 7. Verify
+## 8. Verify
 
 Check local readiness before diagnosing DNS or TLS:
 

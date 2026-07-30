@@ -208,6 +208,6 @@ curl -fsS http://127.0.0.1:8090/api/v2/capture/status | jq
 Then open `APP_URL`, sign in through Keycloak, and confirm the browser returns
 to `APP_URL/callback`.
 
-Capture is not correctly configured merely because token exchange succeeds.
-The app must also report the expected participant identity, network, exact subject
-match, and `CanReadAsAnyParty` without broader rights.
+A successful token exchange does not prove that capture works. The app must
+also confirm the participant identity, network, token subject, and
+`CanReadAsAnyParty` without broader rights.

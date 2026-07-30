@@ -313,6 +313,17 @@ INSTALLER_CALLS="$scratch/compose.calls" PATH="$fake_bin:$PATH" \
 accounting_file="$compose_install/docker-compose/.state/accounting.env"
 [[ -f "$accounting_file" ]] ||
   fail 'Compose installer did not create accounting.env.'
+gateway_env_file="$compose_install/docker-compose/.state/gateway.env"
+[[ -f "$gateway_env_file" ]] ||
+  fail 'Compose installer did not create gateway.env.'
+grep -Fq 'NOVES_GATEWAY_AUTH_TOKEN=gateway-token' "$gateway_env_file" ||
+  fail 'Compose installer did not migrate the gateway token into gateway.env.'
+gateway_env_mode="$(stat -f '%Lp' "$gateway_env_file" 2>/dev/null || stat -c '%a' "$gateway_env_file")"
+[[ "$gateway_env_mode" == 600 ]] ||
+  fail 'Compose installer did not protect gateway.env with mode 0600.'
+nodes_mode="$(stat -f '%Lp' "$compose_install/docker-compose/.state/nodes-config.json" 2>/dev/null || stat -c '%a' "$compose_install/docker-compose/.state/nodes-config.json")"
+[[ "$nodes_mode" == 644 ]] ||
+  fail 'Compose installer did not make the non-secret node config container-readable.'
 grep -Eq '^ACCOUNTING_TOKEN_ENCRYPTION_KEY=[A-Za-z0-9+/]{43}=$' "$accounting_file" ||
   fail 'Compose installer did not write a 32-byte base64 accounting key.'
 accounting_mode="$(stat -f '%Lp' "$accounting_file" 2>/dev/null || stat -c '%a' "$accounting_file")"
@@ -529,9 +540,9 @@ if "$repo_root/scripts/migrate-v3.sh" \
   --backup-confirmed \
   --old-workload-stopped \
   --volume old-data >"$scratch/invalid-migration.out" 2>&1; then
-  fail 'migration launcher accepted a source other than Data App v3.16.1.'
+  fail 'migration launcher accepted a source other than v3.16.1 of the Noves App.'
 fi
-grep -Fq -- 'Data App v3.16.1' "$scratch/invalid-migration.out" ||
+grep -Fq -- 'v3.16.1 of the Noves App' "$scratch/invalid-migration.out" ||
   fail 'migration launcher did not explain the v3.16.1 prerequisite.'
 
 if grep -RFiq -- 'python' "$repo_root/install.sh" "$repo_root/scripts"; then

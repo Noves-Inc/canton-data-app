@@ -91,8 +91,10 @@ The capture environment file is required in the normal application manifest.
 An absent file fails before containers start instead of launching the app without
 capture.
 
-The Noves gateway credential remains a Compose secret backed by
-`.secrets/noves-gateway-auth-token`.
+The Noves gateway credential remains in the private
+`.state/gateway.env` file and is injected only into the backend and frontend
+containers that use it. The guide explains that Docker administrators can
+inspect container environment values.
 
 Optional export and backup credentials use separate mode-0600 environment
 files. Empty non-secret endpoint, bucket, and region values keep S3 disabled.

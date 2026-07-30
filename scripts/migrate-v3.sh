@@ -19,7 +19,7 @@ Usage:
     --old-workload-stopped --volume NAME [--directory DIR]
 
 The command starts the normal v4 application against the explicitly selected,
-stopped Data App v3.16.1 database volume.
+stopped database volume from v3.16.1 of the Noves App.
 EOF
 }
 
@@ -36,7 +36,7 @@ while (($#)); do
 done
 
 [[ "$source_version" == "3.16.1" ]] ||
-  die "Migration requires a healthy Data App v3.16.1 source."
+  die "Migration requires a healthy source running v3.16.1 of the Noves App."
 [[ "$backup_confirmed" == true ]] ||
   die "Migration requires --backup-confirmed."
 [[ "$old_workload_stopped" == true ]] ||

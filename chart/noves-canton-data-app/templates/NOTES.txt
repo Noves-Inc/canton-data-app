@@ -11,7 +11,7 @@ Then open http://127.0.0.1:{{ .Values.setupWizard.localPort }}.
 {{- if or (and (eq .Values.routing.provider "ingress") $backendTlsSecret) (and (eq .Values.routing.provider "istio") (hasPrefix "https://" .Values.oidc.appUrl)) }}
 {{- $backendScheme = "https" }}
 {{- end }}
-The Canton Data App is installed.
+The Noves App is installed.
 {{- if ne .Values.routing.provider "none" }}
 
 Open {{ .Values.oidc.appUrl }}.

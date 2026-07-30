@@ -57,17 +57,25 @@ if [[ ! -f "$install_dir/docker-compose/.state/nodes-config.json" ]]; then
 fi
 
 cd "$install_dir/docker-compose"
-gateway_secret_file=".secrets/noves-gateway-auth-token"
-if [[ -f "$gateway_secret_file" ]]; then
-  gateway_token="$(<"$gateway_secret_file")"
+gateway_env_file=".state/gateway.env"
+legacy_gateway_secret_file=".secrets/noves-gateway-auth-token"
+if [[ -f "$gateway_env_file" ]]; then
+  gateway_key_count="$(grep -c '^NOVES_GATEWAY_AUTH_TOKEN=' "$gateway_env_file" || true)"
+  [[ "$gateway_key_count" == 1 ]] ||
+    die "$gateway_env_file must contain exactly one NOVES_GATEWAY_AUTH_TOKEN."
+  gateway_token="$(sed -n 's/^NOVES_GATEWAY_AUTH_TOKEN=//p' "$gateway_env_file")"
   [[ "$gateway_token" =~ [^[:space:]] ]] ||
-    die "The existing Noves gateway credential file is blank: $gateway_secret_file"
+    die "The existing Noves gateway credential is blank: $gateway_env_file"
+elif [[ -f "$legacy_gateway_secret_file" ]]; then
+  gateway_token="$(<"$legacy_gateway_secret_file")"
+  [[ "$gateway_token" =~ [^[:space:]] ]] ||
+    die "The existing Noves gateway credential file is blank: $legacy_gateway_secret_file"
 else
   gateway_token="$(resolve_noves_gateway_token)"
-  write_private_file "$gateway_secret_file"
-  printf '%s\n' "$gateway_token" >"$gateway_secret_file"
 fi
-chmod 600 "$gateway_secret_file"
+write_private_file "$gateway_env_file"
+printf 'NOVES_GATEWAY_AUTH_TOKEN=%s\n' "$gateway_token" >"$gateway_env_file"
+chmod 600 "$gateway_env_file"
 
 accounting_env_file=".state/accounting.env"
 if [[ ! -f "$accounting_env_file" ]]; then
@@ -146,7 +154,8 @@ if [[ "$mode" == standard ]]; then
   esac
   canton_docker_network="$(env_value CANTON_DOCKER_NETWORK)"
   canton_docker_network="${canton_docker_network:-splice-validator_splice_validator}"
-  chmod 600 .env .state/capture.env .state/nodes-config.json "$accounting_env_file"
+  chmod 600 .env .state/capture.env "$gateway_env_file" "$accounting_env_file"
+  chmod 644 .state/nodes-config.json
   docker compose --env-file .env -f compose.yaml config --quiet ||
     die "The Compose application configuration is invalid."
   docker network inspect "$canton_docker_network" >/dev/null 2>&1 ||
@@ -292,7 +301,8 @@ else
     .env
 fi
 rm -f .env.bak
-chmod 600 .env .state/capture.env .state/nodes-config.json .state/values.json
+chmod 600 .env .state/capture.env "$gateway_env_file" .state/values.json
+chmod 644 .state/nodes-config.json
 
 docker compose --env-file .env -f compose.setup.yaml down
 docker compose --env-file .env -f compose.yaml up -d --wait

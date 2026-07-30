@@ -65,8 +65,9 @@ services:
       SCAN_PROXY_URL: ${CANTON_VALIDATOR_URL:-http://validator:5003}
       PUBLIC_SCAN_INDEXER_URL: ${CANTON_PUBLIC_SCAN_URL:-}
       NOVES_PUBLIC_API_URL: ${NOVES_PUBLIC_API_URL:-https://api.canton.noves.fi}
-      NOVES_GATEWAY_AUTH_TOKEN_FILE: /run/secrets/noves-gateway-auth-token
     env_file:
+      - path: ./.state/gateway.env
+        required: true
       - path: ./.state/capture.env
         required: true
       - path: ./.state/accounting.env
@@ -81,8 +82,6 @@ services:
         bind:
           create_host_path: false
       - cda-exports:/exports
-    secrets:
-      - noves-gateway-auth-token
     ports:
       - "${BACKEND_BIND_ADDRESS:-127.0.0.1}:${BACKEND_PORT:-8090}:8090"
     depends_on:
@@ -108,11 +107,11 @@ services:
       VITE_KEYCLOAK_CLIENT_ID: ${VITE_KEYCLOAK_CLIENT_ID:-}
       VITE_KEYCLOAK_REDIRECT_URI: ${APP_URL}/callback
       VITE_KEYCLOAK_LOGOUT_URL: ${APP_URL}
-      NOVES_GATEWAY_AUTH_TOKEN_FILE: /run/secrets/noves-gateway-auth-token
+    env_file:
+      - path: ./.state/gateway.env
+        required: true
     volumes:
       - cda-exports:/app/exports
-    secrets:
-      - noves-gateway-auth-token
     ports:
       - "${FRONTEND_BIND_ADDRESS:-127.0.0.1}:${FRONTEND_PORT:-8091}:3000"
     depends_on:
@@ -132,7 +131,3 @@ volumes:
     name: ${DATABASE_VOLUME:-noves-canton-data-app-v4-data}
   cda-exports:
     name: ${EXPORTS_VOLUME:-noves-canton-data-app-v4-exports}
-
-secrets:
-  noves-gateway-auth-token:
-    file: ./.secrets/noves-gateway-auth-token

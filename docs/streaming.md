@@ -1,6 +1,6 @@
 # Streams, alerts, and connectors
 
-Data App v4 runs streaming inside the backend. It does not require a separate container, port,
+In v4, the Noves App runs streaming inside the backend. You do not need another container, port,
 database, token-signing setting, or service URL. REST calls use `/api/v2/streams`,
 `/api/v2/alerts`, and `/api/v2/connectors` through the normal application origin.
 
@@ -54,4 +54,4 @@ The supported v3.16.1 upgrade preserves subscriptions, connectors, alert rules, 
 delivery history, and WebSocket buffers. After the historical v4 replay completes, streaming starts
 from that completed replay boundary so preserved rules do not resend the migrated history.
 
-Follow [Migrate Data App v3.16.1 to v4](migrate-v3.16.1.md). Keep v3 stopped throughout the upgrade.
+Follow [Migrate from v3.16.1 to v4 of the Noves App](migrate-v3.16.1.md). Keep v3 stopped throughout the upgrade.

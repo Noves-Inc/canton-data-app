@@ -61,13 +61,13 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 {{- if .Values.migration.enabled -}}
 {{- if ne .Values.migration.sourceVersion "3.16.1" -}}
-{{- fail "migration requires an existing Data App v3.16.1 installation" -}}
+{{- fail "migration requires an existing installation of v3.16.1 of the Noves App" -}}
 {{- end -}}
 {{- if not .Values.migration.backupConfirmed -}}
-{{- fail "migration requires backupConfirmed=true for the Data App v3.16.1 database" -}}
+{{- fail "migration requires backupConfirmed=true for the database from v3.16.1 of the Noves App" -}}
 {{- end -}}
 {{- if not .Values.migration.oldWorkloadStopped -}}
-{{- fail "migration requires oldWorkloadStopped=true for Data App v3.16.1" -}}
+{{- fail "migration requires oldWorkloadStopped=true for v3.16.1 of the Noves App" -}}
 {{- end -}}
 {{- if not .Values.migration.existingClaim -}}
 {{- fail "migration requires migration.existingClaim" -}}

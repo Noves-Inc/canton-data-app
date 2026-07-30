@@ -1,6 +1,6 @@
 # Helm installation
 
-This guide installs Data App v4 in the same namespace as a validator deployed with the standard Canton Helm chart. It uses Auth0, NGINX Ingress, and the default Canton Service names. The values reference private prerelease images; Noves will replace them with public v4 images at release time.
+Use this guide to install v4 of the Noves App in the same namespace as a validator deployed with the standard Canton Helm chart. The example uses Auth0, NGINX Ingress, and the default Canton Service names. It references private prerelease images, which Noves will replace with public images when v4 ships.
 
 The setup wizard is optional and disabled by default. Follow this guide for a normal Helm or GitOps installation.
 
@@ -176,7 +176,7 @@ unset PARTICIPANT_ADMIN_TOKEN ADMIN_CLIENT_ID ADMIN_DISCOVERY_URL ADMIN_TOKEN_UR
 
 The Secret's `url` field points to the OpenID Connect discovery document, not
 the token endpoint. Resolve `token_endpoint` from that document as shown above.
-Do not place the administrator client or token in a Data App Secret.
+Do not place the administrator client or token in a Noves App Secret.
 
 ## 4. Create application Secrets
 

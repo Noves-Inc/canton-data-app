@@ -40,7 +40,9 @@ services:
       SETUP_ENABLED: "true"
       SETUP_TOKEN: ${SETUP_TOKEN:?Set SETUP_TOKEN}
       M2M_INDEXER_ENABLED: "false"
-      NOVES_GATEWAY_AUTH_TOKEN_FILE: /run/secrets/noves-gateway-auth-token
+    env_file:
+      - path: ./.state/gateway.env
+        required: true
     volumes:
       - type: bind
         source: ./.state/nodes-config.json
@@ -49,8 +51,6 @@ services:
         bind:
           create_host_path: false
       - cda-exports:/exports
-    secrets:
-      - noves-gateway-auth-token
     depends_on:
       database:
         condition: service_healthy
@@ -93,7 +93,3 @@ volumes:
     name: ${DATABASE_VOLUME:-noves-canton-data-app-v4-data}
   cda-exports:
     name: ${EXPORTS_VOLUME:-noves-canton-data-app-v4-exports}
-
-secrets:
-  noves-gateway-auth-token:
-    file: ./.secrets/noves-gateway-auth-token
