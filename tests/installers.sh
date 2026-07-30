@@ -59,12 +59,18 @@ if [[ "$*" == "compose version" ]]; then
   exit 0
 fi
 printf '%s\n' "$*" >>"$INSTALLER_CALLS"
-if [[ "$1" == ps && "$*" == *"com.docker.compose.service=validator"* ]]; then
+if [[ "$1" == network && "$2" == inspect ]]; then
+  [[ -z "${DOCKER_NETWORK_MISSING:-}" ]]
+elif [[ "$1" == ps && "$*" == *"com.docker.compose.service=participant"* ]]; then
+  printf '%s\n' "${DOCKER_PARTICIPANT:-participant-one}"
+elif [[ "$1" == ps && "$*" == *"com.docker.compose.service=validator"* ]]; then
   if [[ -n "${DOCKER_VALIDATORS+x}" ]]; then
     printf '%s\n' $DOCKER_VALIDATORS
   else
     printf '%s\n' validator-one
   fi
+elif [[ "$1" == compose && "$*" == *" pull"* ]]; then
+  [[ -z "${DOCKER_PULL_FAIL:-}" ]]
 elif [[ "$1" == inspect ]]; then
   container_name="${2:-validator-one}"
   validator_label="${DOCKER_VALIDATOR_LABEL:-validator}"
@@ -77,7 +83,11 @@ EOF
 cat >"$fake_bin/curl" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >>"$INSTALLER_CALLS"
-if [[ "$*" == *"--data-binary @-"* ]]; then
+if [[ "$*" == *"/ready"* ]]; then
+  [[ -z "${BACKEND_READY_FAIL:-}" ]]
+elif [[ "$*" == *"/startup-status"* ]]; then
+  printf '%s' '{"phase":"ready","ready":true}'
+elif [[ "$*" == *"--data-binary @-"* ]]; then
   payload="$(cat)"
   jq -e '
     .sourceMode as $mode
@@ -280,7 +290,17 @@ mkdir -p "$compose_install/docker-compose/.state" \
 cp "$repo_root/docker-compose/.env.example" "$compose_install/docker-compose/.env"
 cp "$repo_root/docker-compose/config/nodes-config.json" \
   "$compose_install/docker-compose/.state/nodes-config.json"
-printf 'M2M_INDEXER_ENABLED=true\n' \
+sed -i.bak \
+  -e 's/REPLACE_WITH_PARTICIPANT_ID/participant::test/' \
+  "$compose_install/docker-compose/.state/nodes-config.json"
+rm -f "$compose_install/docker-compose/.state/nodes-config.json.bak"
+printf '%s\n' \
+  'M2M_INDEXER_ENABLED=true' \
+  'M2M_TOKEN_ENDPOINT=https://issuer.example/token' \
+  'M2M_CLIENT_ID=capture-client' \
+  'M2M_CLIENT_SECRET=capture-secret' \
+  'M2M_AUDIENCE=https://ledger-api' \
+  'M2M_SCOPE=daml_ledger_api' \
   >"$compose_install/docker-compose/.state/capture.env"
 printf 'gateway-token\n' \
   >"$compose_install/docker-compose/.secrets/noves-gateway-auth-token"
@@ -290,8 +310,93 @@ chmod 600 "$compose_install/docker-compose/.env" \
 INSTALLER_CALLS="$scratch/compose.calls" PATH="$fake_bin:$PATH" \
   "$repo_root/scripts/install-compose.sh" \
   --standard --directory "$compose_install"
+accounting_file="$compose_install/docker-compose/.state/accounting.env"
+[[ -f "$accounting_file" ]] ||
+  fail 'Compose installer did not create accounting.env.'
+grep -Eq '^ACCOUNTING_TOKEN_ENCRYPTION_KEY=[A-Za-z0-9+/]{43}=$' "$accounting_file" ||
+  fail 'Compose installer did not write a 32-byte base64 accounting key.'
+accounting_mode="$(stat -f '%Lp' "$accounting_file" 2>/dev/null || stat -c '%a' "$accounting_file")"
+[[ "$accounting_mode" == 600 ]] ||
+  fail 'Compose installer did not protect accounting.env with mode 0600.'
+accounting_checksum="$(shasum -a 256 "$accounting_file" | awk '{print $1}')"
+INSTALLER_CALLS="$scratch/compose-rerun.calls" PATH="$fake_bin:$PATH" \
+  "$repo_root/scripts/install-compose.sh" \
+  --standard --directory "$compose_install"
+[[ "$(shasum -a 256 "$accounting_file" | awk '{print $1}')" == "$accounting_checksum" ]] ||
+  fail 'Compose installer rotated the accounting encryption key on rerun.'
+grep -Fq -- 'compose --env-file .env -f compose.yaml config --quiet' "$scratch/compose.calls" ||
+  fail 'Compose installer did not validate the rendered application manifest.'
+grep -Fq -- 'network inspect splice-validator_splice_validator' "$scratch/compose.calls" ||
+  fail 'Compose installer did not validate the configured Canton Docker network.'
+grep -Fq -- 'compose --env-file .env -f compose.yaml pull' "$scratch/compose.calls" ||
+  fail 'Compose installer did not validate registry access by pulling images.'
 grep -Fq -- 'compose --env-file .env -f compose.yaml up -d' "$scratch/compose.calls" ||
   fail 'Compose installer did not use the standard Compose application path.'
+grep -Fq -- 'http://127.0.0.1:8090/ready' "$scratch/compose.calls" ||
+  fail 'Compose installer did not wait for backend readiness.'
+
+cp "$accounting_file" "$scratch/accounting.env.valid"
+printf 'ACCOUNTING_TOKEN_ENCRYPTION_KEY=invalid\n' >"$accounting_file"
+if INSTALLER_CALLS="$scratch/invalid-accounting.calls" PATH="$fake_bin:$PATH" \
+  "$repo_root/scripts/install-compose.sh" \
+  --standard --directory "$compose_install" \
+  >"$scratch/invalid-accounting.out" 2>&1; then
+  fail 'Compose installer accepted an invalid retained accounting key.'
+fi
+grep -Fq '32-byte base64 ACCOUNTING_TOKEN_ENCRYPTION_KEY' \
+  "$scratch/invalid-accounting.out" ||
+  fail 'invalid accounting key error did not explain the required format.'
+cp "$scratch/accounting.env.valid" "$accounting_file"
+
+cp "$compose_install/docker-compose/.state/capture.env" "$scratch/capture.env.valid"
+grep -v '^M2M_CLIENT_SECRET=' "$scratch/capture.env.valid" \
+  >"$compose_install/docker-compose/.state/capture.env"
+if INSTALLER_CALLS="$scratch/incomplete-capture.calls" PATH="$fake_bin:$PATH" \
+  "$repo_root/scripts/install-compose.sh" \
+  --standard --directory "$compose_install" \
+  >"$scratch/incomplete-capture.out" 2>&1; then
+  fail 'Compose installer accepted capture credentials without a client secret.'
+fi
+grep -Fq 'M2M_CLIENT_SECRET' "$scratch/incomplete-capture.out" ||
+  fail 'incomplete capture error did not name M2M_CLIENT_SECRET.'
+cp "$scratch/capture.env.valid" "$compose_install/docker-compose/.state/capture.env"
+
+cp "$compose_install/docker-compose/.state/nodes-config.json" "$scratch/nodes-config.valid"
+sed -i.bak \
+  -e 's/participant::test/REPLACE_WITH_PARTICIPANT_ID/' \
+  "$compose_install/docker-compose/.state/nodes-config.json"
+rm -f "$compose_install/docker-compose/.state/nodes-config.json.bak"
+if INSTALLER_CALLS="$scratch/placeholder-node.calls" PATH="$fake_bin:$PATH" \
+  "$repo_root/scripts/install-compose.sh" \
+  --standard --directory "$compose_install" \
+  >"$scratch/placeholder-node.out" 2>&1; then
+  fail 'Compose installer accepted the placeholder participant ID.'
+fi
+grep -Fq 'REPLACE_WITH_PARTICIPANT_ID' "$scratch/placeholder-node.out" ||
+  fail 'placeholder participant error did not name the value to replace.'
+cp "$scratch/nodes-config.valid" \
+  "$compose_install/docker-compose/.state/nodes-config.json"
+
+if INSTALLER_CALLS="$scratch/missing-network.calls" DOCKER_NETWORK_MISSING=1 \
+  PATH="$fake_bin:$PATH" "$repo_root/scripts/install-compose.sh" \
+  --standard --directory "$compose_install" \
+  >"$scratch/missing-network.out" 2>&1; then
+  fail 'Compose installer accepted a missing Canton Docker network.'
+fi
+grep -Fq "Docker network 'splice-validator_splice_validator' does not exist" \
+  "$scratch/missing-network.out" ||
+  fail 'missing Docker network error did not name the configured network.'
+
+if INSTALLER_CALLS="$scratch/pull-failure.calls" DOCKER_PULL_FAIL=1 \
+  PATH="$fake_bin:$PATH" "$repo_root/scripts/install-compose.sh" \
+  --standard --directory "$compose_install" \
+  >"$scratch/pull-failure.out" 2>&1; then
+  fail 'Compose installer ignored an image pull failure.'
+fi
+grep -Fq 'Log in to the configured registries and retry' \
+  "$scratch/pull-failure.out" ||
+  fail 'image pull failure did not explain the registry login action.'
+
 grep -Fq -- 'nodes-config.json' "$repo_root/scripts/install-compose.sh" ||
   fail 'Compose installer does not persist the wizard participant configuration.'
 grep -Fq -- 'setup_user="$(id -u):$(id -g)"' "$repo_root/scripts/install-compose.sh" ||

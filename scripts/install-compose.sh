@@ -41,11 +41,15 @@ done
 
 require_command docker
 docker compose version >/dev/null 2>&1 || die "Docker Compose v2 or newer is required."
+require_command openssl
+require_command curl
 
-mkdir -p "$install_dir/docker-compose"
+mkdir -p "$install_dir/docker-compose/config"
 for file in compose.yaml compose.setup.yaml compose.migrate-v3.yaml .env.example; do
   cp "$repo_root/docker-compose/$file" "$install_dir/docker-compose/$file"
 done
+cp "$repo_root/docker-compose/config/storage.env.example" \
+  "$install_dir/docker-compose/config/storage.env.example"
 mkdir -p "$install_dir/docker-compose/.state" "$install_dir/docker-compose/.secrets"
 if [[ ! -f "$install_dir/docker-compose/.state/nodes-config.json" ]]; then
   cp "$repo_root/docker-compose/config/nodes-config.json" \
@@ -65,29 +69,21 @@ else
 fi
 chmod 600 "$gateway_secret_file"
 
-if [[ "$mode" == standard ]]; then
-  [[ -f .env ]] || die "Create .env from .env.example before a standard install."
-  [[ -f .state/capture.env ]] || die "Create .state/capture.env with dedicated M2M credentials."
-  chmod 600 .env .state/capture.env
-  exec docker compose --env-file .env -f compose.yaml up -d
+accounting_env_file=".state/accounting.env"
+if [[ ! -f "$accounting_env_file" ]]; then
+  write_private_file "$accounting_env_file"
+  printf 'ACCOUNTING_TOKEN_ENCRYPTION_KEY=%s\n' \
+    "$(openssl rand -base64 32 | tr -d '\n')" >"$accounting_env_file"
 fi
+accounting_key_count="$(grep -c '^ACCOUNTING_TOKEN_ENCRYPTION_KEY=' "$accounting_env_file" || true)"
+[[ "$accounting_key_count" == 1 ]] ||
+  die "$accounting_env_file must contain exactly one ACCOUNTING_TOKEN_ENCRYPTION_KEY."
+accounting_key="$(sed -n 's/^ACCOUNTING_TOKEN_ENCRYPTION_KEY=//p' "$accounting_env_file")"
+[[ "$accounting_key" =~ ^[A-Za-z0-9+/]{43}=$ ]] ||
+  die "$accounting_env_file must contain a 32-byte base64 ACCOUNTING_TOKEN_ENCRYPTION_KEY."
+chmod 600 "$accounting_env_file"
 
-require_command jq
-require_command openssl
-require_command curl
-
-if [[ ! -f .env ]]; then
-  database_password="$(random_secret)"
-  setup_token="$(random_secret)"
-  setup_session_token="$(random_secret)"
-  umask 077
-  sed \
-    -e "s/^DATABASE_PASSWORD=.*/DATABASE_PASSWORD=$database_password/" \
-    .env.example >.env
-  chmod 600 .env
-fi
-
-ensure_setup_secret() {
+ensure_env_secret() {
   local key="$1"
   local value
   value="$(sed -n "s/^${key}=//p" .env | tail -1)"
@@ -103,8 +99,96 @@ ensure_setup_secret() {
   printf '%s' "$value"
 }
 
-setup_token="$(ensure_setup_secret SETUP_TOKEN)"
-setup_session_token="$(ensure_setup_secret SETUP_SESSION_TOKEN)"
+env_value() {
+  sed -n "s/^${1}=//p" .env | tail -1
+}
+
+wait_for_backend_ready() {
+  local origin="$1"
+  local attempt
+  for attempt in $(seq 1 120); do
+    if curl -fsS "$origin/ready" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 5
+  done
+  printf 'Last backend startup status:\n' >&2
+  curl -sS "$origin/startup-status" >&2 || true
+  printf '\n' >&2
+  return 1
+}
+
+if [[ "$mode" == standard ]]; then
+  [[ -f .env ]] || die "Create .env from .env.example before a standard install."
+  [[ -f .state/capture.env ]] || die "Create .state/capture.env with dedicated M2M credentials."
+  [[ -f .state/nodes-config.json ]] ||
+    die "Create .state/nodes-config.json with the exact participant ID."
+  ensure_env_secret DATABASE_PASSWORD >/dev/null
+  if grep -Fq 'REPLACE_WITH_PARTICIPANT_ID' .state/nodes-config.json; then
+    die "Replace REPLACE_WITH_PARTICIPANT_ID in .state/nodes-config.json."
+  fi
+  for key in M2M_TOKEN_ENDPOINT M2M_CLIENT_ID M2M_CLIENT_SECRET M2M_AUDIENCE; do
+    if ! grep -Eq "^${key}=(\"[^\"]+\"|[^[:space:]].*)$" .state/capture.env; then
+      die ".state/capture.env is missing a non-blank $key."
+    fi
+  done
+  canton_network="$(env_value CANTON_NETWORK)"
+  case "$canton_network" in
+    mainnet|testnet|devnet) ;;
+    *) die "Set CANTON_NETWORK to mainnet, testnet, or devnet in .env." ;;
+  esac
+  canton_docker_network="$(env_value CANTON_DOCKER_NETWORK)"
+  canton_docker_network="${canton_docker_network:-splice-validator_splice_validator}"
+  chmod 600 .env .state/capture.env .state/nodes-config.json "$accounting_env_file"
+  docker compose --env-file .env -f compose.yaml config --quiet ||
+    die "The Compose application configuration is invalid."
+  docker network inspect "$canton_docker_network" >/dev/null 2>&1 ||
+    die "Docker network '$canton_docker_network' does not exist."
+  participant_container="$(
+    docker ps \
+      --filter label=com.docker.compose.service=participant \
+      --filter network="$canton_docker_network" \
+      --format '{{.Names}}' |
+      head -1
+  )"
+  [[ -n "$participant_container" ]] ||
+    die "No running participant service is attached to '$canton_docker_network'."
+  validator_service_container="$(
+    docker ps \
+      --filter label=com.docker.compose.service=validator \
+      --filter network="$canton_docker_network" \
+      --format '{{.Names}}' |
+      head -1
+  )"
+  [[ -n "$validator_service_container" ]] ||
+    die "No running validator service is attached to '$canton_docker_network'."
+  docker compose --env-file .env -f compose.yaml pull ||
+    die "Could not pull the CDA images. Log in to the configured registries and retry."
+  docker compose --env-file .env -f compose.yaml up -d
+  backend_port="$(env_value BACKEND_PORT)"
+  backend_port="${backend_port:-8090}"
+  backend_origin="http://127.0.0.1:$backend_port"
+  wait_for_backend_ready "$backend_origin" ||
+    die "CDA did not become ready. Run: docker compose --env-file .env -f compose.yaml logs backend"
+  printf 'Installation complete. Backend status: %s/startup-status\n' "$backend_origin"
+  exit 0
+fi
+
+require_command jq
+
+if [[ ! -f .env ]]; then
+  database_password="$(random_secret)"
+  setup_token="$(random_secret)"
+  setup_session_token="$(random_secret)"
+  umask 077
+  sed \
+    -e "s/^DATABASE_PASSWORD=.*/DATABASE_PASSWORD=$database_password/" \
+    .env.example >.env
+  chmod 600 .env
+fi
+
+setup_token="$(ensure_env_secret SETUP_TOKEN)"
+setup_session_token="$(ensure_env_secret SETUP_SESSION_TOKEN)"
 
 setup_user="$(id -u):$(id -g)"
 if grep -q '^SETUP_USER=' .env; then

@@ -38,6 +38,8 @@ if [[ "$target" == compose ]]; then
   done
   curl -fsSL "$raw_base/docker-compose/config/nodes-config.json" \
     -o "$scratch/docker-compose/config/nodes-config.json"
+  curl -fsSL "$raw_base/docker-compose/config/storage.env.example" \
+    -o "$scratch/docker-compose/config/storage.env.example"
 fi
 chmod +x "$scratch/scripts/install-$target.sh"
 "$scratch/scripts/install-$target.sh" "$@"
