@@ -59,6 +59,21 @@ if rg -n 'canton-data-app/main/install\.sh' "$repo_root/readme.md" "$repo_root/d
   fail 'a v4 quick start downloads an installer from the moving main branch.'
 fi
 
+startup_contract_files=(
+  "$repo_root/scripts/install-compose.sh"
+  "$repo_root/docs/helm.md"
+  "$repo_root/docs/docker-compose.md"
+  "$repo_root/docs/migrate-v3.16.1.md"
+  "$repo_root/docs/upgrades.md"
+)
+if rg -n '/startupStatus' "${startup_contract_files[@]}"; then
+  fail 'operator-facing artifacts use the nonexistent startupStatus route.'
+fi
+for path in "${startup_contract_files[@]}"; do
+  rg -Fq '/startup-status' "$path" ||
+    fail "${path#"$repo_root/"} is missing the canonical startup-status route."
+done
+
 for contract in \
   'novesGateway.existingSecret' \
   '.secrets/noves-gateway-auth-token' \
@@ -115,11 +130,17 @@ docs/docker-compose.md|APP_INSTALL_DIR
 docs/docker-compose.md|.state/accounting.env
 docs/docker-compose.md|storage.env.example
 docs/docker-compose.md|docker-compose/nginx/cda.conf.example
+docs/docker-compose.md|`noves-canton-data-app-v4-exports`
 docs/security.md|routing.backend.enabled
 docs/authentication/keycloak.md|VITE_KEYCLOAK_URL=
 docs/authentication/keycloak.md|noves-canton-data-app-capture
 docs/authentication/keycloak.md|**Settings > Capability config**
 docs/authentication/keycloak.md|**PKCE Method** to `S256`
+docs/authentication/keycloak.md|Select **Add client scope**
+docs/authentication/keycloak.md|choose **Default**
+docs/authentication/keycloak.md|Leave **Root URL** and **Home URL** blank
+docs/authentication/keycloak.md|Select **Configure a new mapper**
+docs/authentication/keycloak.md|**Name:** `ledger-api-audience`
 EOF
 
 if rg -Fq 'validator-app:5003' \
@@ -132,8 +153,19 @@ if rg -ni 'Capture only|Redact' "$repo_root/docs/authentication"; then
 fi
 
 if rg -n '\bCDA\b|CDA_[A-Z0-9_]*' \
-  "$repo_root/readme.md" "$repo_root/docs" --glob '*.md'; then
+  "$repo_root/readme.md" "$repo_root/docs" \
+  "$repo_root/docker-compose/.env.example" --glob '*.md'; then
   fail 'public documentation uses the retired product name or variable prefix.'
+fi
+
+rg -Fq './scripts/install-compose.sh' "$repo_root/readme.md" ||
+  fail 'the README standard Compose path does not use the installer'
+rg -Fq -- '--standard' "$repo_root/readme.md" ||
+  fail 'the README standard Compose path does not select standard mode'
+if rg -Fq \
+  'docker compose --env-file docker-compose/.env -f docker-compose/compose.yaml up -d' \
+  "$repo_root/readme.md"; then
+  fail 'the README bypasses installer-generated Compose secrets'
 fi
 
 if rg -ni 'wizard (creates|will create).*(Auth0|Keycloak).*(client|application)' \

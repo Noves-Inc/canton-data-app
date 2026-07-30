@@ -150,8 +150,9 @@ The installer applies mode `0600` to the generated accounting file.
 
 ### Optional S3-compatible storage
 
-The default deployment writes exports to the named `cda-exports` volume. No S3
-settings are required.
+The default deployment writes exports to the named
+`noves-canton-data-app-v4-exports` volume. Set `EXPORTS_VOLUME` in `.env` to
+use another volume name. No S3 settings are required.
 
 To use S3-compatible export or backup storage, copy the separate example and
 fill only the block you need:

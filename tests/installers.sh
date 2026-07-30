@@ -334,6 +334,13 @@ grep -Fq -- 'compose --env-file .env -f compose.yaml up -d' "$scratch/compose.ca
   fail 'Compose installer did not use the standard Compose application path.'
 grep -Fq -- 'http://127.0.0.1:8090/ready' "$scratch/compose.calls" ||
   fail 'Compose installer did not wait for backend readiness.'
+grep -Fq -- '$origin/startup-status' "$repo_root/scripts/install-compose.sh" ||
+  fail 'Compose installer diagnostics do not use the canonical startup-status route.'
+grep -Fq -- '%s/startup-status' "$repo_root/scripts/install-compose.sh" ||
+  fail 'Compose installer output does not print the canonical startup-status route.'
+if grep -Fq -- 'startupStatus' "$repo_root/scripts/install-compose.sh"; then
+  fail 'Compose installer references the nonexistent startupStatus route.'
+fi
 
 cp "$accounting_file" "$scratch/accounting.env.valid"
 printf 'ACCOUNTING_TOKEN_ENCRYPTION_KEY=invalid\n' >"$accounting_file"
@@ -359,6 +366,20 @@ if INSTALLER_CALLS="$scratch/incomplete-capture.calls" PATH="$fake_bin:$PATH" \
 fi
 grep -Fq 'M2M_CLIENT_SECRET' "$scratch/incomplete-capture.out" ||
   fail 'incomplete capture error did not name M2M_CLIENT_SECRET.'
+cp "$scratch/capture.env.valid" "$compose_install/docker-compose/.state/capture.env"
+
+sed -i.bak \
+  -e 's/^M2M_CLIENT_SECRET=.*/M2M_CLIENT_SECRET=replace-with-the-generated-client-secret/' \
+  "$compose_install/docker-compose/.state/capture.env"
+rm -f "$compose_install/docker-compose/.state/capture.env.bak"
+if INSTALLER_CALLS="$scratch/placeholder-capture.calls" PATH="$fake_bin:$PATH" \
+  "$repo_root/scripts/install-compose.sh" \
+  --standard --directory "$compose_install" \
+  >"$scratch/placeholder-capture.out" 2>&1; then
+  fail 'Compose installer accepted a placeholder capture client secret.'
+fi
+grep -Fq 'M2M_CLIENT_SECRET' "$scratch/placeholder-capture.out" ||
+  fail 'placeholder capture error did not name M2M_CLIENT_SECRET.'
 cp "$scratch/capture.env.valid" "$compose_install/docker-compose/.state/capture.env"
 
 cp "$compose_install/docker-compose/.state/nodes-config.json" "$scratch/nodes-config.valid"

@@ -21,8 +21,8 @@ server {
     resolver 127.0.0.11 valid=30s ipv6=off;
 
     location / {
-        set $cda_frontend noves-canton-frontend-v4:3000;
-        proxy_pass http://$cda_frontend;
+        set $noves_app_frontend noves-canton-frontend-v4:3000;
+        proxy_pass http://$noves_app_frontend;
         proxy_http_version 1.1;
 
         proxy_set_header Host $host;
@@ -49,8 +49,8 @@ server {
     resolver 127.0.0.11 valid=30s ipv6=off;
 
     location / {
-        set $cda_backend noves-canton-backend-v4:8090;
-        proxy_pass http://$cda_backend;
+        set $noves_app_backend noves-canton-backend-v4:8090;
+        proxy_pass http://$noves_app_backend;
         proxy_http_version 1.1;
 
         proxy_set_header Host $host;

@@ -60,20 +60,23 @@ and read [Helm installation](docs/helm.md).
 For a standard Compose installation:
 
 ```bash
-cp docker-compose/.env.example docker-compose/.env
-mkdir -p docker-compose/.state
-mkdir -p docker-compose/.secrets
-cp docker-compose/config/nodes-config.json docker-compose/.state/nodes-config.json
-# Add dedicated M2M settings to .state/capture.env and the installation
-# gateway credential to .secrets/noves-gateway-auth-token, then:
-chmod 600 docker-compose/.env docker-compose/.state/capture.env \
-  docker-compose/.state/nodes-config.json \
-  docker-compose/.state/accounting.env \
-  docker-compose/.secrets/noves-gateway-auth-token
-docker compose --env-file docker-compose/.env -f docker-compose/compose.yaml up -d
+export APP_INSTALL_DIR=/opt/noves-canton-data-app-v4
+mkdir -p "$APP_INSTALL_DIR/docker-compose/.state"
+mkdir -p "$APP_INSTALL_DIR/docker-compose/.secrets"
+cp docker-compose/.env.example "$APP_INSTALL_DIR/docker-compose/.env"
+cp docker-compose/config/nodes-config.json \
+  "$APP_INSTALL_DIR/docker-compose/.state/nodes-config.json"
+
+# Edit .env and nodes-config.json, then create capture.env and the Noves
+# gateway credential as described in the full guide.
+./scripts/install-compose.sh \
+  --standard \
+  --directory "$APP_INSTALL_DIR"
 ```
 
-See [Docker Compose](docs/docker-compose.md) for the required files.
+The installer generates the database password and accounting encryption key.
+See [Docker Compose](docs/docker-compose.md) for the required identity-provider,
+participant, and secret values.
 
 ## Before installation
 

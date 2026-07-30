@@ -103,6 +103,17 @@ env_value() {
   sed -n "s/^${1}=//p" .env | tail -1
 }
 
+validate_capture_env() {
+  local file=".state/capture.env"
+  local key
+  for key in M2M_TOKEN_ENDPOINT M2M_CLIENT_ID M2M_CLIENT_SECRET M2M_AUDIENCE; do
+    if ! grep -Eq "^${key}=(\"[^\"]+\"|[^[:space:]].*)$" "$file" ||
+      grep -Eq "^${key}=\"?replace-with-" "$file"; then
+      die "$file must contain a non-blank, non-placeholder $key."
+    fi
+  done
+}
+
 wait_for_backend_ready() {
   local origin="$1"
   local attempt
@@ -127,11 +138,7 @@ if [[ "$mode" == standard ]]; then
   if grep -Fq 'REPLACE_WITH_PARTICIPANT_ID' .state/nodes-config.json; then
     die "Replace REPLACE_WITH_PARTICIPANT_ID in .state/nodes-config.json."
   fi
-  for key in M2M_TOKEN_ENDPOINT M2M_CLIENT_ID M2M_CLIENT_SECRET M2M_AUDIENCE; do
-    if ! grep -Eq "^${key}=(\"[^\"]+\"|[^[:space:]].*)$" .state/capture.env; then
-      die ".state/capture.env is missing a non-blank $key."
-    fi
-  done
+  validate_capture_env
   canton_network="$(env_value CANTON_NETWORK)"
   case "$canton_network" in
     mainnet|testnet|devnet) ;;
@@ -227,11 +234,7 @@ while true; do
   sleep 2
 done
 
-for key in M2M_TOKEN_ENDPOINT M2M_CLIENT_ID M2M_CLIENT_SECRET M2M_AUDIENCE; do
-  if ! grep -Eq "^${key}=(\"[^\"]+\"|[^[:space:]].*)$" .state/capture.env; then
-    die "The dedicated capture credential file is incomplete; rerun the wizard."
-  fi
-done
+validate_capture_env
 
 app_url="$(jq -r '.appUrl' .state/values.json)"
 provider="$(jq -r '.provider' .state/values.json)"

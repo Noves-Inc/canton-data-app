@@ -42,7 +42,8 @@ In the Keycloak admin console:
    - **Web origins:** `APP_URL`
 6. Save the client.
 7. On **Settings > Capability config**, set **PKCE Method** to `S256`.
-8. Open **Client scopes** and add `daml_ledger_api` as a default scope.
+8. Assign `daml_ledger_api` as a default client scope. Follow
+   [Assign the Ledger API scope](#assign-the-ledger-api-scope).
 
 The browser client has no secret. Put only these public values in Compose
 `.env`:
@@ -78,9 +79,20 @@ oidc:
    - disable **Standard flow**;
    - disable **Direct access grants**; and
    - enable **Service accounts roles**.
-3. Save the client.
-4. Open **Client scopes** and add `daml_ledger_api` as a default scope.
+3. Leave **Root URL** and **Home URL** blank in **Login settings**, then save
+   the client.
+4. Assign `daml_ledger_api` as a default client scope. Follow
+   [Assign the Ledger API scope](#assign-the-ledger-api-scope).
 5. Open **Credentials** and record the generated client secret.
+
+### Assign the Ledger API scope
+
+On the client's **Client scopes** tab:
+
+1. Select **Add client scope**.
+2. Select the checkbox next to `daml_ledger_api`.
+3. Open the **Add** menu and choose **Default**.
+4. Confirm that the `daml_ledger_api` row shows **Default**.
 
 The access token must contain the Ledger API audience. Request a token in the
 next section and inspect `aud` first. If `AUDIENCE` is absent, add an audience
@@ -88,9 +100,11 @@ mapper to this client's dedicated scope:
 
 1. Open the capture client and select **Client scopes**.
 2. Open the row whose name ends in `-dedicated`.
-3. Select **Add mapper > By configuration > Audience**.
-4. Set **Included Custom Audience** to `AUDIENCE`.
-5. Enable **Add to access token** and save.
+3. Select **Configure a new mapper**, then choose **Audience**.
+4. Set:
+   - **Name:** `ledger-api-audience`
+   - **Included Custom Audience:** `AUDIENCE`
+5. Keep **Add to access token** enabled and save.
 
 This keeps the app-specific mapper on the capture client instead of changing a
 realm-wide scope.
