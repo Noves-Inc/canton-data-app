@@ -179,6 +179,18 @@ kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
   --from-literal=scope=''
 ```
 
+If the participant Ledger API requires mTLS, create a separate Secret from the unencrypted PEM files. `ca.crt` verifies the participant server; `client.crt` and `client.key` are the Data App's client identity:
+
+```bash
+kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
+  create secret generic noves-canton-ledger-mtls \
+  --from-file=ca.crt=/secure/path/ca.crt \
+  --from-file=client.crt=/secure/path/client.crt \
+  --from-file=client.key=/secure/path/client.key
+```
+
+The chart projects configured certificate keys with mode `0440`; the backend pod's `fsGroup` supplies read access. Do not put the private key in a ConfigMap or values file.
+
 The chart generates `ACCOUNTING_TOKEN_ENCRYPTION_KEY` in a retained Secret named `<release>-accounting-token-encryption`. Back up that Secret with the database. Losing it makes stored accounting provider credentials unreadable. GitOps operators who need deterministic client-side rendering can create their own 32-byte base64 key and set:
 
 ```yaml
@@ -208,6 +220,11 @@ capture:
 canton:
   expectedParticipantId: 'participant::replace-with-the-full-id'
   participantAddress: participant:5001
+  certificateSecret: noves-canton-ledger-mtls
+  certificateKey: ca.crt
+  clientCertificateKey: client.crt
+  clientPrivateKeyKey: client.key
+  tlsServerName: ledger.example.com
   validatorUrl: http://validator-app:5003
   network: mainnet
 
@@ -232,6 +249,8 @@ routing:
 ```
 
 An empty backend host produces `api.data.example.com`. An empty backend TLS Secret reuses `routing.tlsSecret`; that certificate must include both hostnames. Set `routing.backend.tlsSecret` when the backend uses a separate certificate. With Istio, the Gateway terminates TLS, so its certificate must cover both names.
+
+`canton.certificateKey` is the participant server CA, not the client certificate. When the participant uses a publicly or otherwise system-trusted server certificate, keep the client pair and set `certificateKey: ""`; the chart then omits `cert_file` and the backend performs normal system hostname validation. The client keys must be set together and require `certificateSecret`. `tlsServerName` is optional and should match the participant certificate SAN when `participantAddress` uses a different internal host name.
 
 For embedded mode, add the exact origins allowed to host the iframe:
 
@@ -316,6 +335,8 @@ Open `https://api.data.example.com/docs` for Swagger UI. Requests to `/docs` on 
 | Backend TLS certificate mismatch | Add both names to the shared certificate or set `routing.backend.tlsSecret` |
 | Istio render fails server dry-run | Install the VirtualService CRD or select `routing.provider: ingress` |
 | Backend stays unready | Read `/startup-status`, then backend logs |
+| Ledger API TLS handshake fails | Check the client certificate/key pair, server CA or system trust, server-auth EKU, and that `tlsServerName` or `participantAddress` matches a certificate SAN |
+| Ledger API rejects the client | Confirm the participant trusts the client issuer and that `client.crt` includes any required intermediate certificates |
 | Capture disabled or stale | Read `/api/v2/capture/status`; verify the capture Secret, token subject, Canton user, and its exact rights |
 | Browser login loops | Compare the Auth0 callback, logout, origin, audience, and `oidc.appUrl` values |
 

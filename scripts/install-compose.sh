@@ -5,6 +5,8 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/.." && pwd)"
 # shellcheck source=lib/common.sh
 source "$script_dir/lib/common.sh"
+# shellcheck source=lib/canton-certificates.sh
+source "$script_dir/lib/canton-certificates.sh"
 
 install_dir="$PWD/noves-canton-data-app-v4"
 
@@ -30,6 +32,7 @@ require_command docker
 docker compose version >/dev/null 2>&1 || die "Docker Compose v2 or newer is required."
 require_command openssl
 require_command curl
+require_command jq
 
 mkdir -p "$install_dir/docker-compose/config"
 for file in compose.yaml compose.migrate-v3.yaml .env.example; do
@@ -38,6 +41,8 @@ done
 cp "$repo_root/docker-compose/config/storage.env.example" \
   "$install_dir/docker-compose/config/storage.env.example"
 mkdir -p "$install_dir/docker-compose/.state"
+mkdir -p -m 0750 "$install_dir/docker-compose/.state/certificates"
+chmod 0750 "$install_dir/docker-compose/.state/certificates"
 if [[ ! -f "$install_dir/docker-compose/.state/nodes-config.json" ]]; then
   cp "$repo_root/docker-compose/config/nodes-config.json" \
     "$install_dir/docker-compose/.state/nodes-config.json"
@@ -113,6 +118,9 @@ if grep -Fq 'REPLACE_WITH_PARTICIPANT_ID' .state/nodes-config.json; then
   die "Replace REPLACE_WITH_PARTICIPANT_ID in .state/nodes-config.json."
 fi
 validate_capture_env
+validate_canton_certificate_files \
+  .state/nodes-config.json .state/certificates ||
+  die "Ledger API certificate configuration is invalid."
 canton_network="$(env_value CANTON_NETWORK)"
 case "$canton_network" in
   mainnet|testnet|devnet) ;;
@@ -128,6 +136,11 @@ docker network inspect "$canton_docker_network" >/dev/null 2>&1 ||
   die "Docker network '$canton_docker_network' does not exist."
 docker compose --env-file .env -f compose.yaml pull ||
   die "Could not pull the Noves Data App images. Log in to the configured registries and retry."
+for certificate_path in "${canton_certificate_container_paths[@]}"; do
+  docker compose --env-file .env -f compose.yaml run --rm --no-deps \
+    --entrypoint /bin/sh backend -c 'test -r "$1"' sh "$certificate_path" ||
+    die "The backend container user cannot read certificate file: $certificate_path"
+done
 docker compose --env-file .env -f compose.yaml up -d
 backend_port="$(env_value BACKEND_PORT)"
 backend_port="${backend_port:-8090}"

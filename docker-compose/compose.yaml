@@ -49,6 +49,12 @@ services:
         read_only: true
         bind:
           create_host_path: false
+      - type: bind
+        source: ./.state/certificates
+        target: /certificates
+        read_only: true
+        bind:
+          create_host_path: false
       - exports:/exports
     ports:
       - "${BACKEND_BIND_ADDRESS:-127.0.0.1}:${BACKEND_PORT:-8090}:8090"

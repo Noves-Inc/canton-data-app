@@ -138,6 +138,9 @@ canton:
   expectedSynchronizerId: ""
   certificateSecret: ""
   certificateKey: ca.crt
+  clientCertificateKey: ""
+  clientPrivateKeyKey: ""
+  tlsServerName: ""
   validatorUrl: http://validator-app:5003
   publicScanUrl: ""
   network: mainnet
