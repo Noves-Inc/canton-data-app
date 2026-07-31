@@ -1,11 +1,6 @@
 # Noves Data App
 
-
-
-The Noves Data App is a private block explorer and reporting suite for Canton
-Network. It lets you browse and filter private ledger activity, understand
-transactions in context, export data in reconcilable financial formats, and
-build applications on top of its API.
+The Noves Data App is a private block explorer and reporting suite for Canton Network. It lets you browse and filter private ledger activity, understand transactions in context, export data in reconcilable financial formats, and build applications on top of its API.
 
 The app runs in your infrastructure and connects to your existing identity
 provider. The ledger index stays in your database, and each user sees only the
@@ -16,23 +11,28 @@ database.
 
 You can explore transaction history, balances, rewards, and activity over time.
 The app also produces CSV exports, accounting reports, cost basis reports, and
-rollups. 
+rollups. Smaller exports download in the browser. Larger transaction, cost
+basis, and rollup exports run as background jobs and write to S3 or a persistent
+`/exports` volume.
 
-Alerts, connectors, and WebSocket streams make the same data available
-to other systems.
+Alerts, connectors, and WebSocket streams make the same data available to other
+systems.
 
 Traffic cost is calculated inside the backend, with no extra collector or log
-forwarding service to install. 
+forwarding service to install.
 
-The app also shows your validator's ledger
-packages, remaining synchronizer traffic, and other tools for node operators.
+The app also shows your validator's ledger packages, remaining synchronizer
+traffic, and other tools for node operators.
 
-It also ships a fully-fledged wallet compatible with both Canton Coin and other CIP standard tokens.
+The wallet supports Canton Coin and other CIP tokens. Users can send and receive
+assets, keep an address book, and use any party their Canton account is allowed
+to act as.
+
+[Embedded mode](embedded-mode/embedded_mode.md) lets an approved host application
+include the Data App in an iframe.
 
 You can install and use the app without contacting Noves. A free tier is
 included.
-
-
 
 ## Install
 
@@ -112,7 +112,8 @@ browser session.
 
 PostgreSQL stores ledger data and application metadata. Keep its volume private
 and persistent. The backend stores generated exports on a persistent `/exports`
-volume by default. You can use S3 for exports instead.
+volume by default. You can use S3 for exports instead. Transaction history
+backups can use a separate S3 destination.
 
 A typical public deployment uses two HTTPS addresses:
 
@@ -121,8 +122,8 @@ data.example.com      frontend and browser API
 api.data.example.com  backend API and API documentation
 ```
 
-You can keep the backend address private and send browser requests through the  
-frontend. Keep PostgreSQL and the participant Ledger API off the public  
+You can keep the backend address private and send browser requests through the
+frontend. Keep PostgreSQL and the participant Ledger API off the public
 network. See [encryption at rest](encryption_at_rest.md) for storage guidance.
 
 ## Operations
