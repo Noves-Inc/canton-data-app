@@ -2,7 +2,7 @@
 
 ## Helm
 
-The guided installer uses:
+The Helm chart uses:
 
 ```text
 >=4.0.0 <5.0.0
@@ -77,7 +77,7 @@ and database builds belong to the same release of the Noves App.
 
 For Compose, preserve the named database and export volumes and
 `.state/accounting.env`. Run `docker compose down` without `--volumes`, update the three image
-references, then rerun `install-compose.sh --standard`. The installer reuses the accounting key and
+references, then rerun `install-compose.sh`. The installer reuses the accounting key and
 waits for backend readiness.
 
 Database migrations are forward-only. Rollback means starting a compatible older v4 image when

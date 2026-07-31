@@ -5,8 +5,7 @@ Docker Compose bundle. It uses the existing
 `splice-validator_splice_validator` network, `participant:5001`, and
 `http://validator:5003`.
 
-These instructions keep the configuration in local files. You can use the
-optional setup wizard instead.
+These instructions keep the configuration in local files.
 
 ## 1. Check the host
 
@@ -219,6 +218,13 @@ printf 'NOVES_GATEWAY_AUTH_TOKEN=%s\n' \
   > "$APP_INSTALL_DIR/docker-compose/.state/gateway.env"
 ```
 
+For non-interactive automation, set `NOVES_GATEWAY_AUTH_TOKEN` directly or set
+`NOVES_GATEWAY_AUTH_TOKEN_FILE` to a readable file containing the credential.
+Direct values take precedence when both inputs are set.
+If neither is set and a terminal is available, the installer prompts through
+`/dev/tty`. It copies the resulting value into `.state/gateway.env` with mode
+`0600`.
+
 `install-compose.sh` generates the database password when `.env` still
 contains the example placeholder. It also creates
 `.state/accounting.env` with a random 32-byte
@@ -272,9 +278,7 @@ volume remains mounted even when the optional file is present.
 Run:
 
 ```bash
-./scripts/install-compose.sh \
-  --standard \
-  --directory "$APP_INSTALL_DIR"
+./scripts/install-compose.sh --directory "$APP_INSTALL_DIR"
 ```
 
 The installer validates required files and placeholders, confirms the external
@@ -410,19 +414,3 @@ yet safely materialized. Historical work throttles at 100,000 pending updates an
 `ACCOUNTING_ROLLUP_GENERATOR_MODE=shadow` in the backend environment for the compatibility window,
 then use `manifest` only after the documented parity/performance gate passes. Preserve the database
 and export volumes when rolling back and follow the forward-only migration procedure above.
-
-## Optional guided setup
-
-The localhost wizard detects safe validator and OIDC values but does not create
-Keycloak or Auth0 clients:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/Noves-Inc/canton-data-app/v4/install.sh |
-  bash -s -- compose
-```
-
-If more than one validator is running, add
-`--validator-container <container-name>`. The host installer may stream the
-selected validator's participant-admin machine configuration into setup
-service memory. It never adds that credential to Noves App files or the final
-deployment.

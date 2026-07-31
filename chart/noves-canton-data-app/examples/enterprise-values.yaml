@@ -42,6 +42,3 @@ routing:
     tlsSecret: ""
   ingress:
     className: nginx
-
-setupWizard:
-  enabled: false

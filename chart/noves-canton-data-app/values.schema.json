@@ -194,18 +194,6 @@
         }
       }
     },
-    "setupWizard": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["enabled", "setupTokenSecret", "setupTokenKey", "sessionTokenKey", "localPort"],
-      "properties": {
-        "enabled": { "type": "boolean" },
-        "setupTokenSecret": { "type": "string" },
-        "setupTokenKey": { "type": "string" },
-        "sessionTokenKey": { "type": "string" },
-        "localPort": { "type": "integer", "minimum": 1024, "maximum": 65535 }
-      }
-    },
     "migration": {
       "type": "object",
       "additionalProperties": false,
@@ -249,7 +237,6 @@
     "novesGateway",
     "oidc",
     "routing",
-    "setupWizard",
     "migration",
     "networkPolicy"
   ],

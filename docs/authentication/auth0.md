@@ -76,17 +76,9 @@ participant.ledger_api.users.create(
 Leave all administration, act-as, execute-as, and per-party rights unset. See
 [Security](../security.md) for the complete boundary.
 
-In guided setup, the installer can detect the Auth0 tenant URL and audience from the validator
-configuration. After you create and enter the dedicated capture application, the wizard asks for
-explicit confirmation and can create this Canton user automatically. It does not create or
-modify the Auth0 application. If automatic participant provisioning is unavailable, use the
-copyable `grpcurl -expand-headers` commands shown by the wizard.
-
 ## 4. Verify
 
-In the setup wizard, enter the tenant domain, browser Client ID, audience, M2M credentials, and
-exact Canton user ID. Activation is blocked if discovery, token exchange, subject equality,
-participant identity, or rights verification fails.
-
-For a standard installation, follow the copyable participant-ID and `grpcurl -expand-headers`
-commands in [Helm installation](../helm.md) before creating the capture Secret.
+Before creating the capture Secret, follow the participant-ID and `grpcurl -expand-headers`
+commands in [Helm installation](../helm.md), or the corresponding Compose procedure in
+[Docker Compose](../docker-compose.md). Confirm the token exchange, exact subject equality,
+participant identity, and least-privilege Canton rights.

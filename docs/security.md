@@ -11,14 +11,6 @@ Create a Canton user whose ID exactly matches the M2M token's `sub`. Grant only
 `CanReadAsAnyParty`. Leave `participantAdmin`, `identityProviderAdmin`, `actAs`, `readAs`,
 `executeAs`, and `executeAsAnyParty` empty or false.
 
-During a guided installation, the host installer may read the validator's existing
-participant-admin machine credential and stream it to setup-service memory only. The browser
-never receives it. The setup service exchanges it for a short-lived token, verifies the
-administrator subject and `ParticipantAdmin`, and may create or grant only
-`CanReadAsAnyParty`. It clears the credential after completion, shutdown, or two hours. The
-administrator credential and token are absent from the capture Secret, chart values, Compose
-files, logs, database, setup result, and final deployment.
-
 In a Canton console connected with an administrative token, the least-privilege create
 operation is:
 
@@ -39,8 +31,7 @@ participant.ledger_api.users.rights.grant(
 )
 ```
 
-List the rights afterward and remove anything broader. The Noves App wizard performs the same
-rights check before activation.
+List the rights afterward and remove anything broader.
 
 ## Network exposure
 
@@ -49,8 +40,8 @@ The backend hostname exposes the complete API, including Swagger at `/docs`. Pro
 keep their existing authorization checks. Set `routing.backend.enabled: false` when an external
 gateway or the frontend/BFF is the only permitted backend entry point.
 
-Keep the PostgreSQL Service, participant Ledger API, and setup verification route private. The
-Compose bundle binds both application ports to loopback by default; expose them through a TLS
+Keep the PostgreSQL Service and participant Ledger API private. The Compose bundle binds both
+application ports to loopback by default; expose them through a TLS
 reverse proxy instead of opening the container ports directly.
 
 The chart enables a database ingress NetworkPolicy that accepts PostgreSQL traffic only from the
@@ -91,13 +82,11 @@ Never:
 - reuse a validator, wallet, or administrative credential;
 - put M2M credentials in the browser OIDC client;
 - publish the database or participant Ledger API;
-- give the wizard a validator Secret or a broad Kubernetes Role;
 - commit `.env`, `capture.env`, tokens, or client secrets.
 
-The exception to “never reuse an administrator credential” is transient Canton-user provisioning:
-it may use the existing validator credential as administrator authority, never as the app's
-capture credential. Standard Helm and Compose operators can instead use their normal Canton
-administrator procedure.
+Canton-user provisioning requires an administrator credential, used only as administrator
+authority and never as the app's capture credential. Use your normal Canton administrator
+procedure for Helm and Compose installations.
 
 ## Data
 

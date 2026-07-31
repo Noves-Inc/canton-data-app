@@ -211,13 +211,6 @@ routing:
   ingress:
     className: ""
 
-setupWizard:
-  enabled: false
-  setupTokenSecret: noves-canton-data-app-setup-token
-  setupTokenKey: token
-  sessionTokenKey: session-token
-  localPort: 8099
-
 migration:
   enabled: false
   sourceVersion: ""

@@ -1,4 +1,3 @@
-{{- if not .Values.setupWizard.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -91,4 +90,3 @@ spec:
     - name: http
       port: 3000
       targetPort: http
-{{- end }}

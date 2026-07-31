@@ -224,8 +224,7 @@ spec:
             {{- end }}
             {{- end }}
             - name: M2M_INDEXER_ENABLED
-              value: {{ ternary "false" "true" .Values.setupWizard.enabled | quote }}
-            {{- if not .Values.setupWizard.enabled }}
+              value: "true"
             - name: M2M_TOKEN_ENDPOINT
               valueFrom:
                 secretKeyRef:
@@ -252,18 +251,7 @@ spec:
                   name: {{ .Values.capture.existingSecret }}
                   key: {{ .Values.capture.scopeKey }}
                   optional: true
-            {{- end }}
-            {{- if .Values.setupWizard.enabled }}
-            - name: SETUP_ENABLED
-              value: "true"
-            - name: SETUP_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.setupWizard.setupTokenSecret }}
-                  key: {{ .Values.setupWizard.setupTokenKey }}
-            {{- else if .Values.migration.enabled }}
-            - name: SETUP_ENABLED
-              value: "false"
+            {{- if .Values.migration.enabled }}
             - name: DATABASE_EXPECTED_SOURCE
               value: "v3"
             {{- end }}

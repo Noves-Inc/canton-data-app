@@ -15,35 +15,10 @@ Helm pins all three images by tag and digest. Configure `imagePullSecrets` or th
 cluster registry identity before installing. Noves will replace these references when the public
 v4 artifacts ship.
 
-## Guided install
+## Install
 
-The optional setup wizard opens on localhost, verifies the participant and OIDC configuration,
-and then removes itself. The host installer can stream the validator's existing
-participant-admin machine credential into setup-service memory only. The credential never
-reaches the browser, an app Secret, a values file, the database, or the final deployment.
-
-Helm:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/Noves-Inc/canton-data-app/v4/install.sh | bash -s -- helm
-```
-
-Docker Compose:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/Noves-Inc/canton-data-app/v4/install.sh | bash -s -- compose
-```
-
-The wizard walks through the public application URL, Auth0 or Keycloak, and a new dedicated
-capture identity. You still create the separate browser and capture clients in Auth0 or
-Keycloak. The installer can pre-fill safe provider values and, after explicit confirmation,
-create the matching Canton user with only `CanReadAsAnyParty`. See
-[Setup wizard](docs/setup-wizard.md).
-
-## Standard operator install
-
-The wizard is not required. Enterprise operators can maintain values and secrets through their
-usual GitOps or secret-management process:
+Enterprise operators can maintain values and secrets through their usual GitOps or
+secret-management process:
 
 ```bash
 helm upgrade --install noves-canton-data-app \
@@ -52,12 +27,12 @@ helm upgrade --install noves-canton-data-app \
   --values enterprise-values.yaml
 ```
 
-The chart defaults to `setupWizard.enabled=false`. It references existing Kubernetes Secrets
-and never stores secret values in ordinary Helm values. Start with
+The chart references existing Kubernetes Secrets and never stores secret values in ordinary Helm
+values. Start with
 [`chart/noves-canton-data-app/examples/enterprise-values.yaml`](chart/noves-canton-data-app/examples/enterprise-values.yaml)
 and read [Helm installation](docs/helm.md).
 
-For a standard Compose installation:
+For a Compose installation:
 
 ```bash
 export APP_INSTALL_DIR=/opt/noves-canton-data-app-v4
@@ -68,9 +43,7 @@ cp docker-compose/config/nodes-config.json \
 
 # Edit .env and nodes-config.json, then create capture.env and gateway.env as
 # described in the full guide.
-./scripts/install-compose.sh \
-  --standard \
-  --directory "$APP_INSTALL_DIR"
+./scripts/install-compose.sh --directory "$APP_INSTALL_DIR"
 ```
 
 The installer generates the database password and accounting encryption key.
@@ -97,7 +70,7 @@ edge proxy exposes only the frontend/BFF.
 
 The capture identity must have only `CanReadAsAnyParty`. Do not reuse the validator identity.
 Do not grant `ParticipantAdmin`, identity-provider administration, act-as, execute-as, or their
-any-party variants. The wizard rejects those broader rights.
+any-party variants.
 
 Compose currently requires an explicit `CANTON_NETWORK=testnet` or
 `CANTON_NETWORK=devnet` on non-mainnet validators. The backend validates that setting against the
@@ -107,7 +80,6 @@ participant before capture.
 
 - [Helm installation](docs/helm.md)
 - [Docker Compose](docs/docker-compose.md)
-- [Setup wizard](docs/setup-wizard.md)
 - [Auth0](docs/authentication/auth0.md)
 - [Keycloak](docs/authentication/keycloak.md)
 - [Security model](docs/security.md)
@@ -118,4 +90,4 @@ participant before capture.
 
 Use only the database image shipped with v4 of the Noves App. The standard routed deployment
 publishes the frontend and backend on separate HTTPS hostnames. PostgreSQL, the participant
-Ledger API, and setup services stay private.
+Ledger API, and application-internal services stay private.

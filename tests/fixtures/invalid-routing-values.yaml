@@ -1,7 +1,0 @@
-setupWizard:
-  enabled: false
-routing:
-  provider: ingress
-  host: data.example.com
-  ingress:
-    className: ""

@@ -190,10 +190,7 @@ If the user already exists, grant `CanReadAsAnyParty` and list its rights.
 Remove anything else. In particular, the user must not have participant or
 identity-provider administration, act-as, execute-as, or per-party rights.
 
-The guided installer can perform this Canton operation after explicit
-confirmation when it can read the validator's participant-admin machine
-configuration. It never creates or modifies a Keycloak client. For a standard
-installation, use your validator's normal Canton administrator procedure.
+Use your validator's normal Canton administrator procedure to create or update the Canton user.
 
 ## 5. Verify the Noves App configuration
 

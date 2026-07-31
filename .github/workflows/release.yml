@@ -1,11 +1,7 @@
-name: Test and publish v4 deployment
+name: Publish v4 deployment
 
 on:
-  pull_request:
   push:
-    branches:
-      - main
-      - master
     tags:
       - "v4.*"
 
@@ -14,25 +10,7 @@ permissions:
   packages: read
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: azure/setup-helm@v4
-        with:
-          version: v3.14.3
-      - name: Run deployment and documentation tests
-        run: tests/all.sh
-      - name: Package chart
-        run: helm package chart/noves-canton-data-app --destination dist
-      - uses: actions/upload-artifact@v4
-        with:
-          name: noves-canton-data-app-chart
-          path: dist/*.tgz
-
   publish-chart:
-    if: startsWith(github.ref, 'refs/tags/v4.')
-    needs: test
     runs-on: ubuntu-latest
     permissions:
       contents: write

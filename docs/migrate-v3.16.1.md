@@ -111,8 +111,6 @@ migration:
 
 Helm mounts `migration.existingClaim` and sets `DATABASE_EXPECTED_SOURCE=v3`. Before the backend provisions extensions or runs a migration, it checks for a supported v3 database or a v3 lineage already being resumed. An empty database, fresh v4 database, unrelated PVC, or unsupported schema stops startup with a migration error.
 
-Helm rejects `migration.enabled: true` together with `setupWizard.enabled: true`.
-
 Render and ask the Kubernetes API to validate the resources:
 
 ```bash

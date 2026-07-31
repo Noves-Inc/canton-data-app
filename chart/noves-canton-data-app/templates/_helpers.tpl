@@ -44,12 +44,6 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- if and (eq .Values.routing.provider "istio") (not .Values.routing.istio.gateway) -}}
 {{- fail "routing.istio.gateway is required when routing.provider=istio" -}}
 {{- end -}}
-{{- if and .Values.setupWizard.enabled (ne .Values.routing.provider "none") -}}
-{{- fail "public routing is disabled while setupWizard is active; use localhost port-forwarding" -}}
-{{- end -}}
-{{- if and .Values.setupWizard.enabled .Values.migration.enabled -}}
-{{- fail "setupWizard.enabled and migration.enabled cannot be enabled together" -}}
-{{- end -}}
 {{- if ne (int .Values.backend.replicaCount) 1 -}}
 {{- fail "backend.replicaCount must be 1" -}}
 {{- end -}}
@@ -73,12 +67,11 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- fail "migration requires migration.existingClaim" -}}
 {{- end -}}
 {{- end -}}
-{{- if not .Values.setupWizard.enabled -}}
 {{- if not (or (eq .Values.oidc.provider "auth0") (eq .Values.oidc.provider "keycloak")) -}}
-{{- fail "oidc.provider must be auth0 or keycloak when setupWizard.enabled=false" -}}
+{{- fail "oidc.provider must be auth0 or keycloak" -}}
 {{- end -}}
 {{- if not .Values.oidc.appUrl -}}
-{{- fail "oidc.appUrl is required when setupWizard.enabled=false" -}}
+{{- fail "oidc.appUrl is required" -}}
 {{- end -}}
 {{- if and (eq .Values.oidc.provider "auth0") (or (not .Values.oidc.auth0.domain) (not .Values.oidc.auth0.clientId) (not .Values.oidc.auth0.audience)) -}}
 {{- fail "oidc.auth0.domain, oidc.auth0.clientId, and oidc.auth0.audience are required for Auth0" -}}
@@ -87,11 +80,10 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- fail "oidc.keycloak.url, oidc.keycloak.realm, and oidc.keycloak.clientId are required for Keycloak" -}}
 {{- end -}}
 {{- if not .Values.canton.expectedParticipantId -}}
-{{- fail "canton.expectedParticipantId is required when setupWizard.enabled=false" -}}
+{{- fail "canton.expectedParticipantId is required" -}}
 {{- end -}}
 {{- if not .Values.capture.existingSecret -}}
-{{- fail "capture.existingSecret is required when setupWizard.enabled=false" -}}
-{{- end -}}
+{{- fail "capture.existingSecret is required" -}}
 {{- end -}}
 {{- if not .Values.database.existingSecret -}}
 {{- fail "database.existingSecret is required" -}}

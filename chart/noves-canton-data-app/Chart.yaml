@@ -9,4 +9,4 @@ annotations:
   artifacthub.io/category: integration-delivery
   artifacthub.io/changes: |
     - kind: added
-      description: Initial v4 Helm chart with optional localhost setup wizard.
+      description: Initial v4 Helm chart.

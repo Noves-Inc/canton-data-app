@@ -1,8 +1,0 @@
-setupWizard:
-  enabled: true
-migration:
-  enabled: true
-  sourceVersion: 3.16.1
-  backupConfirmed: true
-  oldWorkloadStopped: true
-  existingClaim: cda-v3-data

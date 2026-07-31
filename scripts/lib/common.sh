@@ -36,14 +36,6 @@ resolve_noves_gateway_token() {
   printf '%s' "$token"
 }
 
-open_browser() {
-  local url="$1"
-  if command -v open >/dev/null 2>&1; then
-    open "$url" >/dev/null 2>&1 || true
-  elif command -v xdg-open >/dev/null 2>&1; then
-    xdg-open "$url" >/dev/null 2>&1 || true
-  fi
-}
 
 write_private_file() {
   local path="$1"

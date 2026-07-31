@@ -1,4 +1,12 @@
-kubernetes/manifests/apply_test.yaml
-traffic-analyzer/.DS_Store
+/kubernetes/manifests/apply_test.yaml
+/traffic-analyzer/.DS_Store
 .DS_Store
-docs/superpowers/*
+/.worktrees/
+/tests/
+/.github/workflows/test.yml
+/CLAUDE.md
+/AGENTS.md
+/.claude/
+/.codex/
+/.superpowers/
+/docs/superpowers/

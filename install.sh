@@ -6,9 +6,6 @@ usage() {
 Usage:
   install.sh helm [installer options]
   install.sh compose [installer options]
-
-Run either command without --standard for the optional localhost setup wizard.
-Enterprise operators can pass --standard and manage normal Helm values or Compose files.
 EOF
 }
 
@@ -31,9 +28,8 @@ trap 'rm -rf "$scratch"' EXIT
 mkdir -p "$scratch/scripts/lib" "$scratch/docker-compose/config"
 curl -fsSL "$raw_base/scripts/install-$target.sh" -o "$scratch/scripts/install-$target.sh"
 curl -fsSL "$raw_base/scripts/lib/common.sh" -o "$scratch/scripts/lib/common.sh"
-curl -fsSL "$raw_base/scripts/lib/setup-admin.sh" -o "$scratch/scripts/lib/setup-admin.sh"
 if [[ "$target" == compose ]]; then
-  for file in compose.yaml compose.setup.yaml compose.migrate-v3.yaml .env.example; do
+  for file in compose.yaml compose.migrate-v3.yaml .env.example; do
     curl -fsSL "$raw_base/docker-compose/$file" -o "$scratch/docker-compose/$file"
   done
   curl -fsSL "$raw_base/docker-compose/config/nodes-config.json" \
