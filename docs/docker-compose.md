@@ -403,6 +403,14 @@ The broadest controls are `DATABASE_MAX_PARALLEL_WORKERS_PER_GATHER`,
 See [Streams, alerts, and connectors](streaming.md) for `STREAM_*` and
 `ALLOW_PRIVATE_WEBHOOK_TARGETS`.
 
+Accounting posting backfill is bounded and readiness-aware. Keep the backend available while the
+posting queue drains; dependent exports report a typed 425 only when their pinned frontier is not
+yet safely materialized. Historical work throttles at 100,000 pending updates and resumes at
+80,000, while live capture continues. If a release enables shadow comparison, set
+`ACCOUNTING_ROLLUP_GENERATOR_MODE=shadow` in the backend environment for the compatibility window,
+then use `manifest` only after the documented parity/performance gate passes. Preserve the database
+and export volumes when rolling back and follow the forward-only migration procedure above.
+
 ## Optional guided setup
 
 The localhost wizard detects safe validator and OIDC values but does not create

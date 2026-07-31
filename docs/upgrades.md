@@ -84,6 +84,19 @@ Database migrations are forward-only. Rollback means starting a compatible older
 the release allows it, or restoring the pre-upgrade backup. Never point a different PostgreSQL
 major at an existing volume.
 
+### Accounting posting backfill
+
+The accounting posting backfill is progress-aware: Kestrel and health endpoints remain available,
+while normal API routes stay readiness-gated. A pinned export frontier becomes servable once its
+safe watermark is covered; newer live work does not by itself return a 425. Historical producers
+pause at 100,000 pending posting updates and resume at 80,000. Cleanup drains expired artifacts and
+manifests in bounded batches and uses a one-minute catch-up pass while backlog remains.
+
+During the compatibility window, operators may select `ACCOUNTING_ROLLUP_GENERATOR_MODE=shadow` to
+compare the manifest generator with the existing path, then switch to `manifest` after parity and
+production-shaped performance evidence pass. This is a temporary rollout switch, not a tuning
+surface. Rollback uses the compatible prior image or a database restore; migrations are not reversed.
+
 ## Secret rotation
 
 Create a new client secret, update only the dedicated capture Secret or `capture.env`, restart
