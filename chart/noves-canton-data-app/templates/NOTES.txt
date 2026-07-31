@@ -37,5 +37,5 @@ Access the backend docs locally:
 Check startup and migration progress:
 
   kubectl --context "$KUBE_CONTEXT" --namespace {{ .Release.Namespace }} port-forward service/{{ include "cda.fullname" . }}-backend 8090:8090
-  curl http://127.0.0.1:8090/startup-status
+  curl http://127.0.0.1:8090/startupStatus
 {{- end }}

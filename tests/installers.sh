@@ -85,7 +85,7 @@ cat >"$fake_bin/curl" <<'EOF'
 printf '%s\n' "$*" >>"$INSTALLER_CALLS"
 if [[ "$*" == *"/ready"* ]]; then
   [[ -z "${BACKEND_READY_FAIL:-}" ]]
-elif [[ "$*" == *"/startup-status"* ]]; then
+elif [[ "$*" == *"/startupStatus"* ]]; then
   printf '%s' '{"phase":"ready","ready":true}'
 elif [[ "$*" == *"--data-binary @-"* ]]; then
   payload="$(cat)"
@@ -345,12 +345,12 @@ grep -Fq -- 'compose --env-file .env -f compose.yaml up -d' "$scratch/compose.ca
   fail 'Compose installer did not use the standard Compose application path.'
 grep -Fq -- 'http://127.0.0.1:8090/ready' "$scratch/compose.calls" ||
   fail 'Compose installer did not wait for backend readiness.'
-grep -Fq -- '$origin/startup-status' "$repo_root/scripts/install-compose.sh" ||
-  fail 'Compose installer diagnostics do not use the canonical startup-status route.'
-grep -Fq -- '%s/startup-status' "$repo_root/scripts/install-compose.sh" ||
-  fail 'Compose installer output does not print the canonical startup-status route.'
-if grep -Fq -- 'startupStatus' "$repo_root/scripts/install-compose.sh"; then
-  fail 'Compose installer references the nonexistent startupStatus route.'
+grep -Fq -- '$origin/startupStatus' "$repo_root/scripts/install-compose.sh" ||
+  fail 'Compose installer diagnostics do not use the canonical startupStatus route.'
+grep -Fq -- '%s/startupStatus' "$repo_root/scripts/install-compose.sh" ||
+  fail 'Compose installer output does not print the canonical startupStatus route.'
+if grep -Fq -- 'startup-status' "$repo_root/scripts/install-compose.sh"; then
+  fail 'Compose installer references the retired startup-status route.'
 fi
 
 cp "$accounting_file" "$scratch/accounting.env.valid"

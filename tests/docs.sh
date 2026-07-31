@@ -69,17 +69,18 @@ fi
 
 startup_contract_files=(
   "$repo_root/scripts/install-compose.sh"
+  "$repo_root/chart/noves-canton-data-app/templates/NOTES.txt"
   "$repo_root/docs/helm.md"
   "$repo_root/docs/docker-compose.md"
   "$repo_root/docs/migrate-v3.16.1.md"
   "$repo_root/docs/upgrades.md"
 )
-if rg -n '/startupStatus' "${startup_contract_files[@]}"; then
-  fail 'operator-facing artifacts use the nonexistent startupStatus route.'
+if rg -n '/startup-status' "${startup_contract_files[@]}"; then
+  fail 'operator-facing artifacts use the retired startup-status route.'
 fi
 for path in "${startup_contract_files[@]}"; do
-  rg -Fq '/startup-status' "$path" ||
-    fail "${path#"$repo_root/"} is missing the canonical startup-status route."
+  rg -Fq '/startupStatus' "$path" ||
+    fail "${path#"$repo_root/"} is missing the canonical startupStatus route."
 done
 
 for contract in \

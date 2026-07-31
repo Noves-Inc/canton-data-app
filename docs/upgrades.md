@@ -72,7 +72,7 @@ and database builds belong to the same release of the Noves App.
 1. Read the release notes.
 2. Back up the database and record the current chart/image versions.
 3. Update the exact v4 chart or image version.
-4. Watch `/startup-status` and readiness.
+4. Watch `/startupStatus` and readiness.
 5. Verify sign-in, participant identity, capture, and a representative query.
 
 For Compose, preserve the named database and export volumes and

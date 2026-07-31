@@ -313,7 +313,7 @@ From another terminal:
 
 ```bash
 curl -fsS http://127.0.0.1:8090/health
-curl -fsS http://127.0.0.1:8090/startup-status | jq
+curl -fsS http://127.0.0.1:8090/startupStatus | jq
 curl -fsS http://127.0.0.1:8090/ready
 curl -fsS http://127.0.0.1:8090/api/v2/capture/status | jq
 ```
@@ -344,7 +344,7 @@ Service.
 | Backend hostname does not resolve | Check the `api.` DNS record or the explicit `routing.backend.host` value |
 | Backend TLS certificate mismatch | Add both names to the shared certificate or set `routing.backend.tlsSecret` |
 | Istio render fails server dry-run | Install the VirtualService CRD or select `routing.provider: ingress` |
-| Backend stays unready | Read `/startup-status`, then backend logs |
+| Backend stays unready | Read `/startupStatus`, then backend logs |
 | Capture disabled or stale | Read `/api/v2/capture/status`; verify the capture Secret, token subject, Canton user, and its exact rights |
 | Browser login loops | Compare the Auth0 callback, logout, origin, audience, and `oidc.appUrl` values |
 

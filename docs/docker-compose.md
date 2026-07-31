@@ -286,7 +286,7 @@ Useful local endpoints:
 ```text
 Frontend/BFF:  http://127.0.0.1:8091
 Backend API:   http://127.0.0.1:8090
-Startup:       http://127.0.0.1:8090/startup-status
+Startup:       http://127.0.0.1:8090/startupStatus
 Backend docs:  http://127.0.0.1:8090/docs
 OpenAPI JSON:  http://127.0.0.1:8090/docs/v1/openapi.json
 ```
@@ -357,7 +357,7 @@ Check local readiness before diagnosing DNS or TLS:
 ```bash
 curl -fsS http://127.0.0.1:8090/health
 curl -fsS http://127.0.0.1:8090/ready
-curl -fsS http://127.0.0.1:8090/startup-status | jq
+curl -fsS http://127.0.0.1:8090/startupStatus | jq
 curl -fsS http://127.0.0.1:8090/docs/v1/openapi.json | jq '.info'
 ```
 
