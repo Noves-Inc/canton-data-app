@@ -36,8 +36,6 @@ services:
       SCAN_PROXY_URL: ${CANTON_VALIDATOR_URL:-http://validator:5003}
       PUBLIC_SCAN_INDEXER_URL: ${CANTON_PUBLIC_SCAN_URL:-}
     env_file:
-      - path: ./.state/gateway.env
-        required: true
       - path: ./.state/capture.env
         required: true
       - path: ./.state/accounting.env
@@ -77,9 +75,6 @@ services:
       VITE_KEYCLOAK_CLIENT_ID: ${VITE_KEYCLOAK_CLIENT_ID:-}
       VITE_KEYCLOAK_REDIRECT_URI: ${APP_URL}/callback
       VITE_KEYCLOAK_LOGOUT_URL: ${APP_URL}
-    env_file:
-      - path: ./.state/gateway.env
-        required: true
     ports:
       - "${FRONTEND_BIND_ADDRESS:-127.0.0.1}:${FRONTEND_PORT:-8091}:3000"
     depends_on:

@@ -116,15 +116,6 @@
         "scopeKey": { "type": "string", "minLength": 1 }
       }
     },
-    "novesGateway": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["existingSecret", "tokenKey"],
-      "properties": {
-        "existingSecret": { "type": "string", "minLength": 1 },
-        "tokenKey": { "type": "string", "minLength": 1 }
-      }
-    },
     "oidc": {
       "type": "object",
       "additionalProperties": false,
@@ -234,7 +225,6 @@
     "accounting",
     "canton",
     "capture",
-    "novesGateway",
     "oidc",
     "routing",
     "migration",

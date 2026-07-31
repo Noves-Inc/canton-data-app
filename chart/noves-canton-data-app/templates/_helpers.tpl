@@ -88,12 +88,6 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- if not .Values.database.existingSecret -}}
 {{- fail "database.existingSecret is required" -}}
 {{- end -}}
-{{- if not .Values.novesGateway.existingSecret -}}
-{{- fail "novesGateway.existingSecret is required" -}}
-{{- end -}}
-{{- if not .Values.novesGateway.tokenKey -}}
-{{- fail "novesGateway.tokenKey is required" -}}
-{{- end -}}
 {{- range $field, $value := dict
   "capture.ledgerApiUserKey" .Values.capture.ledgerApiUserKey
   "capture.tokenEndpointKey" .Values.capture.tokenEndpointKey

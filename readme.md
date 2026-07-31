@@ -23,10 +23,9 @@ are available for deployments that need them.
 
 ## Install
 
-- [Install with Helm](docs/helm.md) if your validator uses the standard Canton
-  Helm chart.
-- [Install with Docker Compose](docs/docker-compose.md) if your validator uses
-  the standard Canton Compose bundle.
+- [Install with Helm](docs/helm.md) if you run the app on Kubernetes.
+- [Install with Docker Compose](docs/docker-compose.md) if you run the app with
+  Docker Compose.
 - [Upgrade from v3.16.1](docs/migrate-v3.16.1.md) if you already run the latest
   v3 release.
 
@@ -55,9 +54,12 @@ run:
 - A running Canton validator with a reachable Ledger API
 - Auth0 or Keycloak for browser login
 - A separate machine client for data capture
-- An installation credential from Noves
 - Persistent database storage and a backup plan
 - HTTPS addresses for the frontend and any public backend route
+
+A free tier is included. After you install the app, sign in to start using it.
+You can upgrade from the Account page if you need more history, parties, users,
+or features.
 
 The capture identity needs `CanReadAsAnyParty` and no broader rights. Do not
 reuse a participant administrator identity. Read the [security model](docs/security.md)
@@ -136,7 +138,7 @@ routine application upgrade.
 
 ## Support
 
-Contact [support@noves.fi](mailto:support@noves.fi) for installation
-credentials, licensing, or deployment support. Include your deployment method
-and the failing health or status response. Do not send tokens, client secrets,
-database passwords, or private keys.
+Contact [support@noves.fi](mailto:support@noves.fi) for billing or deployment
+support. Include your deployment method and the failing health or status
+response. Do not send tokens, client secrets, database passwords, or private
+keys.

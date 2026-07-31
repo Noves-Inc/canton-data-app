@@ -1,9 +1,10 @@
 # Docker Compose installation
 
-Use these instructions to install the Noves Data App beside a validator deployed with Canton's standard
-Docker Compose bundle. It uses the existing
-`splice-validator_splice_validator` network, `participant:5001`, and
-`http://validator:5003`.
+Use these instructions to install the Noves Data App with Docker Compose. The
+examples attach the app to `splice-validator_splice_validator` and use
+`participant:5001` and `http://validator:5003`. Set the network, participant
+address, and validator URL to match your deployment when those defaults do not
+apply.
 
 These instructions keep the configuration in local files.
 
@@ -13,20 +14,16 @@ The Noves Data App adds a database, backend, and frontend to the validator host.
 memory, and disk before starting; initial capture and read-model catch-up add
 load until the app reaches the ledger end.
 
-Confirm the standard network and services:
+Find a Docker network that the app can use to reach the Ledger API and, when
+configured, the validator API. The default network name is shown here:
 
 ```bash
 docker network inspect splice-validator_splice_validator >/dev/null
-docker ps \
-  --filter label=com.docker.compose.service=participant \
-  --filter network=splice-validator_splice_validator
-docker ps \
-  --filter label=com.docker.compose.service=validator \
-  --filter network=splice-validator_splice_validator
 ```
 
-Both commands must list a running container. If your Compose project uses
-another network, record its name for `CANTON_DOCKER_NETWORK`.
+If your deployment uses another network, record its name for
+`CANTON_DOCKER_NETWORK`. The participant and validator containers do not need
+specific Compose service names.
 
 The shipped `.env.example` pins `BACKEND_IMAGE=`, `FRONTEND_IMAGE=`, and
 `DATABASE_IMAGE=` by tag and digest. Use all three references from the same
@@ -60,8 +57,8 @@ network-dependent subsystem. On testnet, omitting `CANTON_NETWORK=testnet`
 makes the backend assume mainnet and quarantine capture.
 
 Leave `REPLACE_WITH_PARTICIPANT_ID` in `.state/nodes-config.json` until step 4,
-where you read the complete ID from the participant. Keep the address as
-`participant:5001` for the standard bundle.
+where you read the complete ID from the participant. Set its `address` to the
+Ledger API address reachable on `CANTON_DOCKER_NETWORK`.
 
 ## 3. Configure browser login and capture
 
@@ -100,13 +97,16 @@ as an error instead of silently starting without capture.
 
 ## 4. Read the participant ID and create the capture user
 
-Run these commands on the validator host. Point `VALIDATOR_DIR` at the standard
-validator Compose directory, and set `CAPTURE_USER_ID` to the exact `sub` from
-the capture-token check in the Keycloak or Auth0 guide:
+Use your validator's administrator procedure to obtain a short-lived Ledger API
+administrator token. The example below reads the settings used by Canton's
+Compose bundle. If your deployment stores them elsewhere, export the same
+values from your own secret manager. Set `CAPTURE_USER_ID` to the exact `sub`
+from the capture token check in the Keycloak or Auth0 guide:
 
 ```bash
 export VALIDATOR_DIR=/path/to/splice-node/docker-compose/validator
 export CAPTURE_USER_ID='replace-with-the-exact-capture-token-subject'
+export PARTICIPANT_ADDRESS=participant:5001
 
 set -a
 . "$VALIDATOR_DIR/.env"
@@ -152,7 +152,7 @@ PARTICIPANT_ID="$(
     -plaintext -expand-headers \
     -H 'authorization: Bearer ${PARTICIPANT_ADMIN_TOKEN}' \
     -d '{}' \
-    participant:5001 \
+    "$PARTICIPANT_ADDRESS" \
     com.daml.ledger.api.v2.admin.PartyManagementService/GetParticipantId |
     jq -er '.participant_id // .participantId'
 )"
@@ -173,7 +173,7 @@ docker run --rm \
   -plaintext -expand-headers \
   -H 'authorization: Bearer ${PARTICIPANT_ADMIN_TOKEN}' \
   -d "{\"user\":{\"id\":\"${CAPTURE_USER_ID}\"},\"rights\":[{\"canReadAsAnyParty\":{}}]}" \
-  participant:5001 \
+  "$PARTICIPANT_ADDRESS" \
   com.daml.ledger.api.v2.admin.UserManagementService/CreateUser
 ```
 
@@ -188,34 +188,18 @@ docker run --rm \
   -plaintext -expand-headers \
   -H 'authorization: Bearer ${PARTICIPANT_ADMIN_TOKEN}' \
   -d "{\"userId\":\"${CAPTURE_USER_ID}\"}" \
-  participant:5001 \
+  "$PARTICIPANT_ADDRESS" \
   com.daml.ledger.api.v2.admin.UserManagementService/ListUserRights
 
-unset PARTICIPANT_ADMIN_TOKEN VALIDATOR_AUTH_CLIENT_ID AUTH_WELLKNOWN_URL \
-  ADMIN_TOKEN_URL LEDGER_API_AUTH_AUDIENCE LEDGER_API_AUTH_SCOPE
+unset PARTICIPANT_ADMIN_TOKEN PARTICIPANT_ADDRESS VALIDATOR_AUTH_CLIENT_ID \
+  AUTH_WELLKNOWN_URL ADMIN_TOKEN_URL LEDGER_API_AUTH_AUDIENCE \
+  LEDGER_API_AUTH_SCOPE
 ```
 
 The final rights response must contain only `can_read_as_any_party`. Do not
 place the validator administrator client or token in Noves Data App files.
 
 ## 5. Create local secrets
-
-Obtain the installation-specific Noves gateway credential from Noves. Store it
-in a separate private environment file, not in `.env`:
-
-```bash
-umask 077
-printf 'NOVES_GATEWAY_AUTH_TOKEN=%s\n' \
-  'replace-with-the-installation-credential' \
-  > "$APP_INSTALL_DIR/docker-compose/.state/gateway.env"
-```
-
-For non-interactive automation, set `NOVES_GATEWAY_AUTH_TOKEN` directly or set
-`NOVES_GATEWAY_AUTH_TOKEN_FILE` to a readable file containing the credential.
-Direct values take precedence when both inputs are set.
-If neither is set and a terminal is available, the installer prompts through
-`/dev/tty`. It copies the resulting value into `.state/gateway.env` with mode
-`0600`.
 
 `install-compose.sh` generates the database password when `.env` still
 contains the example placeholder. It also creates
@@ -238,8 +222,7 @@ Protect all local configuration:
 ```bash
 chmod 600 \
   "$APP_INSTALL_DIR/docker-compose/.env" \
-  "$APP_INSTALL_DIR/docker-compose/.state/capture.env" \
-  "$APP_INSTALL_DIR/docker-compose/.state/gateway.env"
+  "$APP_INSTALL_DIR/docker-compose/.state/capture.env"
 chmod 644 "$APP_INSTALL_DIR/docker-compose/.state/nodes-config.json"
 ```
 
@@ -274,8 +257,8 @@ Run:
 ```
 
 The installer validates required files and placeholders, confirms the external
-network and standard validator services, pulls the three images, starts the
-project, and waits for `http://127.0.0.1:8090/ready`.
+network, pulls the three images, starts the project, and waits for
+`http://127.0.0.1:8090/ready`.
 
 Useful local endpoints:
 

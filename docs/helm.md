@@ -1,27 +1,27 @@
 # Helm installation
 
-Use this guide to install the Noves Data App in the same namespace as a
-validator deployed with the standard Canton Helm chart. The example uses
-Auth0, NGINX Ingress, and the default Canton Service names.
+Use this guide to install the Noves Data App on Kubernetes. The examples place
+the app in the validator namespace and use Auth0, NGINX Ingress, and Canton's
+default Service names. You can change the namespace, participant address,
+validator URL, identity provider, and routing settings to match your cluster.
 
 ## 1. Check the cluster
 
-Set the context and namespace once:
+Set the context and namespace where you want to run the app:
 
 ```bash
 export KUBE_CONTEXT=canton-mainnet
 export NAMESPACE=validator
 
 kubectl --context "$KUBE_CONTEXT" config current-context
-kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
-  get service participant validator-app
-kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
-  get service participant -o jsonpath='{.spec.ports[*].port}{"\n"}'
-kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
-  get service validator-app -o jsonpath='{.spec.ports[*].port}{"\n"}'
+kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" get pods
 ```
 
-The standard services expose `participant:5001` and `validator-app:5003`. Change `canton.participantAddress` or `canton.validatorUrl` only when your validator uses different names.
+The chart defaults to `participant:5001` for the Ledger API and
+`http://validator-app:5003` for the validator API. Set
+`canton.participantAddress` and `canton.validatorUrl` to addresses that the app
+pods can reach. The services may run in another namespace or outside the
+cluster.
 
 Check storage and routing:
 
@@ -195,14 +195,6 @@ kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
   --from-literal=scope=''
 ```
 
-Noves supplies a separate per-installation gateway credential:
-
-```bash
-kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
-  create secret generic noves-canton-data-app-gateway \
-  --from-literal=token='replace-with-the-Noves-installation-credential'
-```
-
 The chart generates `ACCOUNTING_TOKEN_ENCRYPTION_KEY` in a retained Secret named `<release>-accounting-token-encryption`. Back up that Secret with the database. Losing it makes stored accounting provider credentials unreadable. GitOps operators who need deterministic client-side rendering can create their own 32-byte base64 key and set:
 
 ```yaml
@@ -228,10 +220,6 @@ database:
 
 capture:
   existingSecret: noves-canton-data-app-capture-auth
-
-novesGateway:
-  existingSecret: noves-canton-data-app-gateway
-  tokenKey: token
 
 canton:
   expectedParticipantId: 'participant::replace-with-the-full-id'

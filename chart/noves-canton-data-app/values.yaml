@@ -147,10 +147,6 @@ capture:
   audienceKey: audience
   scopeKey: scope
 
-novesGateway:
-  existingSecret: noves-canton-data-app-gateway
-  tokenKey: token
-
 oidc:
   provider: ""
   appUrl: ""

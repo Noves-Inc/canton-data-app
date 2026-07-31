@@ -75,13 +75,6 @@ The Compose installer applies the same rule in
 reuses the file on later runs. A manual Compose installation must create that file before starting
 the backend. Back it up with the database and never regenerate it during an upgrade.
 
-The Noves gateway credential is installation-specific and separate from both OIDC clients. In
-Kubernetes it is referenced through `novesGateway.existingSecret`. Compose reads it from the
-mode-`0600` `.state/gateway.env` file because both application images run as non-root users and
-Docker Compose file-backed secrets retain the host file's ownership. Docker administrators can
-read container environment values, just as they can read mounted secrets. Rotate the value,
-restart both backend and frontend, and verify readiness without printing the credential.
-
 Never:
 
 - reuse a validator, wallet, or administrative credential;

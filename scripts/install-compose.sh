@@ -37,33 +37,13 @@ for file in compose.yaml compose.migrate-v3.yaml .env.example; do
 done
 cp "$repo_root/docker-compose/config/storage.env.example" \
   "$install_dir/docker-compose/config/storage.env.example"
-mkdir -p "$install_dir/docker-compose/.state" "$install_dir/docker-compose/.secrets"
+mkdir -p "$install_dir/docker-compose/.state"
 if [[ ! -f "$install_dir/docker-compose/.state/nodes-config.json" ]]; then
   cp "$repo_root/docker-compose/config/nodes-config.json" \
     "$install_dir/docker-compose/.state/nodes-config.json"
 fi
 
 cd "$install_dir/docker-compose"
-gateway_env_file=".state/gateway.env"
-legacy_gateway_secret_file=".secrets/noves-gateway-auth-token"
-if [[ -f "$gateway_env_file" ]]; then
-  gateway_key_count="$(grep -c '^NOVES_GATEWAY_AUTH_TOKEN=' "$gateway_env_file" || true)"
-  [[ "$gateway_key_count" == 1 ]] ||
-    die "$gateway_env_file must contain exactly one NOVES_GATEWAY_AUTH_TOKEN."
-  gateway_token="$(sed -n 's/^NOVES_GATEWAY_AUTH_TOKEN=//p' "$gateway_env_file")"
-  [[ "$gateway_token" =~ [^[:space:]] ]] ||
-    die "The existing Noves gateway credential is blank: $gateway_env_file"
-elif [[ -f "$legacy_gateway_secret_file" ]]; then
-  gateway_token="$(<"$legacy_gateway_secret_file")"
-  [[ "$gateway_token" =~ [^[:space:]] ]] ||
-    die "The existing Noves gateway credential file is blank: $legacy_gateway_secret_file"
-else
-  gateway_token="$(resolve_noves_gateway_token)"
-fi
-write_private_file "$gateway_env_file"
-printf 'NOVES_GATEWAY_AUTH_TOKEN=%s\n' "$gateway_token" >"$gateway_env_file"
-chmod 600 "$gateway_env_file"
-
 accounting_env_file=".state/accounting.env"
 if [[ ! -f "$accounting_env_file" ]]; then
   write_private_file "$accounting_env_file"
@@ -140,30 +120,12 @@ case "$canton_network" in
 esac
 canton_docker_network="$(env_value CANTON_DOCKER_NETWORK)"
 canton_docker_network="${canton_docker_network:-splice-validator_splice_validator}"
-chmod 600 .env .state/capture.env "$gateway_env_file" "$accounting_env_file"
+chmod 600 .env .state/capture.env "$accounting_env_file"
 chmod 644 .state/nodes-config.json
 docker compose --env-file .env -f compose.yaml config --quiet ||
   die "The Compose application configuration is invalid."
 docker network inspect "$canton_docker_network" >/dev/null 2>&1 ||
   die "Docker network '$canton_docker_network' does not exist."
-participant_container="$(
-  docker ps \
-    --filter label=com.docker.compose.service=participant \
-    --filter network="$canton_docker_network" \
-    --format '{{.Names}}' |
-    head -1
-)"
-[[ -n "$participant_container" ]] ||
-  die "No running participant service is attached to '$canton_docker_network'."
-validator_service_container="$(
-  docker ps \
-    --filter label=com.docker.compose.service=validator \
-    --filter network="$canton_docker_network" \
-    --format '{{.Names}}' |
-    head -1
-)"
-[[ -n "$validator_service_container" ]] ||
-  die "No running validator service is attached to '$canton_docker_network'."
 docker compose --env-file .env -f compose.yaml pull ||
   die "Could not pull the Noves Data App images. Log in to the configured registries and retry."
 docker compose --env-file .env -f compose.yaml up -d
