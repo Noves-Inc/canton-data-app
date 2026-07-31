@@ -130,7 +130,7 @@ network. See [encryption at rest](encryption_at_rest.md) for storage guidance.
 
 The Backend Status page shows startup, capture, and materialization for the
 party currently open. The backend also provides `/health`, `/ready`, and
-`/startupStatus` for deployment checks. The Helm and Compose guides include
+`/startup-status` for deployment checks. The Helm and Compose guides include
 commands for each endpoint.
 
 Preserve the database, export storage, and accounting encryption key during an

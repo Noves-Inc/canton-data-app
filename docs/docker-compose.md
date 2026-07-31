@@ -41,7 +41,9 @@ Edit `.env`:
 
 The backend cannot detect the network before it configures every network-dependent subsystem. On testnet, omitting `CANTON_NETWORK=testnet` makes the backend assume mainnet and quarantine capture.
 
-Leave `REPLACE_WITH_PARTICIPANT_ID` in `.state/nodes-config.json` until step 4, where you read the complete ID from the participant. Set its `address` to the Ledger API address reachable on `CANTON_DOCKER_NETWORK`.
+For embedded mode, set `EMBED_ALLOWED_ORIGINS` to the exact, comma-separated origins allowed to host the iframe. Leave it blank for a standalone deployment. See the [embedded mode guide](../embedded-mode/embedded_mode.md).
+
+Leave `REPLACE_WITH_PARTICIPANT_ID` in `.state/nodes-config.json` until step 4, where you read the complete ID from the participant. Set its `addr` to the Ledger API address reachable on `CANTON_DOCKER_NETWORK`.
 
 ## 3. Configure browser login and capture
 
@@ -222,7 +224,7 @@ Useful local endpoints:
 ```text
 Frontend/BFF:  http://127.0.0.1:8091
 Backend API:   http://127.0.0.1:8090
-Startup:       http://127.0.0.1:8090/startupStatus
+Startup:       http://127.0.0.1:8090/startup-status
 Backend docs:  http://127.0.0.1:8090/docs
 OpenAPI JSON:  http://127.0.0.1:8090/docs/v1/openapi.json
 ```
@@ -280,7 +282,7 @@ Check local readiness before diagnosing DNS or TLS:
 ```bash
 curl -fsS http://127.0.0.1:8090/health
 curl -fsS http://127.0.0.1:8090/ready
-curl -fsS http://127.0.0.1:8090/startupStatus | jq
+curl -fsS http://127.0.0.1:8090/startup-status | jq
 curl -fsS http://127.0.0.1:8090/docs/v1/openapi.json | jq '.info'
 ```
 

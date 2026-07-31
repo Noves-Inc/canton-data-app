@@ -168,7 +168,7 @@ Check progress:
 
 ```bash
 curl -fsS http://127.0.0.1:8090/health
-curl -fsS http://127.0.0.1:8090/startupStatus | jq
+curl -fsS http://127.0.0.1:8090/startup-status | jq
 curl -fsS http://127.0.0.1:8090/ready
 curl -fsS http://127.0.0.1:8090/api/v2/capture/status | jq
 ```
@@ -286,7 +286,7 @@ docker compose --env-file .env \
   -f compose.migrate-v3.yaml logs -f backend
 
 curl -fsS http://127.0.0.1:8090/health
-curl -fsS http://127.0.0.1:8090/startupStatus | jq
+curl -fsS http://127.0.0.1:8090/startup-status | jq
 curl -fsS http://127.0.0.1:8090/ready
 curl -fsS http://127.0.0.1:8090/api/v2/capture/status | jq
 ```
