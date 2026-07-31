@@ -6,6 +6,6 @@ services:
       DATABASE_EXPECTED_SOURCE: v3
 
 volumes:
-  cda-database-data:
+  database:
     external: true
     name: ${DATABASE_VOLUME:?Set DATABASE_VOLUME to the database volume from v3.16.1 of the Noves Data App}

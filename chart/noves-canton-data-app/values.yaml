@@ -6,7 +6,7 @@ imagePullSecrets: []
 backend:
   replicaCount: 1
   image:
-    repository: noves.azurecr.io/cda-backend
+    repository: ghcr.io/noves-inc/noves-canton-backend-v4
     tag: "prod-3e1a1fde-1785439104"
     digest: "sha256:37cad1fe33871bf08ba1be9699c11e87c643931e51d295c9de7bfed8afe1c793"
     pullPolicy: IfNotPresent
@@ -35,7 +35,7 @@ backend:
 frontend:
   replicaCount: 1
   image:
-    repository: noves.azurecr.io/cda-frontend
+    repository: ghcr.io/noves-inc/noves-canton-frontend-v4
     tag: "prod-c78cdd33-1785419965"
     digest: "sha256:3205d0193e1b493098f9d1704604206f173fb456aa6fb6dbcc8b8529f70266b1"
     pullPolicy: IfNotPresent

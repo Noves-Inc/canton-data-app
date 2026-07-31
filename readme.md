@@ -1,37 +1,57 @@
 # Noves Data App
 
-<img width="1906" height="911" alt="noves-data-app-dashboard" src="https://github.com/user-attachments/assets/b887b869-acf8-4719-b9ec-b6dedb4718ad" />
 
-The Noves Data App gives Canton validators a clear view of their ledger
-activity. It collects data from your participant, interprets it, and makes it
-available through dashboards, reports, exports, and APIs.
+
+The Noves Data App is a private block explorer and reporting suite for Canton
+Network. It lets you browse and filter private ledger activity, understand
+transactions in context, export data in reconcilable financial formats, and
+build applications on top of its API.
 
 The app runs in your infrastructure and connects to your existing identity
-provider. Your ledger data stays under your control, and each user sees only
-the parties their Canton account can read.
+provider. The ledger index stays in your database, and each user sees only the
+parties their Canton account can read. Noves does not operate or host that
+database.
+
+## Features
 
 You can explore transaction history, balances, rewards, and activity over time.
-The app also produces CSV files, accounting reports, cost basis reports, and
-rollups. Alerts, connectors, and WebSocket streams make the same data available
+The app also produces CSV exports, accounting reports, cost basis reports, and
+rollups. 
+
+Alerts, connectors, and WebSocket streams make the same data available
 to other systems.
 
-Traffic cost is calculated automatically by the backend. There is no extra
-collector or log forwarding service to install. Wallet tools and embedded mode
-are available for deployments that need them.
+Traffic cost is calculated inside the backend, with no extra collector or log
+forwarding service to install. 
 
-<img width="1766" height="729" alt="noves-data-app-transactions" src="https://github.com/user-attachments/assets/2e242be7-0e64-47d9-b2d9-d78ec2f6c984" />
+The app also shows your validator's ledger
+packages, remaining synchronizer traffic, and other tools for node operators.
+
+It also ships a fully-fledged wallet compatible with both Canton Coin and other CIP standard tokens.
+
+You can install and use the app without contacting Noves. A free tier is
+included.
+
+
 
 ## Install
 
-- [Install with Helm](docs/helm.md) if you run the app on Kubernetes.
-- [Install with Docker Compose](docs/docker-compose.md) if you run the app with
-  Docker Compose.
+- [Install with Helm](docs/helm.md) if you use Kubernetes.
+- [Install with Docker Compose](docs/docker-compose.md) if you use Docker
+Compose.
 - [Upgrade from v3.16.1](docs/migrate-v3.16.1.md) if you already run the latest
-  v3 release.
+v3 release.
 
-Both installation methods run a frontend, backend, and database. The release
-artifacts pin compatible images. Keep the chart or Compose files and their
-image references together.
+Both installation methods run the same three components: a frontend, a backend,
+and a database. The release files pin compatible image versions. Each major
+release also has its own `latest` image tags; if you use them, update all three
+images together.
+
+The examples start with the service names and network used by Canton's standard
+deployment bundles. You can change the namespace, Docker network, participant
+address, validator URL, identity provider, and routing settings to match your
+environment. The installation guides list the required Secrets and environment
+settings.
 
 For Helm, create the Secrets and values described in the guide, then run:
 
@@ -49,34 +69,32 @@ run:
 ./scripts/install-compose.sh --directory /opt/noves-canton-data-app
 ```
 
+
+
 ## What you need
 
 - A running Canton validator with a reachable Ledger API
-- Auth0 or Keycloak for browser login
-- A separate machine client for data capture
-- Persistent database storage and a backup plan
-- HTTPS addresses for the frontend and any public backend route
+- Auth0 or Keycloak for browser sign-in and dedicated indexing user
 
-A free tier is included. After you install the app, sign in to start using it.
-You can upgrade from the Account page if you need more history, parties, users,
-or features.
+After installation, sign in to start using the free tier. Upgrade from the
+Account page if you need more history, parties, users, or features.
 
-The capture identity needs `CanReadAsAnyParty` and no broader rights. Do not
-reuse a participant administrator identity. Read the [security model](docs/security.md)
-before creating credentials or exposing routes.
+## Hardware requirements
 
-Initial indexing adds load to the validator and database. These numbers are a
-reasonable starting point:
+Resource needs vary with the number of parties and the transaction volume on
+your node. These figures are a reasonable starting point based on our
+benchmarks:
 
-| Component | CPU | Memory |
-|---|---:|---:|
-| Backend | 1 core | 1 GiB |
-| Database | 1 core | 2 GiB |
-| Frontend | 0.5 core | 512 MiB |
 
-As an initial estimate, allow database storage equal to about 70% of the
-validator's PostgreSQL volume. Your transaction volume and retention policy
-will determine the amount you need.
+| Component | CPU      | Memory  |
+| --------- | -------- | ------- |
+| Backend   | 1 core   | 1 GiB   |
+| Database  | 1 core   | 2 GiB   |
+| Frontend  | 0.5 core | 512 MiB |
+
+
+As an initial estimate, allow database storage equal to about 50% of the
+validator's PostgreSQL volume.
 
 ## Authentication
 
@@ -94,34 +112,25 @@ browser session.
 
 PostgreSQL stores ledger data and application metadata. Keep its volume private
 and persistent. The backend stores generated exports on a persistent `/exports`
-volume by default. You can use S3 storage instead. Transaction history backups
-can use a separate S3 destination.
+volume by default. You can use S3 for exports instead.
 
-A standard public deployment uses two HTTPS addresses:
+A typical public deployment uses two HTTPS addresses:
 
 ```text
 data.example.com      frontend and browser API
 api.data.example.com  backend API and API documentation
 ```
 
-You can keep the backend address private and send browser requests through the
-frontend. Keep PostgreSQL and the participant Ledger API off the public
+You can keep the backend address private and send browser requests through the  
+frontend. Keep PostgreSQL and the participant Ledger API off the public  
 network. See [encryption at rest](encryption_at_rest.md) for storage guidance.
-
-## Optional features
-
-Wallet tools require access to the validator Scan API. The wallet pages remain
-unavailable when no validator URL is configured.
-
-[Embedded mode](embedded-mode/embedded_mode.md) lets an approved parent origin
-host the app in an iframe. Configure an allowlist before enabling it.
 
 ## Operations
 
 The Backend Status page shows startup, capture, and materialization for the
-party currently open. The backend also provides `/health`, `/ready`,
-`/startupStatus`, and `/api/v2/capture/status` for deployment checks. The Helm
-and Compose guides include commands for each endpoint.
+party currently open. The backend also provides `/health`, `/ready`, and
+`/startupStatus` for deployment checks. The Helm and Compose guides include
+commands for each endpoint.
 
 Preserve the database, export storage, and accounting encryption key during an
 upgrade or restore. Do not delete Compose volumes or Kubernetes PVCs during a
@@ -136,9 +145,10 @@ routine application upgrade.
 - [Encryption at rest](encryption_at_rest.md)
 - [Embedded mode](embedded-mode/embedded_mode.md)
 
+
+
 ## Support
 
 Contact [support@noves.fi](mailto:support@noves.fi) for billing or deployment
-support. Include your deployment method and the failing health or status
-response. Do not send tokens, client secrets, database passwords, or private
-keys.
+support. You can also join `#noves-data-app` in the Canton Network Slack. Contact
+us if you need an invitation.

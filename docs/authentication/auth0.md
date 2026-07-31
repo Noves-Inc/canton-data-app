@@ -1,10 +1,8 @@
 # Auth0 configuration
 
-Create two Auth0 applications. The browser application signs users in; the M2M application
-captures participant history. They must not share credentials.
+Create two Auth0 applications. The browser application signs users in and the M2M application captures participant history. They must not share credentials.
 
-In the examples below, `APP_URL` is the exact public URL, such as
-`https://data.example.com`, and `AUDIENCE` is the API identifier used by the Canton validator.
+In the examples below, `APP_URL` is the exact public URL, such as `https://data.example.com`, and `AUDIENCE` is the API identifier used by the Canton validator.
 
 ## 1. Browser application
 
@@ -15,8 +13,7 @@ In the examples below, `APP_URL` is the exact public URL, such as
    - **Allowed Callback URLs:** `APP_URL/callback`
    - **Allowed Logout URLs:** `APP_URL`
    - **Allowed Web Origins:** `APP_URL`
-5. Save and record the tenant domain and Client ID. A browser client has no client secret in the
-   Noves Data App configuration.
+5. Save and record the tenant domain and Client ID. A browser client has no client secret in the Noves Data App configuration.
 
 Use these Helm values:
 
@@ -37,12 +34,10 @@ For Compose, use the equivalent `VITE_AUTH0_*` values in `.env`.
 1. Create another application and choose **Machine to Machine Applications**.
 2. Select the API whose identifier is `AUDIENCE`.
 3. Authorize only the scopes required to obtain a Canton Ledger API token.
-4. Record the M2M Client ID, Client Secret, audience, and token endpoint. The token endpoint is
-   normally `https://TENANT_DOMAIN/oauth/token`.
+4. Record the M2M Client ID, Client Secret, audience, and token endpoint. The token endpoint is normally `https://TENANT_DOMAIN/oauth/token`.
 5. Do not authorize the M2M application for unrelated APIs.
 
-Auth0 client-credentials tokens normally use `<client-id>@clients` as `sub`. Request a token and
-confirm the actual claim for your tenant; the value is case-sensitive.
+Auth0 client-credentials tokens normally use `<client-id>@clients` as `sub`. Request a token and confirm the actual claim for your tenant; the value is case-sensitive.
 
 ```bash
 TOKEN_RESPONSE="$(
@@ -63,8 +58,7 @@ Copy the exact `sub`, then clear the shell variables that contain credentials.
 
 ## 3. Matching Canton user
 
-Create a Canton user whose ID exactly equals the token's `sub`, then grant only
-`CanReadAsAnyParty`. The console pattern is:
+Create a Canton user whose ID exactly equals the token's `sub`, then grant only `CanReadAsAnyParty`. The console pattern is:
 
 ```scala
 participant.ledger_api.users.create(
@@ -73,12 +67,8 @@ participant.ledger_api.users.create(
 )
 ```
 
-Leave all administration, act-as, execute-as, and per-party rights unset. See
-[Security](../security.md) for the complete boundary.
+Leave all administration, act-as, execute-as, and per-party rights unset. See [Security](../security.md) for the complete boundary.
 
 ## 4. Verify
 
-Before creating the capture Secret, follow the participant-ID and `grpcurl -expand-headers`
-commands in [Helm installation](../helm.md), or the corresponding Compose procedure in
-[Docker Compose](../docker-compose.md). Confirm the token exchange, exact subject equality,
-participant identity, and least-privilege Canton rights.
+Follow [Verify authentication](verify.md).

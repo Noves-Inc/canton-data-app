@@ -1,8 +1,6 @@
 # Migrate from v3.16.1 to v4 of the Noves Data App
 
-V4 of the Noves Data App upgrades databases from v3.16.1. If you run an older
-v3 release, upgrade it to v3.16.1 and confirm that it works before starting
-this procedure.
+v4 of the Noves Data App upgrades databases from v3.16.1. If you run an older v3 release, upgrade it to v3.16.1 and confirm that it works before starting this procedure.
 
 The v3 and v4 database workloads must never mount the same PVC at the same time. Keep a tested pre-upgrade backup until you finish application and capture verification.
 
@@ -195,17 +193,11 @@ Keep v3 stopped. Do not attach the converted claim to a v3 workload.
 
 ### Helm rollback
 
-Stop v4. Restore the verified pre-upgrade backup into a clean PVC, then start
-the recorded v3.16.1 workloads against the restored claim. Do not point v3 at
-the converted volume. The Noves Data App does not run automatic down
-migrations.
+Stop v4. Restore the verified pre-upgrade backup into a clean PVC, then start the recorded v3.16.1 workloads against the restored claim. Do not point v3 at the converted volume. The Noves Data App does not run automatic down migrations.
 
 ## Docker Compose migration
 
-The Compose migration reuses the stopped v3.16.1 database volume. The shipped
-`compose.migrate-v3.yaml` override marks that volume as external and sets
-`DATABASE_EXPECTED_SOURCE=v3`, so the backend rejects an empty, unrelated, or
-already-fresh-v4 database before it migrates anything.
+The Compose migration reuses the stopped v3.16.1 database volume. The shipped `compose.migrate-v3.yaml` override marks that volume as external and sets `DATABASE_EXPECTED_SOURCE=v3`, so the backend rejects an empty, unrelated, or already-fresh-v4 database before it migrates anything.
 
 ### 1. Record and back up v3
 
@@ -218,18 +210,14 @@ docker compose config --volumes
 docker volume ls
 ```
 
-Record the v3 directory, database volume name, image versions, public URL,
-Canton settings, OIDC settings, and the existing `appuser` database password.
-Confirm that the running database uses PostgreSQL 18:
+Record the v3 directory, database volume name, image versions, public URL, Canton settings, OIDC settings, and the existing `appuser` database password. Confirm that the running database uses PostgreSQL 18:
 
 ```bash
 docker compose exec database \
   cat /home/postgres/pgdata/data/PG_VERSION
 ```
 
-The result must be `18`. Create a database backup or snapshot and restore it to
-a separate test volume. Keep the backup until the v4 application and capture
-checks pass.
+The result must be `18`. Create a database backup or snapshot and restore it to a separate test volume. Keep the backup until the v4 application and capture checks pass.
 
 ### 2. Stop v3
 
@@ -239,8 +227,7 @@ Stop the old deployment without deleting its volumes:
 docker compose down
 ```
 
-Do not use `down --volumes`. Confirm that no container mounts the recorded
-database volume:
+Do not use `down --volumes`. Confirm that no container mounts the recorded database volume:
 
 ```bash
 export V3_DATABASE_VOLUME=replace-with-v3-database-volume
@@ -252,13 +239,9 @@ The command must return no containers.
 
 ### 3. Prepare the v4 files
 
-Follow steps 2 through 5 in the [Docker Compose installation guide](docker-compose.md)
-to create the v4 `.env` and `.state` files. Use the existing v3 `appuser`
-password as `DATABASE_PASSWORD`; do not generate a new password for the
-initialized database.
+Follow steps 2 through 5 in the [Docker Compose installation guide](docker-compose.md) to create the v4 `.env` and `.state` files. Use the existing v3 `appuser` password as `DATABASE_PASSWORD`; do not generate a new password for the initialized database.
 
-Set the installation directory and render the migration configuration before
-starting it:
+Set the installation directory and render the migration configuration before starting it:
 
 ```bash
 export REPO_DIR=/path/to/canton-data-app-v4-checkout
@@ -276,11 +259,10 @@ docker compose --env-file .env \
   -f compose.migrate-v3.yaml config > /tmp/noves-data-app-v4-migration.yaml
 
 grep -A1 'DATABASE_EXPECTED_SOURCE' /tmp/noves-data-app-v4-migration.yaml
-grep -A3 'cda-database-data:' /tmp/noves-data-app-v4-migration.yaml
+grep -A3 'database:' /tmp/noves-data-app-v4-migration.yaml
 ```
 
-Confirm that the first command shows `v3` and the volume section names the
-recorded v3 volume.
+Confirm that the first command shows `v3` and the volume section names the recorded v3 volume.
 
 ### 4. Start v4 and monitor the migration
 
@@ -309,15 +291,11 @@ curl -fsS http://127.0.0.1:8090/ready
 curl -fsS http://127.0.0.1:8090/api/v2/capture/status | jq
 ```
 
-Startup can take time while v4 prepares the schema and rebuilds derived data.
-A restart resumes from stored progress.
+Startup can take time while v4 prepares the schema and rebuilds derived data. A restart resumes from stored progress.
 
 ### 5. Verify the cutover
 
-Confirm that `/ready` succeeds, capture is enabled and current, browser sign-in
-works, and representative private transactions match the v3 installation.
-Check alerts, connectors, accounting integrations, and exports that you used
-before the migration.
+Confirm that `/ready` succeeds, capture is enabled and current, browser sign-in works, and representative private transactions match the v3 installation. Check alerts, connectors, accounting integrations, and exports that you used before the migration.
 
 Keep using both Compose files for this converted database:
 
@@ -327,8 +305,7 @@ docker compose --env-file .env \
   -f compose.migrate-v3.yaml up -d
 ```
 
-The migration override preserves the external volume selection and lineage
-check on every restart.
+The migration override preserves the external volume selection and lineage check on every restart.
 
 ### Compose rollback
 
@@ -340,6 +317,4 @@ docker compose --env-file .env \
   -f compose.migrate-v3.yaml down
 ```
 
-Restore the tested pre-upgrade backup into a clean volume, then restart the
-recorded v3.16.1 deployment against that restored volume. Do not start v3
-against the volume converted by v4.
+Restore the tested pre-upgrade backup into a clean volume, then restart the recorded v3.16.1 deployment against that restored volume. Do not start v3 against the volume converted by v4.

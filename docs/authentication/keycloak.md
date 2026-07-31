@@ -12,8 +12,7 @@ Do not reuse the validator client. In the examples, replace:
 - `APP_URL` with the exact public frontend URL;
 - `KEYCLOAK_URL` with the Keycloak base URL, without `/realms/...`;
 - `REALM` with the validator realm; and
-- `AUDIENCE` with the validator Ledger API audience, normally
-  `https://canton.network.global`.
+- `AUDIENCE` with the validator Ledger API audience, normally `https://canton.network.global`.
 
 You can verify the issuer and token endpoint before opening the admin console:
 
@@ -28,8 +27,7 @@ curl -fsS \
 In the Keycloak admin console:
 
 1. Select the validator realm.
-2. Open **Clients**, select **Create client**, and choose
-   **OpenID Connect**.
+2. Open **Clients**, select **Create client**, and choose **OpenID Connect**.
 3. Set **Client ID** to `noves-canton-data-app-browser`.
 4. In **Capability config**:
    - disable **Client authentication**;
@@ -42,11 +40,9 @@ In the Keycloak admin console:
    - **Web origins:** `APP_URL`
 6. Save the client.
 7. On **Settings > Capability config**, set **PKCE Method** to `S256`.
-8. Assign `daml_ledger_api` as a default client scope. Follow
-   [Assign the Ledger API scope](#assign-the-ledger-api-scope).
+8. Assign `daml_ledger_api` as a default client scope. Follow [Assign the Ledger API scope](#assign-the-ledger-api-scope).
 
-The browser client has no secret. Put only these public values in Compose
-`.env`:
+The browser client has no secret. Put only these public values in Compose `.env`:
 
 ```dotenv
 APP_URL=https://data.example.com
@@ -72,17 +68,14 @@ oidc:
 
 ## 2. Create the capture client
 
-1. Create another OpenID Connect client with client ID
-   `noves-canton-data-app-capture`.
+1. Create another OpenID Connect client with client ID `noves-canton-data-app-capture`.
 2. In **Capability config**:
    - enable **Client authentication**;
    - disable **Standard flow**;
    - disable **Direct access grants**; and
    - enable **Service accounts roles**.
-3. Leave **Root URL** and **Home URL** blank in **Login settings**, then save
-   the client.
-4. Assign `daml_ledger_api` as a default client scope. Follow
-   [Assign the Ledger API scope](#assign-the-ledger-api-scope).
+3. Leave **Root URL** and **Home URL** blank in **Login settings**, then save the client.
+4. Assign `daml_ledger_api` as a default client scope. Follow [Assign the Ledger API scope](#assign-the-ledger-api-scope).
 5. Open **Credentials** and record the generated client secret.
 
 ### Assign the Ledger API scope
@@ -94,9 +87,7 @@ On the client's **Client scopes** tab:
 3. Open the **Add** menu and choose **Default**.
 4. Confirm that the `daml_ledger_api` row shows **Default**.
 
-The access token must contain the Ledger API audience. Request a token in the
-next section and inspect `aud` first. If `AUDIENCE` is absent, add an audience
-mapper to this client's dedicated scope:
+The access token must contain the Ledger API audience. Request a token in the next section and inspect `aud` first. If `AUDIENCE` is absent, add an audience mapper to this client's dedicated scope:
 
 1. Open the capture client and select **Client scopes**.
 2. Open the row whose name ends in `-dedicated`.
@@ -106,8 +97,7 @@ mapper to this client's dedicated scope:
    - **Included Custom Audience:** `AUDIENCE`
 5. Keep **Add to access token** enabled and save.
 
-This keeps the app-specific mapper on the capture client instead of changing a
-realm-wide scope.
+This keeps the app-specific mapper on the capture client instead of changing a realm-wide scope.
 
 Use this private Compose file:
 
@@ -124,8 +114,7 @@ Store it at `docker-compose/.state/capture.env` with mode `0600`.
 
 ## 3. Read the exact capture subject
 
-Set shell variables without adding the secret to shell history, then request
-one client-credentials token:
+Set shell variables without adding the secret to shell history, then request one client-credentials token:
 
 ```bash
 read -r -p 'Keycloak URL: ' KEYCLOAK_URL
@@ -166,8 +155,7 @@ Confirm:
 - `audiencePresent` is `true`; and
 - `sub` is non-empty.
 
-Copy the exact, case-sensitive `sub`. It is not necessarily the client ID or
-service-account display name.
+Copy the exact, case-sensitive `sub`. It is not necessarily the client ID or service-account display name.
 
 Clear the credential and token variables when the check is complete:
 
@@ -186,26 +174,10 @@ participant.ledger_api.users.create(
 )
 ```
 
-If the user already exists, grant `CanReadAsAnyParty` and list its rights.
-Remove anything else. In particular, the user must not have participant or
-identity provider administration, act as, execute as, or rights for individual
-parties.
+If the user already exists, grant `CanReadAsAnyParty` and list its rights. Remove anything else. In particular, the user must not have participant or identity provider administration, act as, execute as, or rights for individual parties.
 
 Use your validator's normal Canton administrator procedure to create or update the Canton user.
 
 ## 5. Verify the Noves Data App configuration
 
-Before starting the Noves Data App, request a second capture token and confirm its `sub` still
-matches the Canton user. After installation, verify:
-
-```bash
-curl -fsS http://127.0.0.1:8090/ready
-curl -fsS http://127.0.0.1:8090/api/v2/capture/status | jq
-```
-
-Then open `APP_URL`, sign in through Keycloak, and confirm the browser returns
-to `APP_URL/callback`.
-
-A successful token exchange does not prove that capture works. The app must
-also confirm the participant identity, network, token subject, and
-`CanReadAsAnyParty` without broader rights.
+Follow [Verify authentication](verify.md).

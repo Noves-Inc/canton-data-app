@@ -1,9 +1,6 @@
 # Helm installation
 
-Use this guide to install the Noves Data App on Kubernetes. The examples place
-the app in the validator namespace and use Auth0, NGINX Ingress, and Canton's
-default Service names. You can change the namespace, participant address,
-validator URL, identity provider, and routing settings to match your cluster.
+Use this guide to install the Noves Data App on Kubernetes. The examples place the app in the validator namespace and use Auth0, NGINX Ingress, and Canton's default Service names. You can change the namespace, participant address, validator URL, identity provider, and routing settings to match your cluster.
 
 ## 1. Check the cluster
 
@@ -17,11 +14,7 @@ kubectl --context "$KUBE_CONTEXT" config current-context
 kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" get pods
 ```
 
-The chart defaults to `participant:5001` for the Ledger API and
-`http://validator-app:5003` for the validator API. Set
-`canton.participantAddress` and `canton.validatorUrl` to addresses that the app
-pods can reach. The services may run in another namespace or outside the
-cluster.
+The chart defaults to `participant:5001` for the Ledger API and `http://validator-app:5003` for the validator API. Set `canton.participantAddress` and `canton.validatorUrl` to addresses that the app pods can reach. The services may run in another namespace or outside the cluster.
 
 Check storage and routing:
 
@@ -42,20 +35,13 @@ data.example.com      -> frontend/BFF
 api.data.example.com  -> backend API and /docs
 ```
 
-Create DNS records for both names and point them to the same Ingress or Istio gateway address.
-The chart derives the backend name by adding `api.` to `routing.host`. Set
-`routing.backend.host` when you need another name, or set `routing.backend.enabled: false` for a
-frontend-only route.
+Create DNS records for both names and point them to the same Ingress or Istio gateway address. The chart derives the backend name by adding `api.` to `routing.host`. Set `routing.backend.host` when you need another name, or set `routing.backend.enabled: false` for a frontend-only route.
 
 Production database storage needs encrypted SSD-backed `ReadWriteOnce` block storage. Typical classes are AKS `managed-csi-premium`, encrypted EKS `gp3`, and GKE `premium-rwo`. Set `database.persistence.storageClass` for a new database. The empty default suits local clusters where the default StorageClass is known.
 
 ## 2. Arrange registry access
 
-The chart pins the frontend, backend, and database images by tag and digest.
-Use the chart from the release you are installing. If Noves supplied registry
-credentials for your release, create one or more
-`kubernetes.io/dockerconfigjson` Secrets through your secret manager and list
-them in the values file:
+The chart pins the frontend, backend, and database images by tag and digest. Use the chart from the release you are installing. If Noves supplied registry credentials for your release, create one or more `kubernetes.io/dockerconfigjson` Secrets through your secret manager and list them in the values file:
 
 ```yaml
 imagePullSecrets:
@@ -168,9 +154,7 @@ unset PARTICIPANT_ADMIN_TOKEN ADMIN_CLIENT_ID ADMIN_DISCOVERY_URL ADMIN_TOKEN_UR
   ADMIN_AUDIENCE ADMIN_SCOPE
 ```
 
-The Secret's `url` field points to the OpenID Connect discovery document, not
-the token endpoint. Resolve `token_endpoint` from that document as shown above.
-Do not place the administrator client or token in a Noves Data App Secret.
+The Secret's `url` field points to the OpenID Connect discovery document, not the token endpoint. Resolve `token_endpoint` from that document as shown above. Do not place the administrator client or token in a Noves Data App Secret.
 
 ## 4. Create application Secrets
 
@@ -200,7 +184,7 @@ The chart generates `ACCOUNTING_TOKEN_ENCRYPTION_KEY` in a retained Secret named
 ```yaml
 accounting:
   tokenEncryption:
-    existingSecret: cda-accounting-token-encryption
+    existingSecret: noves-canton-data-app-accounting-token-encryption
     key: accounting-token-encryption-key
 ```
 
@@ -247,10 +231,7 @@ routing:
     className: nginx
 ```
 
-An empty backend host produces `api.data.example.com`. An empty backend TLS Secret reuses
-`routing.tlsSecret`; that certificate must include both hostnames. Set
-`routing.backend.tlsSecret` when the backend uses a separate certificate. With Istio, the
-Gateway terminates TLS, so its certificate must cover both names.
+An empty backend host produces `api.data.example.com`. An empty backend TLS Secret reuses `routing.tlsSecret`; that certificate must include both hostnames. Set `routing.backend.tlsSecret` when the backend uses a separate certificate. With Istio, the Gateway terminates TLS, so its certificate must cover both names.
 
 The backend stores exports on the retained `/exports` PVC by default. Set `exports.storage: s3` only when you have configured the typed `exports.s3` block and bucket access. Transaction-history backups use the independent `backup.s3` block. See [`values.yaml`](../chart/noves-canton-data-app/values.yaml) for the Secret key names and optional endpoint and region fields.
 
@@ -310,9 +291,7 @@ curl -fsS "$BACKEND_URL/ready"
 curl -fsS "$BACKEND_URL/docs/v1/openapi.json" | jq '.info'
 ```
 
-Open `https://api.data.example.com/docs` for Swagger UI. Requests to `/docs` on
-`data.example.com` still go to the frontend SPA because that hostname routes to the frontend
-Service.
+Open `https://api.data.example.com/docs` for Swagger UI. Requests to `/docs` on `data.example.com` still go to the frontend SPA because that hostname routes to the frontend Service.
 
 `/ready` proves that startup and database preparation finished. It does not prove that participant capture is running. The capture response should report `captureEnabled: true`; after initial loading, the node should report `initialCaptureComplete: true` and `caughtUp: true`.
 
