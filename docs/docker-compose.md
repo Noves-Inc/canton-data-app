@@ -53,7 +53,7 @@ Leave `REPLACE_WITH_PARTICIPANT_ID` in `.state/nodes-config.json` until step 4, 
 cp /secure/path/ca.crt "$APP_INSTALL_DIR/docker-compose/.state/certificates/ca.crt"
 cp /secure/path/client.crt "$APP_INSTALL_DIR/docker-compose/.state/certificates/client.crt"
 cp /secure/path/client.key "$APP_INSTALL_DIR/docker-compose/.state/certificates/client.key"
-chmod 440 "$APP_INSTALL_DIR/docker-compose/.state/certificates/"*
+chmod 600 "$APP_INSTALL_DIR/docker-compose/.state/certificates/"*
 ```
 
 Set the primary node fields in `.state/nodes-config.json`:
@@ -67,7 +67,16 @@ Set the primary node fields in `.state/nodes-config.json`:
 
 The client certificate and key must be configured together. `client.crt` may contain the leaf followed by intermediate certificates. Omit `cert_file` or leave it empty when the participant certificate uses normal system trust. A client pair or `tls_server_name` still enables TLS; the app never falls back to plaintext after any TLS setting is configured. `tls_server_name` controls SNI and hostname verification when `addr` is an internal service name that is not in the participant certificate SAN.
 
-The installer rejects paths outside `/certificates`, missing files, partial client pairs, and files the non-root backend cannot read. It stores only paths in `nodes-config.json`; certificate and key contents remain in `.state/certificates` and are mounted read-only.
+The installer rejects paths outside `/certificates`, missing files, partial client pairs, and files the non-root backend cannot read. After pulling the backend image, it uses a root one-shot container to set the certificate directory to group `1654` with mode `0750` and configured files to group `1654` with mode `0440`. This gives the backend's non-root user access without making the private key world-readable. It stores only paths in `nodes-config.json`; certificate and key contents remain in `.state/certificates` and are mounted read-only.
+
+Certificates are loaded into long-lived channels at backend startup. To rotate them, first configure the participant to accept both old and new client issuers or identities for the transition. Copy each replacement to a temporary file in `.state/certificates`, then rename all replacements into place before restarting anything. Rerun `install-compose.sh` with the same `--directory` to restore group `1654` and `0440` permissions, then reload the channels:
+
+```bash
+cd "$APP_INSTALL_DIR/docker-compose"
+docker compose --env-file .env -f compose.yaml restart backend
+```
+
+Keep the participant's old server certificate or trust path valid until the restart succeeds. For a server-CA rollover, install the new CA file before switching the participant certificate; for a client-identity rollover, keep both client identities trusted until the restarted backend is healthy.
 
 ## 3. Configure browser login and capture
 

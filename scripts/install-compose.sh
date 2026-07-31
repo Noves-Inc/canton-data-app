@@ -136,6 +136,10 @@ docker network inspect "$canton_docker_network" >/dev/null 2>&1 ||
   die "Docker network '$canton_docker_network' does not exist."
 docker compose --env-file .env -f compose.yaml pull ||
   die "Could not pull the Noves Data App images. Log in to the configured registries and retry."
+secure_canton_certificate_files \
+  .env compose.yaml "$PWD/.state/certificates" \
+  "${canton_certificate_container_paths[@]}" ||
+  die "Could not assign Ledger API certificate files to backend group 1654."
 for certificate_path in "${canton_certificate_container_paths[@]}"; do
   docker compose --env-file .env -f compose.yaml run --rm --no-deps \
     --entrypoint /bin/sh backend -c 'test -r "$1"' sh "$certificate_path" ||

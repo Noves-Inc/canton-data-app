@@ -103,4 +103,39 @@ if validate_canton_certificate_files "$nodes_file" "$certificate_root" \
 fi
 rg -q '/certificates/missing.key' "$scratch/missing.out"
 
+permissions_root="$scratch/certificate-permissions"
+mkdir -p "$permissions_root"
+touch "$permissions_root/client.crt" "$permissions_root/client.key"
+chmod 755 "$permissions_root"
+chmod 644 "$permissions_root/client.crt" "$permissions_root/client.key"
+cat >"$scratch/permissions-compose.yaml" <<'YAML'
+services:
+  backend:
+    image: alpine:3.22
+    volumes:
+      - type: bind
+        source: ${CERTIFICATE_ROOT}
+        target: /certificates
+        read_only: true
+YAML
+printf 'CERTIFICATE_ROOT=%s\n' "$permissions_root" >"$scratch/permissions.env"
+secure_canton_certificate_files \
+  "$scratch/permissions.env" \
+  "$scratch/permissions-compose.yaml" \
+  "$permissions_root" \
+  /certificates/client.crt \
+  /certificates/client.key
+docker compose --env-file "$scratch/permissions.env" \
+  -f "$scratch/permissions-compose.yaml" run --rm --no-deps \
+  --user 0:0 --entrypoint /bin/sh backend -ec '
+    test "$(stat -c %a /certificates)" = 750
+    test "$(stat -c %g /certificates)" = 1654
+    test "$(stat -c %a /certificates/client.key)" = 440
+    test "$(stat -c %g /certificates/client.key)" = 1654
+  '
+
+rg -q 'secure_canton_certificate_files' "$repo_root/scripts/install-compose.sh"
+rg -q 'restart backend' "$repo_root/docs/docker-compose.md"
+rg -q 'rollout restart' "$repo_root/docs/helm.md"
+
 echo "mTLS deployment verification passed"

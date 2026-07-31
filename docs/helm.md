@@ -191,6 +191,25 @@ kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
 
 The chart projects configured certificate keys with mode `0440`; the backend pod's `fsGroup` supplies read access. Do not put the private key in a ConfigMap or values file.
 
+Certificates are loaded into long-lived channels when a backend pod starts. Updating an existing Secret does not reload those channels. For rotation, first make the participant trust both old and new client issuers or identities, then atomically apply all replacement Secret keys and restart the backend deployment:
+
+```bash
+kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
+  create secret generic noves-canton-ledger-mtls \
+  --from-file=ca.crt=/secure/path/ca.crt \
+  --from-file=client.crt=/secure/path/client.crt \
+  --from-file=client.key=/secure/path/client.key \
+  --dry-run=client -o yaml | \
+kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" apply -f -
+
+kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
+  rollout restart deployment/<release-name>-noves-canton-data-app-backend
+kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
+  rollout status deployment/<release-name>-noves-canton-data-app-backend
+```
+
+Keep the participant's old server certificate or trust path valid until the rollout completes. For a server-CA rollover, deploy the new CA before changing the participant certificate. Remove old client trust only after every backend pod is healthy with the new identity.
+
 The chart generates `ACCOUNTING_TOKEN_ENCRYPTION_KEY` in a retained Secret named `<release>-accounting-token-encryption`. Back up that Secret with the database. Losing it makes stored accounting provider credentials unreadable. GitOps operators who need deterministic client-side rendering can create their own 32-byte base64 key and set:
 
 ```yaml

@@ -54,3 +54,26 @@ validate_canton_certificate_files() {
     [$node_id, .[0], .[1]] | @tsv
   ' "$nodes_file")
 }
+
+secure_canton_certificate_files() {
+  local env_file="$1"
+  local compose_file="$2"
+  local certificate_root="$3"
+  shift 3
+
+  (($#)) || return 0
+
+  local backend_image
+  backend_image="$(
+    docker compose --env-file "$env_file" -f "$compose_file" \
+      config --format json | jq -er '.services.backend.image'
+  )" || return 1
+
+  docker run --rm --user 0:0 \
+    --volume "$certificate_root:/certificates" \
+    --entrypoint /bin/sh "$backend_image" -ec '
+      chgrp 1654 /certificates "$@"
+      chmod 0750 /certificates
+      chmod 0440 "$@"
+    ' sh "$@"
+}
