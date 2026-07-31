@@ -44,6 +44,11 @@ Keep the PostgreSQL Service and participant Ledger API private. The Compose bund
 application ports to loopback by default; expose them through a TLS
 reverse proxy instead of opening the container ports directly.
 
+The backend blocks webhook delivery to private network addresses by default.
+Set `backend.allowPrivateWebhookTargets: true` in Helm or
+`ALLOW_PRIVATE_WEBHOOK_TARGETS=true` in Compose only when you trust the target
+and intend to deliver alerts or connector events inside a private network.
+
 The chart enables a database ingress NetworkPolicy that accepts PostgreSQL traffic only from the
 release's backend pod. Broader frontend and backend policies depend on cluster-specific ingress
 controller, DNS, participant, identity-provider, and Noves API selectors. Add those policies through

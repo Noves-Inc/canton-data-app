@@ -4,7 +4,7 @@
 {{- if or (and (eq .Values.routing.provider "ingress") $backendTlsSecret) (and (eq .Values.routing.provider "istio") (hasPrefix "https://" .Values.oidc.appUrl)) }}
 {{- $backendScheme = "https" }}
 {{- end }}
-The Noves App is installed.
+The Noves Data App is installed.
 {{- if ne .Values.routing.provider "none" }}
 
 Open {{ .Values.oidc.appUrl }}.

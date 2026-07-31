@@ -1,11 +1,11 @@
 # Encryption at Rest (v4)
 
-V4 of the Noves App requires encrypted storage for indexed ledger data. The app
+V4 of the Noves Data App requires encrypted storage for indexed ledger data. The app
 encrypts stored credentials, such as OAuth tokens, at the column level. Encrypt
 the storage that backs the database volume to protect transaction data without
 changing the application containers or query behavior.
 
-You configure this storage in the infrastructure where you run the Noves App.
+You configure this storage in the infrastructure where you run the Noves Data App.
 This guide covers Helm and Docker Compose, migration from unencrypted storage,
 and verification.
 

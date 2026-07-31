@@ -5,7 +5,6 @@ imagePullSecrets: []
 
 backend:
   replicaCount: 1
-  publicApiUrl: https://api.canton.noves.fi
   image:
     repository: noves.azurecr.io/cda-backend
     tag: "prod-3e1a1fde-1785439104"
@@ -24,6 +23,8 @@ backend:
       drop:
         - ALL
   extraEnv: []
+  # Security opt-in for webhook receivers on private network addresses.
+  allowPrivateWebhookTargets: false
   resources:
     requests:
       cpu: 500m
@@ -31,41 +32,6 @@ backend:
     limits:
       cpu: "2"
       memory: 4Gi
-  performance:
-    database:
-      writeBatchSize: 250
-      maxParallelWorkersPerGather: 0
-      synchronousCommit: "off"
-      maxWalSize: 8GB
-      deadTupleRatioLimit: 0.30
-      deadTupleMinimum: 1000
-      transactionAgeLimit: 100000
-      writeIoUtilizationLimit: 0.90
-      connectionUtilizationLimit: 0.85
-      commitP95LimitMs: 250
-    readModel:
-      totalCapacity: 4
-      reservedLiveCapacity: 1
-      liveWeight: 4
-      bootstrapWeight: 1
-      bootstrapBatchSize: 25
-      backgroundIndexingDutyPercent: 100
-      partyEventsIndexingDelayMs: 0
-      pressureCheckIntervalMs: 5000
-      pressureResumeRatio: 0.80
-      captureLagLimitRecords: 2000
-      liveWorkMaxWaitMs: 30000
-      processMemoryLimitBytes: 4294967296
-  streaming:
-    pollIntervalMs: 5000
-    pageSize: 100
-    retryDelayMs: 2000
-    websocketBufferLimit: 10000
-    databaseTimeoutSeconds: 60
-    deduplicationWindowRecords: 1000000
-    deliveryRecencyMinutes: 1440
-    allowPrivateWebhookTargets: false
-
 frontend:
   replicaCount: 1
   image:

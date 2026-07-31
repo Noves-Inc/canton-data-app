@@ -269,130 +269,21 @@
       "additionalProperties": false,
       "required": [
         "replicaCount",
-        "publicApiUrl",
         "image",
         "podSecurityContext",
         "containerSecurityContext",
         "extraEnv",
-        "resources",
-        "performance",
-        "streaming"
+        "allowPrivateWebhookTargets",
+        "resources"
       ],
       "properties": {
         "replicaCount": { "type": "integer", "const": 1 },
-        "publicApiUrl": { "type": "string", "format": "uri", "pattern": "^(?:[Hh][Tt][Tt][Pp][Ss]://(?:\\[[0-9A-Fa-f:.]+\\]|[^\\s/:?#]+)(?::(?:0|[1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(?:[/?#][^\\s]*)?|[Hh][Tt][Tt][Pp]://(?:[Ll][Oo][Cc][Aa][Ll][Hh][Oo][Ss][Tt]|127(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3}|\\[::1\\])(?::(?:0|[1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(?:[/?#][^\\s]*)?)$", "description": "Public Noves API base URL used by the backend. HTTPS is required except for loopback HTTP." },
         "image": { "$ref": "#/$defs/image" },
         "podSecurityContext": { "type": "object" },
         "containerSecurityContext": { "type": "object" },
         "extraEnv": { "type": "array", "items": { "type": "object" } },
-        "resources": { "type": "object" },
-        "performance": { "$ref": "#/$defs/performance" },
-        "streaming": { "$ref": "#/$defs/streaming" }
-      }
-    },
-    "streaming": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "pollIntervalMs",
-        "pageSize",
-        "retryDelayMs",
-        "websocketBufferLimit",
-        "databaseTimeoutSeconds",
-        "deduplicationWindowRecords",
-        "deliveryRecencyMinutes",
-        "allowPrivateWebhookTargets"
-      ],
-      "properties": {
-        "pollIntervalMs": { "type": "integer", "minimum": 100, "maximum": 60000 },
-        "pageSize": { "type": "integer", "minimum": 1, "maximum": 1000 },
-        "retryDelayMs": { "type": "integer", "minimum": 100, "maximum": 300000 },
-        "websocketBufferLimit": { "type": "integer", "minimum": 100, "maximum": 100000 },
-        "databaseTimeoutSeconds": { "type": "integer", "minimum": 5, "maximum": 600 },
-        "deduplicationWindowRecords": { "type": "integer", "minimum": 1000, "maximum": 100000000 },
-        "deliveryRecencyMinutes": { "type": "integer", "minimum": 0, "maximum": 525600 },
-        "allowPrivateWebhookTargets": { "type": "boolean" }
-      }
-    },
-    "performance": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["database", "readModel"],
-      "properties": {
-        "database": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "writeBatchSize",
-            "maxParallelWorkersPerGather",
-            "synchronousCommit",
-            "maxWalSize",
-            "deadTupleRatioLimit",
-            "deadTupleMinimum",
-            "transactionAgeLimit",
-            "writeIoUtilizationLimit",
-            "connectionUtilizationLimit",
-            "commitP95LimitMs"
-          ],
-          "properties": {
-            "writeBatchSize": { "type": "integer", "minimum": 1, "maximum": 250 },
-            "maxParallelWorkersPerGather": { "type": "integer", "minimum": 0 },
-            "synchronousCommit": { "enum": ["off", "on", "local", "remote_write", "remote_apply"] },
-            "maxWalSize": { "type": "string", "minLength": 1 },
-            "deadTupleRatioLimit": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
-            "deadTupleMinimum": { "type": "integer", "minimum": 1 },
-            "transactionAgeLimit": { "type": "integer", "minimum": 1 },
-            "writeIoUtilizationLimit": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
-            "connectionUtilizationLimit": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
-            "commitP95LimitMs": { "type": "integer", "minimum": 1 }
-          }
-        },
-        "readModel": {
-          "type": "object",
-          "additionalProperties": false,
-          "allOf": [
-            {
-              "if": {
-                "properties": {
-                  "backgroundIndexingDutyPercent": { "maximum": 99 }
-                }
-              },
-              "then": {
-                "properties": {
-                  "partyEventsIndexingDelayMs": { "const": 0 }
-                }
-              }
-            }
-          ],
-          "required": [
-            "totalCapacity",
-            "reservedLiveCapacity",
-            "liveWeight",
-            "bootstrapWeight",
-            "bootstrapBatchSize",
-            "backgroundIndexingDutyPercent",
-            "partyEventsIndexingDelayMs",
-            "pressureCheckIntervalMs",
-            "pressureResumeRatio",
-            "captureLagLimitRecords",
-            "liveWorkMaxWaitMs",
-            "processMemoryLimitBytes"
-          ],
-          "properties": {
-            "totalCapacity": { "type": "integer", "minimum": 1 },
-            "reservedLiveCapacity": { "type": "integer", "minimum": 1 },
-            "liveWeight": { "type": "integer", "minimum": 1 },
-            "bootstrapWeight": { "type": "integer", "minimum": 1 },
-            "bootstrapBatchSize": { "type": "integer", "minimum": 1 },
-            "backgroundIndexingDutyPercent": { "type": "integer", "minimum": 1, "maximum": 100 },
-            "partyEventsIndexingDelayMs": { "type": "integer", "minimum": 0 },
-            "pressureCheckIntervalMs": { "type": "integer", "minimum": 1 },
-            "pressureResumeRatio": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
-            "captureLagLimitRecords": { "type": "integer", "minimum": 1 },
-            "liveWorkMaxWaitMs": { "type": "integer", "minimum": 1 },
-            "processMemoryLimitBytes": { "type": "integer", "minimum": 1 }
-          }
-        }
+        "allowPrivateWebhookTargets": { "type": "boolean" },
+        "resources": { "type": "object" }
       }
     },
     "persistence": {

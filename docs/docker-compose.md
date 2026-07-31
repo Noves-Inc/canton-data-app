@@ -1,6 +1,6 @@
 # Docker Compose installation
 
-Use these instructions to install the Noves App beside a validator deployed with Canton's standard
+Use these instructions to install the Noves Data App beside a validator deployed with Canton's standard
 Docker Compose bundle. It uses the existing
 `splice-validator_splice_validator` network, `participant:5001`, and
 `http://validator:5003`.
@@ -9,7 +9,7 @@ These instructions keep the configuration in local files.
 
 ## 1. Check the host
 
-The Noves App adds a database, backend, and frontend to the validator host. Check CPU,
+The Noves Data App adds a database, backend, and frontend to the validator host. Check CPU,
 memory, and disk before starting; initial capture and read-model catch-up add
 load until the app reaches the ledger end.
 
@@ -28,16 +28,10 @@ docker ps \
 Both commands must list a running container. If your Compose project uses
 another network, record its name for `CANTON_DOCKER_NETWORK`.
 
-The prerelease images for v4 are private. Authenticate before installation:
-
-```bash
-docker login noves.azurecr.io
-docker login ghcr.io
-```
-
 The shipped `.env.example` pins `BACKEND_IMAGE=`, `FRONTEND_IMAGE=`, and
-`DATABASE_IMAGE=` independently by tag and digest. Do not remove a digest
-unless you are deliberately testing a different build.
+`DATABASE_IMAGE=` by tag and digest. Use all three references from the same v4
+release. If Noves supplied registry credentials for your release, authenticate
+with the named registry before running the installer.
 
 ## 2. Prepare the installation files
 
@@ -57,8 +51,6 @@ Edit `.env`:
 - leave the three image references pinned;
 - set `CANTON_DOCKER_NETWORK` if the validator uses a nonstandard network;
 - set `CANTON_VALIDATOR_URL` only if `http://validator:5003` is not reachable;
-- set `NOVES_PUBLIC_API_URL` only when Noves supplied a non-default public API
-  endpoint; the default is `https://api.canton.noves.fi`;
 - set `CANTON_NETWORK=testnet` or `CANTON_NETWORK=devnet` for a non-mainnet
   participant; and
 - configure exactly one browser OIDC provider.
@@ -204,7 +196,7 @@ unset PARTICIPANT_ADMIN_TOKEN VALIDATOR_AUTH_CLIENT_ID AUTH_WELLKNOWN_URL \
 ```
 
 The final rights response must contain only `can_read_as_any_party`. Do not
-place the validator administrator client or token in Noves App files.
+place the validator administrator client or token in Noves Data App files.
 
 ## 5. Create local secrets
 
@@ -399,18 +391,7 @@ the database.
 For encrypted local storage, set `DATABASE_DATA_PATH` to an absolute path on an
 encrypted filesystem. See [Encryption at rest](../encryption_at_rest.md).
 
-Performance and stream-delivery controls are listed in `.env.example`. Keep
-their defaults for the first installation. Change one group at a time after
-observing database CPU, memory, connections, capture lag, and write latency.
-The broadest controls are `DATABASE_MAX_PARALLEL_WORKERS_PER_GATHER`,
-`READ_MODEL_TOTAL_CAPACITY`, and `BACKGROUND_INDEXING_DUTY_PERCENT`.
-See [Streams, alerts, and connectors](streaming.md) for `STREAM_*` and
-`ALLOW_PRIVATE_WEBHOOK_TARGETS`.
-
-Accounting posting backfill is bounded and readiness-aware. Keep the backend available while the
-posting queue drains; dependent exports report a typed 425 only when their pinned frontier is not
-yet safely materialized. Historical work throttles at 100,000 pending updates and resumes at
-80,000, while live capture continues. If a release enables shadow comparison, set
-`ACCOUNTING_ROLLUP_GENERATOR_MODE=shadow` in the backend environment for the compatibility window,
-then use `manifest` only after the documented parity/performance gate passes. Preserve the database
-and export volumes when rolling back and follow the forward-only migration procedure above.
+Set `ALLOW_PRIVATE_WEBHOOK_TARGETS=true` only when an alert or connector must
+deliver to a receiver on a private network. The default blocks those targets.
+Traffic-cost analysis and stream processing run in the backend without extra
+services or tuning variables.

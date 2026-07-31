@@ -1,12 +1,3 @@
-backend:
-  # Keep defaults initially. Raise these only with matching database capacity.
-  performance:
-    database:
-      maxParallelWorkersPerGather: 0
-      maxWalSize: 8GB
-    readModel:
-      totalCapacity: 4
-      reservedLiveCapacity: 1
 database:
   existingSecret: noves-canton-data-app-database
   persistence:

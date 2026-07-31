@@ -1,6 +1,8 @@
 # Helm installation
 
-Use this guide to install v4 of the Noves App in the same namespace as a validator deployed with the standard Canton Helm chart. The example uses Auth0, NGINX Ingress, and the default Canton Service names. It references private prerelease images, which Noves will replace with public images when v4 ships.
+Use this guide to install v4 of the Noves Data App in the same namespace as a
+validator deployed with the standard Canton Helm chart. The example uses
+Auth0, NGINX Ingress, and the default Canton Service names.
 
 ## 1. Check the cluster
 
@@ -47,19 +49,13 @@ frontend-only route.
 
 Production database storage needs encrypted SSD-backed `ReadWriteOnce` block storage. Typical classes are AKS `managed-csi-premium`, encrypted EKS `gp3`, and GKE `premium-rwo`. Set `database.persistence.storageClass` for a new database. The empty default suits local clusters where the default StorageClass is known.
 
-## 2. Arrange private registry access
+## 2. Arrange registry access
 
-The prerelease chart uses:
-
-```text
-noves.azurecr.io/cda-backend:prod-3e1a1fde-1785439104
-noves.azurecr.io/cda-frontend:prod-c78cdd33-1785419965
-ghcr.io/noves-inc/noves-canton-database-v4:candidate-30160846627-1
-```
-
-The chart pins all three images by tag and digest. An AKS cluster attached to the Noves ACR can pull the first two images through its kubelet identity. Other clusters need registry pull credentials.
-
-Create one or more `kubernetes.io/dockerconfigjson` Secrets through your secret manager, then list them:
+The chart pins the frontend, backend, and database images by tag and digest.
+Use the chart from the v4 release you are installing. If Noves supplied registry
+credentials for your release, create one or more
+`kubernetes.io/dockerconfigjson` Secrets through your secret manager and list
+them in the values file:
 
 ```yaml
 imagePullSecrets:
@@ -67,7 +63,7 @@ imagePullSecrets:
   - name: noves-ghcr-pull
 ```
 
-Confirm access before debugging the application:
+Confirm the Secrets exist before debugging an image-pull failure:
 
 ```bash
 kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
@@ -174,7 +170,7 @@ unset PARTICIPANT_ADMIN_TOKEN ADMIN_CLIENT_ID ADMIN_DISCOVERY_URL ADMIN_TOKEN_UR
 
 The Secret's `url` field points to the OpenID Connect discovery document, not
 the token endpoint. Resolve `token_endpoint` from that document as shown above.
-Do not place the administrator client or token in a Noves App Secret.
+Do not place the administrator client or token in a Noves Data App Secret.
 
 ## 4. Create application Secrets
 
@@ -199,7 +195,7 @@ kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
   --from-literal=scope=''
 ```
 
-Noves supplies a separate per-installation gateway credential during the prerelease:
+Noves supplies a separate per-installation gateway credential:
 
 ```bash
 kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \

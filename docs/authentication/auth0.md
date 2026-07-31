@@ -10,13 +10,13 @@ In the examples below, `APP_URL` is the exact public URL, such as
 
 1. In **Applications > Applications**, select **Create Application**.
 2. Choose **Single Page Web Applications**.
-3. Name it for the Noves App browser login.
+3. Name it for the Noves Data App browser login.
 4. Under **Application URIs**, set:
    - **Allowed Callback URLs:** `APP_URL/callback`
    - **Allowed Logout URLs:** `APP_URL`
    - **Allowed Web Origins:** `APP_URL`
 5. Save and record the tenant domain and Client ID. A browser client has no client secret in the
-   Noves App configuration.
+   Noves Data App configuration.
 
 Use these Helm values:
 

@@ -1,6 +1,6 @@
 apiVersion: v2
 name: noves-canton-data-app
-description: Self-hosted Noves App, version 4
+description: Self-hosted Noves Data App, version 4
 type: application
 version: 4.0.0
 appVersion: "4.0.0"

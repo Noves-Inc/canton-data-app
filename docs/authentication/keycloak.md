@@ -1,6 +1,6 @@
 # Keycloak configuration
 
-The Noves App needs two Keycloak clients:
+The Noves Data App needs two Keycloak clients:
 
 | Client | Type | Use |
 |---|---|---|
@@ -192,9 +192,9 @@ identity-provider administration, act-as, execute-as, or per-party rights.
 
 Use your validator's normal Canton administrator procedure to create or update the Canton user.
 
-## 5. Verify the Noves App configuration
+## 5. Verify the Noves Data App configuration
 
-Before starting the Noves App, request a second capture token and confirm its `sub` still
+Before starting the Noves Data App, request a second capture token and confirm its `sub` still
 matches the Canton user. After installation, verify:
 
 ```bash

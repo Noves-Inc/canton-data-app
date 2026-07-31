@@ -1,6 +1,11 @@
 # Use only after completing the v3.16.1 migration checklist and setting
 # DATABASE_VOLUME to the stopped v3 database volume.
+services:
+  backend:
+    environment:
+      DATABASE_EXPECTED_SOURCE: v3
+
 volumes:
   cda-database-data:
     external: true
-    name: ${DATABASE_VOLUME:?Set DATABASE_VOLUME to the database volume from v3.16.1 of the Noves App}
+    name: ${DATABASE_VOLUME:?Set DATABASE_VOLUME to the database volume from v3.16.1 of the Noves Data App}
