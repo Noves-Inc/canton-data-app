@@ -233,6 +233,16 @@ routing:
 
 An empty backend host produces `api.data.example.com`. An empty backend TLS Secret reuses `routing.tlsSecret`; that certificate must include both hostnames. Set `routing.backend.tlsSecret` when the backend uses a separate certificate. With Istio, the Gateway terminates TLS, so its certificate must cover both names.
 
+For embedded mode, add the exact origins allowed to host the iframe:
+
+```yaml
+embedded:
+  allowedOrigins:
+    - https://host.example.com
+```
+
+Leave `embedded.allowedOrigins` empty for a standalone deployment. See the [embedded mode guide](../embedded-mode/embedded_mode.md).
+
 The backend stores exports on the retained `/exports` PVC by default. Set `exports.storage: s3` only when you have configured the typed `exports.s3` block and bucket access. Transaction-history backups use the independent `backup.s3` block. See [`values.yaml`](../chart/noves-canton-data-app/values.yaml) for the Secret key names and optional endpoint and region fields.
 
 ## 6. Render and install
@@ -276,7 +286,7 @@ From another terminal:
 
 ```bash
 curl -fsS http://127.0.0.1:8090/health
-curl -fsS http://127.0.0.1:8090/startupStatus | jq
+curl -fsS http://127.0.0.1:8090/startup-status | jq
 curl -fsS http://127.0.0.1:8090/ready
 curl -fsS http://127.0.0.1:8090/api/v2/capture/status | jq
 ```
@@ -305,7 +315,7 @@ Open `https://api.data.example.com/docs` for Swagger UI. Requests to `/docs` on 
 | Backend hostname does not resolve | Check the `api.` DNS record or the explicit `routing.backend.host` value |
 | Backend TLS certificate mismatch | Add both names to the shared certificate or set `routing.backend.tlsSecret` |
 | Istio render fails server dry-run | Install the VirtualService CRD or select `routing.provider: ingress` |
-| Backend stays unready | Read `/startupStatus`, then backend logs |
+| Backend stays unready | Read `/startup-status`, then backend logs |
 | Capture disabled or stale | Read `/api/v2/capture/status`; verify the capture Secret, token subject, Canton user, and its exact rights |
 | Browser login loops | Compare the Auth0 callback, logout, origin, audience, and `oidc.appUrl` values |
 

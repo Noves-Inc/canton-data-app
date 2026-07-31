@@ -99,7 +99,7 @@ wait_for_backend_ready() {
     sleep 5
   done
   printf 'Last backend startup status:\n' >&2
-  curl -sS "$origin/startupStatus" >&2 || true
+  curl -sS "$origin/startup-status" >&2 || true
   printf '\n' >&2
   return 1
 }
@@ -134,4 +134,4 @@ backend_port="${backend_port:-8090}"
 backend_origin="http://127.0.0.1:$backend_port"
 wait_for_backend_ready "$backend_origin" ||
   die "The Noves Data App did not become ready. Run: docker compose --env-file .env -f compose.yaml logs backend"
-printf 'Installation complete. Backend status: %s/startupStatus\n' "$backend_origin"
+printf 'Installation complete. Backend status: %s/startup-status\n' "$backend_origin"
