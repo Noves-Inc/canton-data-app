@@ -188,7 +188,8 @@ participant.ledger_api.users.create(
 
 If the user already exists, grant `CanReadAsAnyParty` and list its rights.
 Remove anything else. In particular, the user must not have participant or
-identity-provider administration, act-as, execute-as, or per-party rights.
+identity provider administration, act as, execute as, or rights for individual
+parties.
 
 Use your validator's normal Canton administrator procedure to create or update the Canton user.
 

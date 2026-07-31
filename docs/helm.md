@@ -1,6 +1,6 @@
 # Helm installation
 
-Use this guide to install v4 of the Noves Data App in the same namespace as a
+Use this guide to install the Noves Data App in the same namespace as a
 validator deployed with the standard Canton Helm chart. The example uses
 Auth0, NGINX Ingress, and the default Canton Service names.
 
@@ -52,7 +52,7 @@ Production database storage needs encrypted SSD-backed `ReadWriteOnce` block sto
 ## 2. Arrange registry access
 
 The chart pins the frontend, backend, and database images by tag and digest.
-Use the chart from the v4 release you are installing. If Noves supplied registry
+Use the chart from the release you are installing. If Noves supplied registry
 credentials for your release, create one or more
 `kubernetes.io/dockerconfigjson` Secrets through your secret manager and list
 them in the values file:

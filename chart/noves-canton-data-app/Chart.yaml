@@ -1,6 +1,6 @@
 apiVersion: v2
 name: noves-canton-data-app
-description: Self-hosted Noves Data App, version 4
+description: Noves Data App for Canton validators
 type: application
 version: 4.0.0
 appVersion: "4.0.0"
@@ -9,4 +9,4 @@ annotations:
   artifacthub.io/category: integration-delivery
   artifacthub.io/changes: |
     - kind: added
-      description: Initial v4 Helm chart.
+      description: Initial Helm chart.

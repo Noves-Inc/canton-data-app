@@ -29,7 +29,7 @@ Both commands must list a running container. If your Compose project uses
 another network, record its name for `CANTON_DOCKER_NETWORK`.
 
 The shipped `.env.example` pins `BACKEND_IMAGE=`, `FRONTEND_IMAGE=`, and
-`DATABASE_IMAGE=` by tag and digest. Use all three references from the same v4
+`DATABASE_IMAGE=` by tag and digest. Use all three references from the same
 release. If Noves supplied registry credentials for your release, authenticate
 with the named registry before running the installer.
 
@@ -38,7 +38,7 @@ with the named registry before running the installer.
 From a checkout of this repository:
 
 ```bash
-export APP_INSTALL_DIR=/opt/noves-canton-data-app-v4
+export APP_INSTALL_DIR=/opt/noves-canton-data-app
 mkdir -p "$APP_INSTALL_DIR/docker-compose/.state"
 cp docker-compose/.env.example "$APP_INSTALL_DIR/docker-compose/.env"
 cp docker-compose/config/nodes-config.json \
@@ -247,13 +247,13 @@ The installer applies mode `0600` to the generated accounting file. The node
 configuration contains no credential; mode `0644` lets the non-root backend
 read its bind mount.
 
-### Optional S3-compatible storage
+### Optional S3 storage
 
 The default deployment writes exports to the named
 `noves-canton-data-app-v4-exports` volume. Set `EXPORTS_VOLUME` in `.env` to
 use another volume name. No S3 settings are required.
 
-To use S3-compatible export or backup storage, copy the separate example and
+To use S3 export or backup storage, copy the separate example and
 fill only the block you need:
 
 ```bash
@@ -372,8 +372,8 @@ Open `https://data.example.com`, sign in, and confirm the browser returns to
 curl -fsS http://127.0.0.1:8090/api/v2/capture/status | jq
 ```
 
-The capture status must show the participant-wide indexer running without a
-network or token error.
+The capture status must show the indexer running across the participant without
+a network or token error.
 
 ## Operations and upgrades
 
@@ -393,5 +393,5 @@ encrypted filesystem. See [Encryption at rest](../encryption_at_rest.md).
 
 Set `ALLOW_PRIVATE_WEBHOOK_TARGETS=true` only when an alert or connector must
 deliver to a receiver on a private network. The default blocks those targets.
-Traffic-cost analysis and stream processing run in the backend without extra
+Traffic cost analysis and stream processing run in the backend without extra
 services or tuning variables.

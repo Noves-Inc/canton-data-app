@@ -51,7 +51,7 @@ and intend to deliver alerts or connector events inside a private network.
 
 The chart enables a database ingress NetworkPolicy that accepts PostgreSQL traffic only from the
 release's backend pod. Broader frontend and backend policies depend on cluster-specific ingress
-controller, DNS, participant, identity-provider, and Noves API selectors. Add those policies through
+controller, DNS, participant, identity provider, and Noves API selectors. Add those policies through
 your platform policy layer after verifying the required egress.
 
 The default in-cluster participant connection is unencrypted because it stays inside the
@@ -113,4 +113,4 @@ will leave PostgreSQL unable to write the claim.
 The backend alone mounts the exports PVC. The frontend reads exports through the backend API.
 `exports.storage: s3` removes the PVC and mount; configure bucket-side encryption and a
 least-privilege credentials Secret before selecting it. The independent `backup.s3` block stores
-transaction-history backups.
+transaction history backups.
