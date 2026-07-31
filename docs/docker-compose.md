@@ -47,7 +47,7 @@ Leave `REPLACE_WITH_PARTICIPANT_ID` in `.state/nodes-config.json` until step 4, 
 
 ### Optional Ledger API TLS and mTLS
 
-`cert_file` verifies the participant's server certificate with a private CA. It is not a client certificate. When the Ledger API requires mTLS, copy the unencrypted PEM client identity into the mounted certificate directory:
+`cert_file` verifies the participant's server certificate with a private CA. It accepts either one DER certificate or a PEM bundle containing multiple trust anchors; it is not a client certificate. When the Ledger API requires mTLS, copy the unencrypted PEM client identity into the mounted certificate directory:
 
 ```bash
 cp /secure/path/ca.crt "$APP_INSTALL_DIR/docker-compose/.state/certificates/ca.crt"
@@ -76,7 +76,7 @@ cd "$APP_INSTALL_DIR/docker-compose"
 docker compose --env-file .env -f compose.yaml restart backend
 ```
 
-Keep the participant's old server certificate or trust path valid until the restart succeeds. For a server-CA rollover, install the new CA file before switching the participant certificate; for a client-identity rollover, keep both client identities trusted until the restarted backend is healthy.
+For an unrelated server-CA rollover, create `ca-bundle.pem` with the old root followed by the new root. Point `cert_file` at that bundle, restart the backend, and verify it still reaches the participant using the old certificate. Then switch the participant to its new certificate and verify connectivity. Finally replace the bundle with the new root only and restart the backend again. If a trust-overlap bundle or cross-signed participant certificate is not available, schedule a maintenance window instead. For a client-identity rollover, keep both client identities trusted until the restarted backend is healthy.
 
 ## 3. Configure browser login and capture
 

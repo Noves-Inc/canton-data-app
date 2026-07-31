@@ -137,5 +137,7 @@ docker compose --env-file "$scratch/permissions.env" \
 rg -q 'secure_canton_certificate_files' "$repo_root/scripts/install-compose.sh"
 rg -q 'restart backend' "$repo_root/docs/docker-compose.md"
 rg -q 'rollout restart' "$repo_root/docs/helm.md"
+rg -q 'old root followed by the new root' "$repo_root/docs/docker-compose.md"
+rg -q 'old and new roots' "$repo_root/docs/helm.md"
 
 echo "mTLS deployment verification passed"
