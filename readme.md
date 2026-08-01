@@ -1,5 +1,7 @@
 # Noves Data App
 
+<img width="1906" height="911" alt="noves-data-app-dashboard" src="https://github.com/user-attachments/assets/b887b869-acf8-4719-b9ec-b6dedb4718ad" />
+
 The Noves Data App is a private block explorer and reporting suite for Canton Network. It lets you browse and filter private ledger activity, understand transactions in context, export data in reconcilable financial formats, and build applications on top of its API.
 
 The app runs in your infrastructure and connects to your existing identity
@@ -33,6 +35,8 @@ include the Data App in an iframe.
 
 You can install and use the app without contacting Noves. A free tier is
 included.
+
+<img width="1766" height="729" alt="noves-data-app-transactions" src="https://github.com/user-attachments/assets/2e242be7-0e64-47d9-b2d9-d78ec2f6c984" />
 
 ## Install
 
