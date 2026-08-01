@@ -46,7 +46,7 @@ Helm uses the matching `oidc.auth0` or `oidc.keycloak` values. Compose reads the
 ### Canton connection
 
 - The backend detects the Canton network from the configured synchronizer alias and its authenticated identity catalog; there is no operator network selector.
-- `SCAN_PROXY_URL` comes from `canton.validatorUrl` in Helm or `CANTON_VALIDATOR_URL` in Compose. The defaults are `http://validator-app:5003` for Helm and `http://validator:5003` for Compose. Override the value when that address is not reachable.
+- `SCAN_PROXY_URL` comes from `canton.scanApiUrl` in Helm or `CANTON_SCAN_API_URL` in Compose. The defaults are `http://validator-app:5003` for Helm and `http://validator:5003` for Compose. Override the value when that address is not reachable.
 
 Ledger API TLS and mTLS do not add container environment variables. Helm uses `canton.certificateSecret`, `canton.certificateKey`, `canton.clientCertificateKey`, `canton.clientPrivateKeyKey`, and `canton.tlsServerName`. Compose uses `cert_file`, `client_cert_file`, `client_key_file`, and `tls_server_name` in `.state/nodes-config.json`, with certificate files mounted read-only under `/certificates`. See the [Helm](helm.md#4-create-application-secrets) or [Docker Compose](docker-compose.md#optional-ledger-api-tls-and-mtls) instructions.
 
@@ -81,7 +81,6 @@ Helm reads S3 settings from `exports.s3` and `backup.s3`. Compose reads them fro
 
 - `ALLOW_PRIVATE_WEBHOOK_TARGETS` defaults to `false`.
 - `NODES_CONFIG_FILE_PATH` is fixed to `/config/nodes-config.json`.
-- `PUBLIC_SCAN_INDEXER_URL` is optional and empty by default. A standard validator cluster does not provide a compatible public scan indexer. Set it with `canton.publicScanUrl` in Helm or `CANTON_PUBLIC_SCAN_URL` in Compose only when you have a compatible endpoint.
 - `M2M_SCOPE` is optional.
 
 Database and read-model tuning:

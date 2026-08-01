@@ -105,8 +105,7 @@
         "clientCertificateKey": { "type": "string" },
         "clientPrivateKeyKey": { "type": "string" },
         "tlsServerName": { "type": "string" },
-        "validatorUrl": { "type": "string" },
-        "publicScanUrl": { "type": "string" }
+        "scanApiUrl": { "type": "string" }
       }
     },
     "capture": {
