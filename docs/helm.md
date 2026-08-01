@@ -109,6 +109,8 @@ kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
   port-forward service/participant 5001:5001
 ```
 
+If the Ledger API requires TLS or mTLS, replace `-plaintext` in each `grpcurl` command below with `-cacert /secure/path/ca.crt -cert /secure/path/client.crt -key /secure/path/client.key -authority ledger.example.com`. Omit `-cert` and `-key` for server-only TLS, and omit `-cacert` when the server certificate uses normal system trust. Set `-authority` to a DNS name in the participant certificate SAN.
+
 Read the full participant ID:
 
 ```bash

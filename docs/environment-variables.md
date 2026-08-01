@@ -48,7 +48,7 @@ Helm uses the matching `oidc.auth0` or `oidc.keycloak` values. Compose reads the
 - `CANTON_NETWORK` defaults to `mainnet`. Set it explicitly for `testnet` or `devnet`.
 - `SCAN_PROXY_URL` comes from `canton.validatorUrl` in Helm or `CANTON_VALIDATOR_URL` in Compose. The defaults are `http://validator-app:5003` for Helm and `http://validator:5003` for Compose. Override the value when that address is not reachable.
 
-
+Ledger API TLS and mTLS do not add container environment variables. Helm uses `canton.certificateSecret`, `canton.certificateKey`, `canton.clientCertificateKey`, `canton.clientPrivateKeyKey`, and `canton.tlsServerName`. Compose uses `cert_file`, `client_cert_file`, `client_key_file`, and `tls_server_name` in `.state/nodes-config.json`, with certificate files mounted read-only under `/certificates`. See the [Helm](helm.md#4-create-application-secrets) or [Docker Compose](docker-compose.md#optional-ledger-api-tls-and-mtls) instructions.
 
 ### S3 features
 
