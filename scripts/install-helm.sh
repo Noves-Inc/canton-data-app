@@ -5,7 +5,7 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/common.sh
 source "$script_dir/lib/common.sh"
 
-chart_ref="oci://ghcr.io/noves-inc/charts/noves-canton-data-app"
+chart_ref="oci://ghcr.io/noves-inc/charts/noves-canton-app"
 chart_constraint='>=4.0.0 <5.0.0'
 namespace="validator"
 release="noves-canton-data-app"

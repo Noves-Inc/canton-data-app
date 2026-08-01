@@ -1,5 +1,5 @@
 apiVersion: v2
-name: noves-canton-data-app
+name: noves-canton-app
 description: Noves Data App for Canton validators
 type: application
 version: 4.0.0
