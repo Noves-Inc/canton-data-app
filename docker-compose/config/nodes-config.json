@@ -3,6 +3,10 @@
   "nodes": {
     "main-node": {
       "addr": "participant:5001",
+      "cert_file": "",
+      "client_cert_file": "",
+      "client_key_file": "",
+      "tls_server_name": "",
       "expectedParticipantId": "REPLACE_WITH_PARTICIPANT_ID",
       "validator_party": "",
       "synchronizer_alias": "global",

@@ -103,6 +103,9 @@
         "expectedSynchronizerId": { "type": "string" },
         "certificateSecret": { "type": "string" },
         "certificateKey": { "type": "string" },
+        "clientCertificateKey": { "type": "string" },
+        "clientPrivateKeyKey": { "type": "string" },
+        "tlsServerName": { "type": "string" },
         "validatorUrl": { "type": "string" },
         "publicScanUrl": { "type": "string" },
         "network": { "enum": ["mainnet", "testnet", "devnet"] }

@@ -227,7 +227,7 @@ spec:
             - name: exports
               mountPath: /exports
             {{- end }}
-            {{- if .Values.canton.certificateSecret }}
+            {{- if and .Values.canton.certificateSecret (or .Values.canton.certificateKey .Values.canton.clientCertificateKey) }}
             - name: canton-certificate
               mountPath: /certificates
               readOnly: true
@@ -261,13 +261,22 @@ spec:
           persistentVolumeClaim:
             claimName: {{ include "cda.fullname" . }}-exports
         {{- end }}
-        {{- if .Values.canton.certificateSecret }}
+        {{- if and .Values.canton.certificateSecret (or .Values.canton.certificateKey .Values.canton.clientCertificateKey) }}
         - name: canton-certificate
           secret:
             secretName: {{ .Values.canton.certificateSecret }}
+            defaultMode: 0440
             items:
+              {{- if .Values.canton.certificateKey }}
               - key: {{ .Values.canton.certificateKey }}
                 path: ca.crt
+              {{- end }}
+              {{- if .Values.canton.clientCertificateKey }}
+              - key: {{ .Values.canton.clientCertificateKey }}
+                path: client.crt
+              - key: {{ .Values.canton.clientPrivateKeyKey }}
+                path: client.key
+              {{- end }}
         {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:

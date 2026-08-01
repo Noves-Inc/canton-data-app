@@ -26,7 +26,7 @@ From a checkout of this repository:
 
 ```bash
 export APP_INSTALL_DIR=/opt/noves-canton-data-app
-mkdir -p "$APP_INSTALL_DIR/docker-compose/.state"
+mkdir -p "$APP_INSTALL_DIR/docker-compose/.state/certificates"
 cp docker-compose/.env.example "$APP_INSTALL_DIR/docker-compose/.env"
 cp docker-compose/config/nodes-config.json \
   "$APP_INSTALL_DIR/docker-compose/.state/nodes-config.json"
@@ -45,7 +45,40 @@ The backend cannot detect the network before it configures every network-depende
 
 For embedded mode, set `EMBED_ALLOWED_ORIGINS` to the exact, comma-separated origins allowed to host the iframe. Leave it blank for a standalone deployment. See the [embedded mode guide](../embedded_mode.md).
 
-Leave `REPLACE_WITH_PARTICIPANT_ID` in `.state/nodes-config.json` until step 4, where you read the complete ID from the participant. Set its `address` to the Ledger API address reachable on `CANTON_DOCKER_NETWORK`.
+Leave `REPLACE_WITH_PARTICIPANT_ID` in `.state/nodes-config.json` until step 4, where you read the complete ID from the participant. Set its `addr` to the Ledger API address reachable on `CANTON_DOCKER_NETWORK`.
+
+### Optional Ledger API TLS and mTLS
+
+`cert_file` verifies the participant's server certificate with a private CA. It accepts either one DER certificate or a PEM bundle containing multiple trust anchors; it is not a client certificate. When the Ledger API requires mTLS, copy the unencrypted PEM client identity into the mounted certificate directory:
+
+```bash
+cp /secure/path/ca.crt "$APP_INSTALL_DIR/docker-compose/.state/certificates/ca.crt"
+cp /secure/path/client.crt "$APP_INSTALL_DIR/docker-compose/.state/certificates/client.crt"
+cp /secure/path/client.key "$APP_INSTALL_DIR/docker-compose/.state/certificates/client.key"
+chmod 600 "$APP_INSTALL_DIR/docker-compose/.state/certificates/"*
+```
+
+Set the primary node fields in `.state/nodes-config.json`:
+
+```json
+"cert_file": "/certificates/ca.crt",
+"client_cert_file": "/certificates/client.crt",
+"client_key_file": "/certificates/client.key",
+"tls_server_name": "ledger.example.com"
+```
+
+The client certificate and key must be configured together. `client.crt` may contain the leaf followed by intermediate certificates. Omit `cert_file` or leave it empty when the participant certificate uses normal system trust. A client pair or `tls_server_name` still enables TLS; the app never falls back to plaintext after any TLS setting is configured. `tls_server_name` controls SNI and hostname verification when `addr` is an internal service name that is not in the participant certificate SAN.
+
+The installer rejects paths outside `/certificates`, missing files, partial client pairs, and files the non-root backend cannot read. After pulling the backend image, it uses a root one-shot container to set the certificate directory to group `1654` with mode `0750` and configured files to group `1654` with mode `0440`. This gives the backend's non-root user access without making the private key world-readable. It stores only paths in `nodes-config.json`; certificate and key contents remain in `.state/certificates` and are mounted read-only.
+
+Certificates are loaded into long-lived channels at backend startup. To rotate them, first configure the participant to accept both old and new client issuers or identities for the transition. Copy each replacement to a temporary file in `.state/certificates`, then rename all replacements into place before restarting anything. Rerun `install-compose.sh` with the same `--directory` to restore group `1654` and `0440` permissions, then reload the channels:
+
+```bash
+cd "$APP_INSTALL_DIR/docker-compose"
+docker compose --env-file .env -f compose.yaml restart backend
+```
+
+For an unrelated server-CA rollover, create `ca-bundle.pem` with the old root followed by the new root. Point `cert_file` at that bundle, restart the backend, and verify it still reaches the participant using the old certificate. Then switch the participant to its new certificate and verify connectivity. Finally replace the bundle with the new root only and restart the backend again. If a trust-overlap bundle or cross-signed participant certificate is not available, schedule a maintenance window instead. For a client-identity rollover, keep both client identities trusted until the restarted backend is healthy.
 
 ## 3. Configure browser login and capture
 
@@ -137,6 +170,8 @@ PARTICIPANT_ID="$(
 printf '%s\n' "$PARTICIPANT_ID"
 ```
 
+The example uses `-plaintext`. For an mTLS-only Ledger API, add `--volume "$APP_INSTALL_DIR/docker-compose/.state/certificates:/certificates:ro"` to each `docker run` command and replace `-plaintext` with `-cacert /certificates/ca.crt -cert /certificates/client.crt -key /certificates/client.key -authority ledger.example.com` for the participant-ID and user-management calls.
+
 `grpcurl` currently prints the field as `participant_id`; the fallback also accepts camel case. Put the printed value in `.state/nodes-config.json` as `expectedParticipantId`.
 
 Create the Canton user with the capture token's exact subject:
@@ -195,7 +230,7 @@ chmod 600 \
 chmod 644 "$APP_INSTALL_DIR/docker-compose/.state/nodes-config.json"
 ```
 
-The installer applies mode `0600` to the generated accounting file. The node configuration contains no credential; mode `0644` lets the non-root backend read its bind mount.
+The installer applies mode `0600` to the generated accounting file. The node configuration contains certificate paths but no credential contents; mode `0644` lets the non-root backend read its bind mount. Keep the private key in `.state/certificates` group-readable only as needed by the container user.
 
 ### Optional S3 storage
 

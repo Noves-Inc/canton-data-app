@@ -85,6 +85,12 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- if not .Values.canton.expectedParticipantId -}}
 {{- fail "canton.expectedParticipantId is required" -}}
 {{- end -}}
+{{- if ne (empty .Values.canton.clientCertificateKey) (empty .Values.canton.clientPrivateKeyKey) -}}
+{{- fail "canton.clientCertificateKey and canton.clientPrivateKeyKey must be configured together" -}}
+{{- end -}}
+{{- if and .Values.canton.clientCertificateKey (not .Values.canton.certificateSecret) -}}
+{{- fail "canton.certificateSecret is required when configuring a Ledger API client certificate" -}}
+{{- end -}}
 {{- if not .Values.capture.existingSecret -}}
 {{- fail "capture.existingSecret is required" -}}
 {{- end -}}

@@ -53,6 +53,12 @@ address, validator URL, identity provider, and routing settings to match your
 environment. The installation guides list the required Secrets and environment
 settings.
 
+Ledger API TLS and mutual TLS are supported in both Helm and standard Docker
+Compose installations. The server CA is configured separately from the PEM
+client certificate and unencrypted private key; see the installation guide for
+Secret or read-only mount paths. The current public v4 bundle is standard-only;
+guided installation is not part of this release.
+
 For Helm, create the Secrets and values described in the guide, then run:
 
 ```bash

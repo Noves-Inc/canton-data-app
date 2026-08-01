@@ -12,7 +12,16 @@ data:
       "nodes": {
         {{ .Values.canton.nodeId | quote }}: {
           "addr": {{ .Values.canton.participantAddress | quote }},
-          "cert_file": {{ ternary "/certificates/ca.crt" "" (ne .Values.canton.certificateSecret "") | quote }},
+          {{- if and .Values.canton.certificateSecret .Values.canton.certificateKey }}
+          "cert_file": "/certificates/ca.crt",
+          {{- end }}
+          {{- if and .Values.canton.clientCertificateKey .Values.canton.clientPrivateKeyKey }}
+          "client_cert_file": "/certificates/client.crt",
+          "client_key_file": "/certificates/client.key",
+          {{- end }}
+          {{- if .Values.canton.tlsServerName }}
+          "tls_server_name": {{ .Values.canton.tlsServerName | quote }},
+          {{- end }}
           "expectedParticipantId": {{ .Values.canton.expectedParticipantId | quote }},
           "validator_party": {{ .Values.canton.validatorParty | quote }},
           "synchronizer_alias": {{ .Values.canton.synchronizerAlias | quote }},
