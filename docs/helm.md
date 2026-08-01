@@ -247,7 +247,6 @@ canton:
   clientPrivateKeyKey: client.key
   tlsServerName: ledger.example.com
   validatorUrl: http://validator-app:5003
-  network: mainnet
 
 oidc:
   provider: auth0

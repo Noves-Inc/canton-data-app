@@ -38,10 +38,10 @@ Edit `.env`:
 - leave the three image references pinned;
 - set `CANTON_DOCKER_NETWORK` if the validator uses a nonstandard network;
 - set `CANTON_VALIDATOR_URL` only if `http://validator:5003` is not reachable;
-- set `CANTON_NETWORK=testnet` or `CANTON_NETWORK=devnet` for a non-mainnet participant; and
+- ensure the configured `synchronizer_alias` identifies the participant's Global Synchronizer; and
 - configure exactly one browser OIDC provider.
 
-The backend cannot detect the network before it configures every network-dependent subsystem. On testnet, omitting `CANTON_NETWORK=testnet` makes the backend assume mainnet and quarantine capture.
+The backend detects mainnet, testnet, or devnet automatically from the exact synchronizer identity. Unknown or conflicting identities keep readiness false instead of guessing.
 
 For embedded mode, set `EMBED_ALLOWED_ORIGINS` to the exact, comma-separated origins allowed to host the iframe. Leave it blank for a standalone deployment. See the [embedded mode guide](../embedded_mode.md).
 

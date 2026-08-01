@@ -9,8 +9,7 @@
       "tls_server_name": "",
       "expectedParticipantId": "REPLACE_WITH_PARTICIPANT_ID",
       "validator_party": "",
-      "synchronizer_alias": "global",
-      "expected_synchronizer_id": ""
+      "synchronizer_alias": "global"
     }
   }
 }

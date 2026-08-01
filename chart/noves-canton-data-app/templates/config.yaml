@@ -24,8 +24,7 @@ data:
           {{- end }}
           "expectedParticipantId": {{ .Values.canton.expectedParticipantId | quote }},
           "validator_party": {{ .Values.canton.validatorParty | quote }},
-          "synchronizer_alias": {{ .Values.canton.synchronizerAlias | quote }},
-          "expected_synchronizer_id": {{ .Values.canton.expectedSynchronizerId | quote }}
+          "synchronizer_alias": {{ .Values.canton.synchronizerAlias | quote }}
         }
       }
     }

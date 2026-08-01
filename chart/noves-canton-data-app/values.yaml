@@ -161,7 +161,6 @@ canton:
   expectedParticipantId: ""
   validatorParty: ""
   synchronizerAlias: global
-  expectedSynchronizerId: ""
   certificateSecret: ""
   certificateKey: ca.crt
   clientCertificateKey: ""
@@ -171,7 +170,6 @@ canton:
   # Optional Noves public scan indexer used by public-browse endpoints. A standard validator
   # cluster does not provide this service, and the Splice Scan API is not compatible.
   publicScanUrl: ""
-  network: mainnet
 
 capture:
   existingSecret: noves-canton-data-app-capture-auth

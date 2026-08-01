@@ -121,11 +121,6 @@ validate_capture_env
 validate_canton_certificate_files \
   .state/nodes-config.json .state/certificates ||
   die "Ledger API certificate configuration is invalid."
-canton_network="$(env_value CANTON_NETWORK)"
-case "$canton_network" in
-  mainnet|testnet|devnet) ;;
-  *) die "Set CANTON_NETWORK to mainnet, testnet, or devnet in .env." ;;
-esac
 canton_docker_network="$(env_value CANTON_DOCKER_NETWORK)"
 canton_docker_network="${canton_docker_network:-splice-validator_splice_validator}"
 chmod 600 .env .state/capture.env "$accounting_env_file"
