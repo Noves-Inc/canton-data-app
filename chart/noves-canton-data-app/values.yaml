@@ -167,10 +167,7 @@ canton:
   clientCertificateKey: ""
   clientPrivateKeyKey: ""
   tlsServerName: ""
-  validatorUrl: http://validator-app:5003
-  # Optional Noves public scan indexer used by public-browse endpoints. A standard validator
-  # cluster does not provide this service, and the Splice Scan API is not compatible.
-  publicScanUrl: ""
+  scanApiUrl: http://validator-app:5003
   network: mainnet
 
 capture:

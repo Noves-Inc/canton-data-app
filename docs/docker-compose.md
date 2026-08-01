@@ -1,6 +1,6 @@
 # Docker Compose installation
 
-Use these instructions to install the Noves Data App with Docker Compose. The examples attach the app to `splice-validator_splice_validator` and use `participant:5001` and `http://validator:5003`. Set the network, participant address, and validator URL to match your deployment when those defaults do not apply.
+Use these instructions to install the Noves Data App with Docker Compose. The examples attach the app to `splice-validator_splice_validator` and use `participant:5001` and `http://validator:5003`. Set the network, participant address, and scan API URL to match your deployment when those defaults do not apply.
 
 These instructions keep the configuration in local files.
 
@@ -10,13 +10,13 @@ See [Container environment variables](environment-variables.md) for the variable
 
 The Noves Data App adds a database, backend, and frontend to the validator host. Check CPU, memory, and disk before starting; initial capture and read-model catch-up add load until the app reaches the ledger end.
 
-Find a Docker network that the app can use to reach the Ledger API and, when configured, the validator API. The default network name is shown here:
+Find a Docker network that the app can use to reach the Ledger API and scan API. The default network name is shown here:
 
 ```bash
 docker network inspect splice-validator_splice_validator >/dev/null
 ```
 
-If your deployment uses another network, record its name for `CANTON_DOCKER_NETWORK`. The participant and validator containers do not need specific Compose service names.
+If your deployment uses another network, record its name for `CANTON_DOCKER_NETWORK`. The participant and scan API containers do not need specific Compose service names.
 
 The shipped `.env.example` pins `BACKEND_IMAGE=`, `FRONTEND_IMAGE=`, and `DATABASE_IMAGE=` by tag and digest. Use all three references from the same release. If Noves supplied registry credentials for your release, authenticate with the named registry before running the installer.
 
@@ -37,7 +37,7 @@ Edit `.env`:
 - replace `APP_URL` with the public frontend URL;
 - leave the three image references pinned;
 - set `CANTON_DOCKER_NETWORK` if the validator uses a nonstandard network;
-- set `CANTON_VALIDATOR_URL` only if `http://validator:5003` is not reachable;
+- set `CANTON_SCAN_API_URL` only if `http://validator:5003` is not reachable;
 - set `CANTON_NETWORK=testnet` or `CANTON_NETWORK=devnet` for a non-mainnet participant; and
 - configure exactly one browser OIDC provider.
 

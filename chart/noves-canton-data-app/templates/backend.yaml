@@ -116,9 +116,7 @@ spec:
             - name: CANTON_NETWORK
               value: {{ .Values.canton.network | quote }}
             - name: SCAN_PROXY_URL
-              value: {{ .Values.canton.validatorUrl | quote }}
-            - name: PUBLIC_SCAN_INDEXER_URL
-              value: {{ .Values.canton.publicScanUrl | quote }}
+              value: {{ .Values.canton.scanApiUrl | quote }}
             - name: ACCOUNTING_TOKEN_ENCRYPTION_KEY
               valueFrom:
                 secretKeyRef:

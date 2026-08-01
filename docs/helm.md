@@ -1,6 +1,6 @@
 # Helm installation
 
-Use this guide to install the Noves Data App on Kubernetes. The examples place the app in the validator namespace and use Auth0, NGINX Ingress, and Canton's default Service names. You can change the namespace, participant address, validator URL, identity provider, and routing settings to match your cluster.
+Use this guide to install the Noves Data App on Kubernetes. The examples place the app in the validator namespace and use Auth0, NGINX Ingress, and Canton's default Service names. You can change the namespace, participant address, scan API URL, identity provider, and routing settings to match your cluster.
 
 ## 1. Check the cluster
 
@@ -14,7 +14,7 @@ kubectl --context "$KUBE_CONTEXT" config current-context
 kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" get pods
 ```
 
-The chart defaults to `participant:5001` for the Ledger API and `http://validator-app:5003` for the validator API. Set `canton.participantAddress` and `canton.validatorUrl` to addresses that the app pods can reach. The services may run in another namespace or outside the cluster.
+The chart defaults to `participant:5001` for the Ledger API and `http://validator-app:5003` for the scan API. Set `canton.participantAddress` and `canton.scanApiUrl` to addresses that the app pods can reach. The services may run in another namespace or outside the cluster.
 
 Check storage and routing:
 
@@ -246,7 +246,7 @@ canton:
   clientCertificateKey: client.crt
   clientPrivateKeyKey: client.key
   tlsServerName: ledger.example.com
-  validatorUrl: http://validator-app:5003
+  scanApiUrl: http://validator-app:5003
   network: mainnet
 
 oidc:
