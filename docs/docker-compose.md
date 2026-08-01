@@ -4,6 +4,8 @@ Use these instructions to install the Noves Data App with Docker Compose. The ex
 
 These instructions keep the configuration in local files.
 
+See [Container environment variables](environment-variables.md) for the variables injected into each container and whether they require operator input.
+
 ## 1. Check the host
 
 The Noves Data App adds a database, backend, and frontend to the validator host. Check CPU, memory, and disk before starting; initial capture and read-model catch-up add load until the app reaches the ledger end.
@@ -313,4 +315,4 @@ docker compose --env-file .env -f compose.yaml down
 
 For encrypted local storage, set `DATABASE_DATA_PATH` to an absolute path on an encrypted filesystem. See [Encryption at rest](../encryption_at_rest.md).
 
-Set `ALLOW_PRIVATE_WEBHOOK_TARGETS=true` only when an alert or connector must deliver to a receiver on a private network. The default blocks those targets. Traffic cost analysis and stream processing run in the backend without extra services or tuning variables.
+Set `ALLOW_PRIVATE_WEBHOOK_TARGETS=true` only when an alert or connector must deliver to a receiver on a private network. The default blocks those targets. Traffic cost analysis and stream processing run in the backend without extra services. The database, read-model, and stream-delivery settings in `.env.example` are optional tuning controls; keep their defaults until measurements justify a change.

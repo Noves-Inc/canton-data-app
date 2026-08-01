@@ -23,14 +23,41 @@ backend:
       drop:
         - ALL
   extraEnv: []
+  # These defaults suit a standard deployment using the resource requests and limits below.
+  # Increase one setting at a time while watching database CPU, write latency, connections,
+  # backend memory, capture lag, and readiness.
+  performance:
+    database:
+      # Capture commits contain at most this many updates. Lower it for constrained storage.
+      writeBatchSize: 250
+      # Keep 0 unless parallel PostgreSQL queries are known to fit the pod's shared memory.
+      maxParallelWorkersPerGather: 0
+      # "off" improves ingestion throughput but trades away synchronous WAL durability.
+      synchronousCommit: "off"
+    readModel:
+      # Total indexing concurrency, including capacity reserved for current ledger activity.
+      totalCapacity: 4
+      reservedLiveCapacity: 1
+      # 100 runs normally. Values 1-99 pace background indexing to leave foreground headroom.
+      backgroundIndexingDutyPercent: 100
+  # Streaming runs inside the backend. Tune only after measuring delivery latency, query load,
+  # and WebSocket memory use.
+  streaming:
+    pollIntervalMs: 5000
+    pageSize: 100
+    retryDelayMs: 2000
+    websocketBufferLimit: 10000
+    databaseTimeoutSeconds: 60
+    deduplicationWindowRecords: 1000000
+    deliveryRecencyMinutes: 1440
   # Security opt-in for webhook receivers on private network addresses.
   allowPrivateWebhookTargets: false
   resources:
     requests:
-      cpu: 500m
+      cpu: "1"
       memory: 1Gi
     limits:
-      cpu: "2"
+      cpu: "1.5"
       memory: 4Gi
 frontend:
   replicaCount: 1
@@ -84,8 +111,7 @@ database:
   persistence:
     existingClaim: ""
     size: 100Gi
-    # Leave empty only for local/portable installs. Production should explicitly select encrypted
-    # SSD block storage (AKS managed-csi-premium, EKS gp3, or GKE premium-rwo).
+    # Production should explicitly select verified encrypted SSD-backed block storage.
     storageClass: ""
   resources:
     requests:
@@ -135,6 +161,8 @@ canton:
   certificateSecret: ""
   certificateKey: ca.crt
   validatorUrl: http://validator-app:5003
+  # Optional Noves public scan indexer used by public-browse endpoints. A standard validator
+  # cluster does not provide this service, and the Splice Scan API is not compatible.
   publicScanUrl: ""
   network: mainnet
 
@@ -160,17 +188,27 @@ oidc:
     clientId: ""
 
 routing:
+  # none: create no public route; use an external gateway or port-forwarding.
+  # ingress: create Kubernetes Ingress resources and require ingress.className.
+  # istio: create VirtualServices and require istio.gateway.
   provider: none
+  # Required for ingress or istio. This is the frontend/BFF hostname.
   host: ""
+  # TLS Secret used by Ingress. Istio terminates TLS at the configured Gateway.
   tlsSecret: ""
   annotations: {}
   backend:
+    # Publish the backend API and /docs on a second hostname.
     enabled: true
+    # Empty derives api.<routing.host>.
     host: ""
+    # Empty reuses routing.tlsSecret for Ingress.
     tlsSecret: ""
   istio:
+    # Namespace/name of the existing Istio Gateway.
     gateway: cluster-ingress/cn-http-gateway
   ingress:
+    # Exact name from kubectl get ingressclass.
     className: ""
 
 migration:

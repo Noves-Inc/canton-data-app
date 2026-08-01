@@ -263,6 +263,8 @@
         "podSecurityContext",
         "containerSecurityContext",
         "extraEnv",
+        "performance",
+        "streaming",
         "allowPrivateWebhookTargets",
         "resources"
       ],
@@ -272,8 +274,61 @@
         "podSecurityContext": { "type": "object" },
         "containerSecurityContext": { "type": "object" },
         "extraEnv": { "type": "array", "items": { "type": "object" } },
+        "performance": { "$ref": "#/$defs/backendPerformance" },
+        "streaming": { "$ref": "#/$defs/streaming" },
         "allowPrivateWebhookTargets": { "type": "boolean" },
         "resources": { "type": "object" }
+      }
+    },
+    "backendPerformance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["database", "readModel"],
+      "properties": {
+        "database": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["writeBatchSize", "maxParallelWorkersPerGather", "synchronousCommit"],
+          "properties": {
+            "writeBatchSize": { "type": "integer", "minimum": 1, "maximum": 250 },
+            "maxParallelWorkersPerGather": { "type": "integer", "minimum": 0 },
+            "synchronousCommit": {
+              "enum": ["off", "on", "local", "remote_write", "remote_apply"]
+            }
+          }
+        },
+        "readModel": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["totalCapacity", "reservedLiveCapacity", "backgroundIndexingDutyPercent"],
+          "properties": {
+            "totalCapacity": { "type": "integer", "minimum": 2 },
+            "reservedLiveCapacity": { "type": "integer", "minimum": 1 },
+            "backgroundIndexingDutyPercent": { "type": "integer", "minimum": 1, "maximum": 100 }
+          }
+        }
+      }
+    },
+    "streaming": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pollIntervalMs",
+        "pageSize",
+        "retryDelayMs",
+        "websocketBufferLimit",
+        "databaseTimeoutSeconds",
+        "deduplicationWindowRecords",
+        "deliveryRecencyMinutes"
+      ],
+      "properties": {
+        "pollIntervalMs": { "type": "integer", "minimum": 100, "maximum": 60000 },
+        "pageSize": { "type": "integer", "minimum": 1, "maximum": 1000 },
+        "retryDelayMs": { "type": "integer", "minimum": 100, "maximum": 300000 },
+        "websocketBufferLimit": { "type": "integer", "minimum": 100, "maximum": 100000 },
+        "databaseTimeoutSeconds": { "type": "integer", "minimum": 5, "maximum": 600 },
+        "deduplicationWindowRecords": { "type": "integer", "minimum": 1000, "maximum": 100000000 },
+        "deliveryRecencyMinutes": { "type": "integer", "minimum": 0, "maximum": 525600 }
       }
     },
     "persistence": {

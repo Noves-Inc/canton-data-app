@@ -47,6 +47,9 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- if ne (int .Values.backend.replicaCount) 1 -}}
 {{- fail "backend.replicaCount must be 1" -}}
 {{- end -}}
+{{- if ge (int .Values.backend.performance.readModel.reservedLiveCapacity) (int .Values.backend.performance.readModel.totalCapacity) -}}
+{{- fail "backend.performance.readModel.reservedLiveCapacity must be less than totalCapacity" -}}
+{{- end -}}
 {{- if and (eq .Values.exports.storage "s3") (not .Values.exports.s3.bucket) -}}
 {{- fail "exports.s3.bucket is required when exports.storage=s3" -}}
 {{- end -}}

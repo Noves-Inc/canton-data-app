@@ -28,7 +28,7 @@ The wallet supports Canton Coin and other CIP tokens. Users can send and receive
 assets, keep an address book, and use any party their Canton account is allowed
 to act as.
 
-[Embedded mode](embedded-mode/embedded_mode.md) lets an approved host application
+[Embedded mode](embedded_mode.md) lets an approved host application
 include the Data App in an iframe.
 
 You can install and use the app without contacting Noves. A free tier is
@@ -141,10 +141,11 @@ routine application upgrade.
 
 - [Helm installation](docs/helm.md)
 - [Docker Compose installation](docs/docker-compose.md)
+- [Container environment variables](docs/environment-variables.md)
 - [Upgrade from v3.16.1](docs/migrate-v3.16.1.md)
 - [Security model](docs/security.md)
 - [Encryption at rest](encryption_at_rest.md)
-- [Embedded mode](embedded-mode/embedded_mode.md)
+- [Embedded mode](embedded_mode.md)
 
 
 
