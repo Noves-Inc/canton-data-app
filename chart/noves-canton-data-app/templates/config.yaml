@@ -22,7 +22,9 @@ data:
           {{- if .Values.canton.tlsServerName }}
           "tls_server_name": {{ .Values.canton.tlsServerName | quote }},
           {{- end }}
+          {{- if .Values.canton.expectedParticipantId }}
           "expectedParticipantId": {{ .Values.canton.expectedParticipantId | quote }},
+          {{- end }}
           "validator_party": {{ .Values.canton.validatorParty | quote }},
           "synchronizer_alias": {{ .Values.canton.synchronizerAlias | quote }}
         }

@@ -4,7 +4,14 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 chart="chart/noves-canton-data-app"
 scratch="$(mktemp -d)"
-trap 'rm -rf "$scratch"' EXIT
+test_exports_volume=""
+cleanup() {
+  if [[ -n "$test_exports_volume" ]]; then
+    docker volume rm -f "$test_exports_volume" >/dev/null 2>&1 || true
+  fi
+  rm -rf "$scratch"
+}
+trap cleanup EXIT
 
 run_helm() {
   if command -v helm >/dev/null 2>&1; then
@@ -16,7 +23,6 @@ run_helm() {
 
 common=(
   --namespace validator
-  --set-string canton.expectedParticipantId=participant::test
   --set-string oidc.provider=auth0
   --set-string oidc.appUrl=https://data.example.com
   --set-string oidc.auth0.domain=auth.example.com
@@ -25,6 +31,13 @@ common=(
 )
 
 run_helm lint "$chart" "${common[@]}"
+
+optional_identity="$scratch/helm-optional-identity.yaml"
+run_helm template cda "$chart" "${common[@]}" >"$optional_identity"
+if rg -q '"expectedParticipantId"' "$optional_identity"; then
+  echo "optional participant identity unexpectedly rendered" >&2
+  exit 1
+fi
 
 system_trust="$scratch/helm-system-trust.yaml"
 run_helm template cda "$chart" "${common[@]}" \
@@ -87,6 +100,8 @@ rg -q 'create_host_path: false' "$scratch/compose.yaml"
 
 # shellcheck source=lib/canton-certificates.sh
 source "$repo_root/scripts/lib/canton-certificates.sh"
+# shellcheck source=lib/export-storage.sh
+source "$repo_root/scripts/lib/export-storage.sh"
 certificate_root="$scratch/certificate-validation"
 mkdir -p "$certificate_root"
 touch "$certificate_root/client.crt" "$certificate_root/client.key"
@@ -139,5 +154,34 @@ rg -q 'restart backend' "$repo_root/docs/docker-compose.md"
 rg -q 'rollout restart' "$repo_root/docs/helm.md"
 rg -q 'old root followed by the new root' "$repo_root/docs/docker-compose.md"
 rg -q 'old and new roots' "$repo_root/docs/helm.md"
+
+# The backend is the sole owner of exported artifacts. A fresh Docker named
+# volume is root-owned, so the installer must hand it to the non-root backend
+# before it starts. The frontend deliberately has no artifact-volume mount.
+compose_json="$scratch/compose.json"
+docker compose --env-file "$compose_root/.env.example" \
+  -f "$compose_root/compose.yaml" config --format json >"$compose_json"
+exports_volume="$(compose_export_volume_name "$compose_json")"
+[[ "$exports_volume" == "noves-canton-data-app-v4-exports" ]]
+if jq -e '.services.frontend.volumes[]? | select(.target == "/exports")' "$compose_json" >/dev/null; then
+  echo "frontend must not mount the export volume" >&2
+  exit 1
+fi
+rg -q 'prepare_export_volume' "$repo_root/scripts/install-compose.sh"
+rg -q 'backend owns the named export volume' "$repo_root/docs/docker-compose.md"
+
+test_exports_volume="cda-v4-export-verify-$RANDOM-$RANDOM"
+test_env="$scratch/export-volume.env"
+cp "$compose_root/.env.example" "$test_env"
+printf 'EXPORTS_VOLUME=%s\n' "$test_exports_volume" >>"$test_env"
+prepare_export_volume "$test_env" "$compose_root/compose.yaml"
+backend_image="$(docker compose --env-file "$test_env" -f "$compose_root/compose.yaml" \
+  config --format json | jq -er '.services.backend.image')"
+docker run --rm --user 1654:1654 --volume "$test_exports_volume:/exports" \
+  --entrypoint /bin/sh "$backend_image" -ec '
+    test -w /exports
+    test -w /exports/accounting
+    touch /exports/accounting/ownership-probe
+  '
 
 echo "mTLS deployment verification passed"

@@ -7,6 +7,8 @@ repo_root="$(cd "$script_dir/.." && pwd)"
 source "$script_dir/lib/common.sh"
 # shellcheck source=lib/canton-certificates.sh
 source "$script_dir/lib/canton-certificates.sh"
+# shellcheck source=lib/export-storage.sh
+source "$script_dir/lib/export-storage.sh"
 
 install_dir="$PWD/noves-canton-data-app-v4"
 
@@ -112,11 +114,8 @@ wait_for_backend_ready() {
 [[ -f .env ]] || die "Create .env from .env.example before installation."
 [[ -f .state/capture.env ]] || die "Create .state/capture.env with dedicated M2M credentials."
 [[ -f .state/nodes-config.json ]] ||
-  die "Create .state/nodes-config.json with the exact participant ID."
+  die "Create .state/nodes-config.json with the Ledger API address."
 ensure_env_secret DATABASE_PASSWORD >/dev/null
-if grep -Fq 'REPLACE_WITH_PARTICIPANT_ID' .state/nodes-config.json; then
-  die "Replace REPLACE_WITH_PARTICIPANT_ID in .state/nodes-config.json."
-fi
 validate_capture_env
 validate_canton_certificate_files \
   .state/nodes-config.json .state/certificates ||
@@ -131,6 +130,8 @@ docker network inspect "$canton_docker_network" >/dev/null 2>&1 ||
   die "Docker network '$canton_docker_network' does not exist."
 docker compose --env-file .env -f compose.yaml pull ||
   die "Could not pull the Noves Data App images. Log in to the configured registries and retry."
+prepare_export_volume .env compose.yaml ||
+  die "Could not prepare the export volume for backend user 1654."
 if ((${#canton_certificate_container_paths[@]})); then
   secure_canton_certificate_files \
     .env compose.yaml "$PWD/.state/certificates" \

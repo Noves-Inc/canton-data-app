@@ -118,7 +118,7 @@ M2M_SCOPE=daml_ledger_api
 
 The capture token's exact `sub` must match a Canton user with only `CanReadAsAnyParty`. The installer treats a missing or incomplete capture file as an error instead of silently starting without capture.
 
-## 4. Read the participant ID and create the capture user
+## 4. Create the capture user and optionally pin the participant identity
 
 Use your validator's administrator procedure to obtain a short-lived Ledger API administrator token. The example below reads the settings used by Canton's Compose bundle. If your deployment stores them elsewhere, export the same values from your own secret manager. Set `CAPTURE_USER_ID` to the exact `sub` from the capture token check in the Keycloak or Auth0 guide:
 
@@ -178,7 +178,7 @@ printf '%s\n' "$PARTICIPANT_ID"
 
 The example uses `-plaintext`. For an mTLS-only Ledger API, add `--volume "$APP_INSTALL_DIR/docker-compose/.state/certificates:/certificates:ro"` to each `docker run` command and replace `-plaintext` with `-cacert /certificates/ca.crt -cert /certificates/client.crt -key /certificates/client.key -authority ledger.example.com` for the participant-ID and user-management calls.
 
-`grpcurl` currently prints the field as `participant_id`; the fallback also accepts camel case. Put the printed value in `.state/nodes-config.json` as `expectedParticipantId`.
+`grpcurl` currently prints the field as `participant_id`; the fallback also accepts camel case. `expectedParticipantId` is optional in `.state/nodes-config.json`: set it to pin the app to this exact participant, or omit it and let the app discover the participant identity through its authenticated Ledger API connection.
 
 Create the Canton user with the capture token's exact subject:
 
@@ -240,7 +240,7 @@ The installer applies mode `0600` to the generated accounting file. The node con
 
 ### Optional S3 storage
 
-The default deployment writes exports to the named `noves-canton-data-app-v4-exports` volume. Set `EXPORTS_VOLUME` in `.env` to use another volume name. No S3 settings are required.
+The default deployment writes exports to the named `noves-canton-data-app-v4-exports` volume. Set `EXPORTS_VOLUME` in `.env` to use another volume name. No S3 settings are required. The installer prepares this volume for the non-root backend user (`1654`) before starting the app; it is safe to rerun and repairs ownership left by an older deployment. The backend owns the named export volume, while the frontend downloads artifacts through the backend API rather than mounting it.
 
 To use S3 export or backup storage, copy the separate example and fill only the block you need:
 

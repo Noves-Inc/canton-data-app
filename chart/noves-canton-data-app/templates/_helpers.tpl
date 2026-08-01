@@ -82,9 +82,6 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- if and (eq .Values.oidc.provider "keycloak") (or (not .Values.oidc.keycloak.url) (not .Values.oidc.keycloak.realm) (not .Values.oidc.keycloak.clientId)) -}}
 {{- fail "oidc.keycloak.url, oidc.keycloak.realm, and oidc.keycloak.clientId are required for Keycloak" -}}
 {{- end -}}
-{{- if not .Values.canton.expectedParticipantId -}}
-{{- fail "canton.expectedParticipantId is required" -}}
-{{- end -}}
 {{- if ne (empty .Values.canton.clientCertificateKey) (empty .Values.canton.clientPrivateKeyKey) -}}
 {{- fail "canton.clientCertificateKey and canton.clientPrivateKeyKey must be configured together" -}}
 {{- end -}}

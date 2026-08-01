@@ -239,7 +239,6 @@ capture:
   existingSecret: noves-canton-data-app-capture-auth
 
 canton:
-  expectedParticipantId: 'participant::replace-with-the-full-id'
   participantAddress: participant:5001
   certificateSecret: noves-canton-ledger-mtls
   certificateKey: ca.crt
@@ -270,7 +269,7 @@ routing:
 
 An empty backend host produces `api.data.example.com`. An empty backend TLS Secret reuses `routing.tlsSecret`; that certificate must include both hostnames. Set `routing.backend.tlsSecret` when the backend uses a separate certificate. With Istio, the Gateway terminates TLS, so its certificate must cover both names.
 
-`canton.certificateKey` is the participant server CA, not the client certificate. When the participant uses a publicly or otherwise system-trusted server certificate, keep the client pair and set `certificateKey: ""`; the chart then omits `cert_file` and the backend performs normal system hostname validation. The client keys must be set together and require `certificateSecret`. `tlsServerName` is optional and should match the participant certificate SAN when `participantAddress` uses a different internal host name.
+`canton.certificateKey` is the participant server CA, not the client certificate. When the participant uses a publicly or otherwise system-trusted server certificate, keep the client pair and set `certificateKey: ""`; the chart then omits `cert_file` and the backend performs normal system hostname validation. The client keys must be set together and require `certificateSecret`. `tlsServerName` is optional and should match the participant certificate SAN when `participantAddress` uses a different internal host name. `expectedParticipantId` is also optional: set it only when you want to pin the deployment to one exact participant; otherwise the app discovers the identity using its authenticated Ledger API connection.
 
 For embedded mode, add the exact origins allowed to host the iframe:
 
