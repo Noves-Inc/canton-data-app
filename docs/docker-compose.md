@@ -43,6 +43,8 @@ Edit `.env`:
 
 The backend cannot detect the network before it configures every network-dependent subsystem. On testnet, omitting `CANTON_NETWORK=testnet` makes the backend assume mainnet and quarantine capture.
 
+For embedded mode, set `EMBED_ALLOWED_ORIGINS` to the exact, comma-separated origins allowed to host the iframe. Leave it blank for a standalone deployment. See the [embedded mode guide](../embedded_mode.md).
+
 Leave `REPLACE_WITH_PARTICIPANT_ID` in `.state/nodes-config.json` until step 4, where you read the complete ID from the participant. Set its `address` to the Ledger API address reachable on `CANTON_DOCKER_NETWORK`.
 
 ## 3. Configure browser login and capture

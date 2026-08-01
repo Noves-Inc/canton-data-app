@@ -40,6 +40,7 @@ data:
   VITE_KEYCLOAK_CLIENT_ID: {{ ternary .Values.oidc.keycloak.clientId "" (eq .Values.oidc.provider "keycloak") | quote }}
   VITE_KEYCLOAK_REDIRECT_URI: {{ printf "%s/callback" (trimSuffix "/" .Values.oidc.appUrl) | quote }}
   VITE_KEYCLOAK_LOGOUT_URL: {{ trimSuffix "/" .Values.oidc.appUrl | quote }}
+  EMBED_ALLOWED_ORIGINS: {{ join "," .Values.embedded.allowedOrigins | quote }}
 {{- if eq .Values.exports.storage "pvc" }}
 ---
 apiVersion: v1

@@ -16,6 +16,20 @@
     },
     "backend": { "$ref": "#/$defs/backendWorkload" },
     "frontend": { "$ref": "#/$defs/workload" },
+    "embedded": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allowedOrigins"],
+      "properties": {
+        "allowedOrigins": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^https?://(?:\\[[0-9A-Fa-f:.]+\\]|[^/?#\\s:*@]+)(?::[0-9]{1,5})?$"
+          }
+        }
+      }
+    },
     "database": {
       "type": "object",
       "additionalProperties": false,
@@ -219,6 +233,7 @@
   "required": [
     "backend",
     "frontend",
+    "embedded",
     "database",
     "exports",
     "backup",

@@ -37,7 +37,7 @@ Both modes share: iframe embedding configuration, navigation events for URL sync
 
 **Both modes:**
 - Data App deployed and accessible from the host application's network
-- `EMBED_ALLOWED_ORIGINS` environment variable set on the Data App frontend container
+- At least one allowed host origin configured for embedded mode
 
 **Own Login mode (additional):**
 - Data App configured with **Keycloak** credentials (same as any standalone deployment)
@@ -47,45 +47,64 @@ Both modes share: iframe embedding configuration, navigation events for URL sync
 > **Important:** Own Login mode requires **Keycloak**. Auth0's Universal Login page blocks iframe rendering entirely (`X-Frame-Options: deny`) as a clickjacking protection, and this cannot be configured per-origin. If the Data App uses Auth0, use Host Auth mode instead.
 
 **Host Auth mode (additional):**
-- Host and Data App must use the **same** Keycloak or Auth0 instance, so the JWT tokens are valid for both
+- Host and Data App must use the **same** Keycloak or Auth0 instance and OIDC client. The refresh token must be issued to the client ID configured in the Data App.
 - OIDC tokens must include the claims and scopes the Data App backend expects (e.g., `daml_ledger_api` scope for Keycloak). If using the same Keycloak instance that manages the Canton node, this works out of the box.
 
 ---
 
 ## Data App Configuration
 
-The Data App requires one environment variable to enable embedding. The auth mode is selected by the host application via a URL query parameter — no additional Data App configuration needed.
+The Data App requires a list of allowed host origins to enable embedding. The deployment package passes this list to the frontend as `EMBED_ALLOWED_ORIGINS`. The auth mode is selected by the host application via a URL query parameter — no additional Data App configuration is needed.
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `EMBED_ALLOWED_ORIGINS` | Yes | Comma-separated list of origins allowed to embed the Data App |
+| Deployment | Setting | Required |
+|------------|---------|----------|
+| Docker Compose | `EMBED_ALLOWED_ORIGINS` with comma-separated origins | For embedded mode |
+| Helm | `embedded.allowedOrigins` with a list of origins | For embedded mode |
 
 ### Docker Compose
 
-Add to the frontend service environment:
+Set the value in `docker-compose/.env`:
 
-```yaml
-environment:
-  EMBED_ALLOWED_ORIGINS: "https://host.example.com"
+```dotenv
+EMBED_ALLOWED_ORIGINS=https://host.example.com
 ```
 
-### Kubernetes
+The Compose package passes this setting to the frontend container. Recreate that container to apply the new environment:
 
-Add to the frontend ConfigMap (`manifests/configmaps.yaml`):
+```bash
+docker compose --env-file .env -f compose.yaml up -d frontend
+```
+
+### Helm
+
+Set the origins in your Helm values file and upgrade the release:
 
 ```yaml
-EMBED_ALLOWED_ORIGINS: "https://host.example.com"
+embedded:
+  allowedOrigins:
+    - https://host.example.com
 ```
+
+The chart converts the list to the frontend's `EMBED_ALLOWED_ORIGINS` setting.
 
 ### Multiple Origins
 
-To allow embedding from multiple origins (e.g., production and staging):
+For Docker Compose, separate origins with commas:
 
-```bash
+```dotenv
 EMBED_ALLOWED_ORIGINS=https://host.example.com,https://staging.host.example.com
 ```
 
-> **Important:** The value must be the exact origin (protocol + domain + port) of the host application. Wildcards are not supported. When this variable is not set, iframe embedding is blocked entirely (default behavior for standalone deployments).
+For Helm, add each origin to the list:
+
+```yaml
+embedded:
+  allowedOrigins:
+    - https://host.example.com
+    - https://staging.host.example.com
+```
+
+> **Important:** Each value must be the exact origin (protocol + domain + port) of the host application. Wildcards are not supported. When the origin list is empty, iframe embedding is blocked entirely (default behavior for standalone deployments).
 
 ---
 
@@ -189,7 +208,7 @@ window.addEventListener('message', (event) => {
 |-------|----------|-------------|
 | `type` | Yes | Must be `'noves:auth'` |
 | `token` | Yes | JWT access token from the OIDC provider |
-| `refreshToken` | Yes | OIDC refresh token. The Data App uses this server-side to keep backend indexers alive by autonomously refreshing the JWT before it expires. |
+| `refreshToken` | Yes | OIDC refresh token. The Data App stores it in the browser and sends it to its BFF, which refreshes the user's access token server-side even when the tab is closed. It is not used for v4 global ledger capture; capture uses the deployment's M2M credentials. |
 | `hostBaseUrl` | No | Base URL for shareable links (e.g., `https://host.example.com/data-app`). When set, "Copy link" features generate URLs pointing to the host domain. |
 
 > **Important:** Always specify the target origin (second argument to `postMessage`) — never use `'*'`. This prevents token leakage to unintended windows.
@@ -379,7 +398,7 @@ If the Data App is deployed on a completely separate origin, everything still wo
 
 ### Standalone Regression
 
-Run the Data App without `EMBED_ALLOWED_ORIGINS` — should behave identically to a normal standalone deployment.
+Run Compose with `EMBED_ALLOWED_ORIGINS` empty, or Helm with `embedded.allowedOrigins: []` — the app should behave identically to a normal standalone deployment.
 
 ---
 
@@ -391,14 +410,14 @@ Run the Data App without `EMBED_ALLOWED_ORIGINS` — should behave identically t
 
 **Common causes:**
 
-1. **`EMBED_ALLOWED_ORIGINS` not set** — The Data App blocks all iframe embedding by default.
-   - **Solution:** Set `EMBED_ALLOWED_ORIGINS` to the host's origin in the Data App deployment.
+1. **No allowed origins configured** — The Data App blocks all iframe embedding when `EMBED_ALLOWED_ORIGINS` is empty or `embedded.allowedOrigins` is an empty list.
+   - **Solution:** Add the host's exact origin using the setting for your deployment package.
 
 2. **Origin mismatch** — The value in `EMBED_ALLOWED_ORIGINS` doesn't match the host's actual origin.
    - **Solution:** Ensure the origin includes the protocol and port if non-standard (e.g., `https://host.example.com`, not `host.example.com`).
 
-3. **Data App not restarted** — The environment variable was added but the server wasn't restarted.
-   - **Solution:** Restart the Data App container to pick up the new configuration.
+3. **Frontend not recreated or redeployed** — The setting changed but the existing frontend container still has its old environment.
+   - **Solution:** Run the Compose `up -d frontend` command above, or upgrade the Helm release. Helm rolls the frontend pod when its ConfigMap changes.
 
 ### Own Login: Auth0 login page shows error or refuses to load
 

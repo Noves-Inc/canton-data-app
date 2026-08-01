@@ -85,6 +85,10 @@ frontend:
       cpu: 500m
       memory: 512Mi
 
+embedded:
+  # Exact host origins allowed to embed the frontend. Wildcards are not supported.
+  allowedOrigins: []
+
 database:
   image:
     repository: ghcr.io/noves-inc/noves-canton-database-v4
