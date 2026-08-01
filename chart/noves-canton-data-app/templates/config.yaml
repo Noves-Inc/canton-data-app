@@ -36,7 +36,7 @@ metadata:
   labels:
     {{- include "cda.labels" . | nindent 4 }}
 data:
-  CANTON_TRANSLATE_BASE_URL: {{ printf "http://%s-backend:8090" (include "cda.fullname" .) | quote }}
+  BACKEND_BASE_URL: {{ printf "http://%s-backend:8090" (include "cda.fullname" .) | quote }}
   CANTON_DATA_APP_URL: {{ .Values.oidc.appUrl | quote }}
   VITE_AUTH0_DOMAIN: {{ ternary .Values.oidc.auth0.domain "" (eq .Values.oidc.provider "auth0") | quote }}
   VITE_AUTH0_CLIENT_ID: {{ ternary .Values.oidc.auth0.clientId "" (eq .Values.oidc.provider "auth0") | quote }}

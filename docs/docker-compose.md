@@ -43,7 +43,13 @@ Edit `.env`:
 
 The backend detects mainnet, testnet, or devnet automatically from the exact synchronizer identity. Unknown or conflicting identities keep readiness false instead of guessing.
 
-For embedded mode, set `EMBED_ALLOWED_ORIGINS` to the exact, comma-separated origins allowed to host the iframe. Leave it blank for a standalone deployment. See the [embedded mode guide](../embedded_mode.md).
+For embedded mode, add the exact, comma-separated origins allowed to host the iframe to `.env` (wildcards are not supported):
+
+```dotenv
+EMBED_ALLOWED_ORIGINS=https://host.example.com
+```
+
+Omit the setting for a standalone deployment. See the [embedded mode guide](../embedded_mode.md).
 
 Leave `REPLACE_WITH_PARTICIPANT_ID` in `.state/nodes-config.json` until step 4, where you read the complete ID from the participant. Set its `addr` to the Ledger API address reachable on `CANTON_DOCKER_NETWORK`.
 
@@ -352,4 +358,6 @@ docker compose --env-file .env -f compose.yaml down
 
 For encrypted local storage, set `DATABASE_DATA_PATH` to an absolute path on an encrypted filesystem. See [Encryption at rest](../encryption_at_rest.md).
 
-Set `ALLOW_PRIVATE_WEBHOOK_TARGETS=true` only when an alert or connector must deliver to a receiver on a private network. The default blocks those targets. Traffic cost analysis and stream processing run in the backend without extra services. The database, read-model, and stream-delivery settings in `.env.example` are optional tuning controls; keep their defaults until measurements justify a change.
+The shipped `.env.example` contains only the normal installation choices. The optional overrides below remain supported by `compose.yaml`; add a setting to `.env` only when you need to change its default.
+
+Set `ALLOW_PRIVATE_WEBHOOK_TARGETS=true` only when an alert or connector must deliver to a receiver on a private network. The default blocks those targets. Traffic cost analysis and stream processing run in the backend without extra services. Keep the database, read-model, and stream-delivery defaults until measurements justify a change.

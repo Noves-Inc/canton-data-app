@@ -81,7 +81,7 @@ services:
     container_name: noves-canton-frontend-v4
     environment:
       PORT: "3000"
-      CANTON_TRANSLATE_BASE_URL: http://backend:8090
+      BACKEND_BASE_URL: http://backend:8090
       VITE_AUTH0_DOMAIN: ${VITE_AUTH0_DOMAIN:-}
       VITE_AUTH0_CLIENT_ID: ${VITE_AUTH0_CLIENT_ID:-}
       VITE_AUTH0_AUDIENCE: ${VITE_AUTH0_AUDIENCE:-}

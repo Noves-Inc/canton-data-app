@@ -108,7 +108,7 @@ Helm exposes these as typed `backend.performance` and `backend.streaming` values
 
 ### Frontend
 
-- `CANTON_TRANSLATE_BASE_URL` is generated from the backend Service.
+- `BACKEND_BASE_URL` is generated from the backend Service.
 - `CANTON_DATA_APP_URL` is set by Helm from `oidc.appUrl`.
 - `VITE_AUTH0_REDIRECT_URI`, `VITE_AUTH0_LOGOUT_URL`, `VITE_KEYCLOAK_REDIRECT_URI`, and `VITE_KEYCLOAK_LOGOUT_URL` are generated from the public application URL.
 - `EMBED_ALLOWED_ORIGINS` is empty by default. Set exact comma-separated origins in Compose, or use `embedded.allowedOrigins` in Helm.
