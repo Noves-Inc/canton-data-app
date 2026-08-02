@@ -8,7 +8,7 @@ backend:
   image:
     repository: ghcr.io/noves-inc/noves-canton-backend-v4
     tag: "4.0.0"
-    digest: "sha256:11b377b1f2815e2c9767932e485cd62fbc05a124661c08e191f015389cac477b"
+    digest: "sha256:a2036fc55c0bcc98c458d583eb7de3405252772e5fc02a58f43fe9744131c31c"
     pullPolicy: IfNotPresent
   podSecurityContext:
     fsGroup: 1654
