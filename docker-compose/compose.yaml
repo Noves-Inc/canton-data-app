@@ -22,7 +22,7 @@ services:
     restart: unless-stopped
 
   backend:
-    image: ${BACKEND_IMAGE:-ghcr.io/noves-inc/noves-canton-backend-v4:4.0.0@sha256:a2036fc55c0bcc98c458d583eb7de3405252772e5fc02a58f43fe9744131c31c}
+    image: ${BACKEND_IMAGE:-ghcr.io/noves-inc/noves-canton-backend-v4:4.0.0@sha256:8329030b3bb4358fea7bd1c645660c050479ded8f02c8f28bdbc6e44d83f1e25}
     container_name: noves-canton-backend-v4
     environment:
       INDEX_DB_HOST: database
