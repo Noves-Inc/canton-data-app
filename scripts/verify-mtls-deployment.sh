@@ -5,7 +5,12 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 chart="chart/noves-canton-data-app"
 scratch="$(mktemp -d)"
 test_exports_volume=""
+compose_root=""
 cleanup() {
+  if [[ -n "$compose_root" && -f "$compose_root/compose.yaml" && -f "$compose_root/.env.example" ]]; then
+    docker compose --env-file "$compose_root/.env.example" \
+      -f "$compose_root/compose.yaml" down --remove-orphans >/dev/null 2>&1 || true
+  fi
   if [[ -n "$test_exports_volume" ]]; then
     docker volume rm -f "$test_exports_volume" >/dev/null 2>&1 || true
   fi
@@ -93,6 +98,12 @@ touch "$compose_root/.state/capture.env" \
 cp "$compose_root/config/nodes-config.json" "$compose_root/.state/nodes-config.json"
 docker compose --env-file "$compose_root/.env.example" \
   -f "$compose_root/compose.yaml" config >"$scratch/compose.yaml"
+backend_image_from_env="$(awk -F= '$1 == "BACKEND_IMAGE" { print $2 }' "$compose_root/.env.example")"
+backend_image_fallback="$(sed -n 's|.*${BACKEND_IMAGE:-\([^}]*\)}.*|\1|p' "$compose_root/compose.yaml")"
+if [[ "$backend_image_from_env" != "$backend_image_fallback" ]]; then
+  echo "Compose .env.example backend image must match the Compose fallback" >&2
+  exit 1
+fi
 rg -q 'source: .*\.state/certificates' "$scratch/compose.yaml"
 rg -q 'target: /certificates' "$scratch/compose.yaml"
 rg -q 'read_only: true' "$scratch/compose.yaml"
