@@ -2,6 +2,8 @@
 
 v4 of the Noves Data App upgrades databases from v3.16.1. If you run an older v3 release, upgrade it to v3.16.1 and confirm that it works before starting this procedure.
 
+If your app is running on the v3.16.1 version, the last database schema (which is needed for the migration) will be either `3.14.1` or `3.15.0` in `public.version`.
+
 The v3 and v4 database workloads must never mount the same PVC at the same time. Keep a tested pre-upgrade backup until you finish application and capture verification.
 
 Choose the section for your current deployment:
@@ -253,6 +255,9 @@ cp "$REPO_DIR/docker-compose/compose.migrate-v3.yaml" \
   "$APP_INSTALL_DIR/docker-compose/compose.migrate-v3.yaml"
 
 cd "$APP_INSTALL_DIR/docker-compose"
+source "$REPO_DIR/scripts/lib/export-storage.sh"
+prepare_export_volume .env compose.yaml
+
 DATABASE_VOLUME="$V3_DATABASE_VOLUME" \
 docker compose --env-file .env \
   -f compose.yaml \
@@ -261,6 +266,8 @@ docker compose --env-file .env \
 grep -A1 'DATABASE_EXPECTED_SOURCE' /tmp/noves-data-app-v4-migration.yaml
 grep -A3 'database:' /tmp/noves-data-app-v4-migration.yaml
 ```
+
+`prepare_export_volume` creates the new v4 exports volume and gives it to the backend runtime user. It never mounts or changes the stopped v3 database volume.
 
 Confirm that the first command shows `v3` and the volume section names the recorded v3 volume.
 
