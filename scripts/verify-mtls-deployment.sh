@@ -104,6 +104,12 @@ if [[ "$backend_image_from_env" != "$backend_image_fallback" ]]; then
   echo "Compose .env.example backend image must match the Compose fallback" >&2
   exit 1
 fi
+frontend_image_from_env="$(awk -F= '$1 == "FRONTEND_IMAGE" { print $2 }' "$compose_root/.env.example")"
+frontend_image_fallback="$(sed -n 's|.*${FRONTEND_IMAGE:-\([^}]*\)}.*|\1|p' "$compose_root/compose.yaml")"
+if [[ "$frontend_image_from_env" != "$frontend_image_fallback" ]]; then
+  echo "Compose .env.example frontend image must match the Compose fallback" >&2
+  exit 1
+fi
 rg -q 'source: .*\.state/certificates' "$scratch/compose.yaml"
 rg -q 'target: /certificates' "$scratch/compose.yaml"
 rg -q 'read_only: true' "$scratch/compose.yaml"
