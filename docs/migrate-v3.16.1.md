@@ -243,6 +243,13 @@ The command must return no containers.
 
 Follow steps 2 through 5 in the [Docker Compose installation guide](docker-compose.md) to create the v4 `.env` and `.state` files. Use the existing v3 `appuser` password as `DATABASE_PASSWORD`; do not generate a new password for the initialized database.
 
+Carry forward the recorded browser-login settings before starting v4. A newly copied `.env` deliberately has blank OIDC values; it is not a valid replacement for the running v3 frontend configuration. Set `APP_URL` to the existing public URL and copy exactly one provider's public browser settings:
+
+- Auth0: `VITE_AUTH0_DOMAIN`, `VITE_AUTH0_CLIENT_ID`, and `VITE_AUTH0_AUDIENCE`.
+- Keycloak: `VITE_KEYCLOAK_URL`, `VITE_KEYCLOAK_REALM`, and `VITE_KEYCLOAK_CLIENT_ID`.
+
+Leave the inactive provider's variables empty. Do not use the capture client credentials for these browser values.
+
 Set the installation directory and render the migration configuration before starting it:
 
 ```bash
@@ -270,6 +277,15 @@ grep -A3 'database:' /tmp/noves-data-app-v4-migration.yaml
 `prepare_export_volume` creates the new v4 exports volume and gives it to the backend runtime user. It never mounts or changes the stopped v3 database volume.
 
 Confirm that the first command shows `v3` and the volume section names the recorded v3 volume.
+
+Before starting the migration, verify that Auth0 or Keycloak remain properly configured in the new environment:
+
+```bash
+if [ -z "${VITE_AUTH0_DOMAIN:-}" ] && [ -z "${VITE_KEYCLOAK_URL:-}" ]; then
+  echo "Set the existing Auth0 or Keycloak browser settings in .env before migrating." >&2
+  exit 1
+fi
+```
 
 ### 4. Start v4 and monitor the migration
 
@@ -302,7 +318,7 @@ Startup can take time while v4 prepares the schema and rebuilds derived data. A 
 
 ### 5. Verify the cutover
 
-Confirm that `/ready` succeeds, capture is enabled and current, browser sign-in works, and representative private transactions match the v3 installation. Check alerts, connectors, accounting integrations, and exports that you used before the migration.
+Confirm that `/ready` succeeds, capture is enabled and current, browser sign-in works, and representative private transactions match the v3 installation.
 
 Keep using both Compose files for this converted database:
 
