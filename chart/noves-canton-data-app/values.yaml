@@ -166,7 +166,7 @@ canton:
   clientCertificateKey: ""
   clientPrivateKeyKey: ""
   tlsServerName: ""
-  scanApiUrl: http://validator-app:5003
+  scanApiUrl: http://validator-app:5003/api/validator
 
 capture:
   existingSecret: noves-canton-data-app-capture-auth

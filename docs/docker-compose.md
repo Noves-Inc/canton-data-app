@@ -1,6 +1,6 @@
 # Docker Compose installation
 
-Use these instructions to install the Noves Data App with Docker Compose. The examples attach the app to `splice-validator_splice_validator` and use `participant:5001` and `http://validator:5003`. Set the network, participant address, and scan API URL to match your deployment when those defaults do not apply.
+Use these instructions to install the Noves Data App with Docker Compose. The examples attach the app to `splice-validator_splice_validator` and use `participant:5001` and `http://validator:5003/api/validator`. Set the network, participant address, and scan API URL to match your deployment when those defaults do not apply.
 
 These instructions keep the configuration in local files.
 
@@ -37,7 +37,7 @@ Edit `.env`:
 - replace `APP_URL` with the public frontend URL;
 - leave the three image references pinned;
 - set `CANTON_DOCKER_NETWORK` if the validator uses a nonstandard network;
-- set `CANTON_SCAN_API_URL` only if `http://validator:5003` is not reachable;
+- set `CANTON_SCAN_API_URL` only if `http://validator:5003/api/validator` is not reachable;
 - ensure the configured `synchronizer_alias` identifies the participant's Global Synchronizer; and
 - configure exactly one browser OIDC provider.
 

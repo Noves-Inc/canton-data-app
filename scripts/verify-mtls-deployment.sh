@@ -43,6 +43,7 @@ if rg -q '"expectedParticipantId"' "$optional_identity"; then
   echo "optional participant identity unexpectedly rendered" >&2
   exit 1
 fi
+rg -q 'value: "http://validator-app:5003/api/validator"' "$optional_identity"
 
 system_trust="$scratch/helm-system-trust.yaml"
 run_helm template cda "$chart" "${common[@]}" \
@@ -98,6 +99,7 @@ touch "$compose_root/.state/capture.env" \
 cp "$compose_root/config/nodes-config.json" "$compose_root/.state/nodes-config.json"
 docker compose --env-file "$compose_root/.env.example" \
   -f "$compose_root/compose.yaml" config >"$scratch/compose.yaml"
+rg -q 'SCAN_PROXY_URL: http://validator:5003/api/validator' "$scratch/compose.yaml"
 backend_image_from_env="$(awk -F= '$1 == "BACKEND_IMAGE" { print $2 }' "$compose_root/.env.example")"
 backend_image_fallback="$(sed -n 's|.*${BACKEND_IMAGE:-\([^}]*\)}.*|\1|p' "$compose_root/compose.yaml")"
 if [[ "$backend_image_from_env" != "$backend_image_fallback" ]]; then

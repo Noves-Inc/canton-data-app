@@ -14,7 +14,7 @@ kubectl --context "$KUBE_CONTEXT" config current-context
 kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" get pods
 ```
 
-The chart defaults to `participant:5001` for the Ledger API and `http://validator-app:5003` for the scan API. Set `canton.participantAddress` and `canton.scanApiUrl` to addresses that the app pods can reach. The services may run in another namespace or outside the cluster.
+The chart defaults to `participant:5001` for the Ledger API and `http://validator-app:5003/api/validator` for the scan API. `canton.scanApiUrl` must be the validator application's scan-proxy base path (including `/api/validator`), not the bare service origin. Set `canton.participantAddress` and `canton.scanApiUrl` to addresses that the app pods can reach. The services may run in another namespace or outside the cluster.
 
 Check storage and routing:
 
@@ -245,7 +245,7 @@ canton:
   clientCertificateKey: client.crt
   clientPrivateKeyKey: client.key
   tlsServerName: ledger.example.com
-  scanApiUrl: http://validator-app:5003
+  scanApiUrl: http://validator-app:5003/api/validator
 
 oidc:
   provider: auth0
