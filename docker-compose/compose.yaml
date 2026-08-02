@@ -112,3 +112,4 @@ volumes:
     name: ${DATABASE_VOLUME:-noves-canton-data-app-v4-data}
   exports:
     name: ${EXPORTS_VOLUME:-noves-canton-data-app-v4-exports}
+    external: true

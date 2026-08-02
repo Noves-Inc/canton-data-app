@@ -163,6 +163,7 @@ docker compose --env-file "$compose_root/.env.example" \
   -f "$compose_root/compose.yaml" config --format json >"$compose_json"
 exports_volume="$(compose_export_volume_name "$compose_json")"
 [[ "$exports_volume" == "noves-canton-data-app-v4-exports" ]]
+[[ "$(jq -r '.volumes.exports.external' "$compose_json")" == "true" ]]
 if jq -e '.services.frontend.volumes[]? | select(.target == "/exports")' "$compose_json" >/dev/null; then
   echo "frontend must not mount the export volume" >&2
   exit 1
