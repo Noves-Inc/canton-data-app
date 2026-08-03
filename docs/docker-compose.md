@@ -50,8 +50,6 @@ EMBED_ALLOWED_ORIGINS=https://host.example.com
 
 Omit the setting for a standalone deployment. See the [embedded mode guide](../embedded_mode.md).
 
-Leave `REPLACE_WITH_PARTICIPANT_ID` in `.state/nodes-config.json` until step 4, where you read the complete ID from the participant. Set its `addr` to the Ledger API address reachable on `CANTON_DOCKER_NETWORK`.
-
 ### Optional Ledger API TLS and mTLS
 
 `cert_file` verifies the participant's server certificate with a private CA. It accepts either one DER certificate or a PEM bundle containing multiple trust anchors; it is not a client certificate. When the Ledger API requires mTLS, copy the unencrypted PEM client identity into the mounted certificate directory:

@@ -51,7 +51,7 @@ spec:
             periodSeconds: 10
           livenessProbe:
             httpGet:
-              path: /api/health
+              path: /health
               port: http
             periodSeconds: 20
           resources:

@@ -93,6 +93,11 @@ YAML
 multi_node_render="$scratch/helm-multi-node.yaml"
 run_helm template cda "$chart" "${common[@]}" -f "$multi_node_values" >"$multi_node_render"
 rg -q '"primaryNodeId": "node-z"' "$multi_node_render"
+frontend_deployment="$scratch/helm-frontend-deployment.yaml"
+awk 'BEGIN { RS="---" } /app.kubernetes.io\/component: frontend/ && /kind: Deployment/ { print; exit }' \
+  "$multi_node_render" >"$frontend_deployment"
+rg -Uq 'readinessProbe:\n[[:space:]]+httpGet:\n[[:space:]]+path: /api/health' "$frontend_deployment"
+rg -Uq 'livenessProbe:\n[[:space:]]+httpGet:\n[[:space:]]+path: /health' "$frontend_deployment"
 for node_id in node-z node-a node-b; do
   rg -q "\"$node_id\":" "$multi_node_render"
 done
