@@ -4,7 +4,14 @@ v4 of the Noves Data App upgrades databases from v3.16.1. If you run an older v3
 
 If your app is running on the v3.16.1 version, the last database schema (which is needed for the migration) will be either `3.14.1` or `3.15.0` in `public.version`.
 
-The v3 and v4 database workloads must never mount the same PVC at the same time. Keep a tested pre-upgrade backup until you finish application and capture verification.
+The v3 and v4 database workloads must never mount the same PVC at the same time. Keep a tested pre-upgrade backup until you finish application and M2M indexing verification.
+
+For a retained Docker Compose installation, do not rerun the normal v4 installer during the
+cutover: that installer starts the v4 application. After v3 is stopped, the migration wrapper
+upgrades the retained node configuration before it invokes Docker. It removes only null or blank
+retired `expected_synchronizer_id` fields and keeps
+`.state/nodes-config.json.pre-retired-field-upgrade.bak`; a nonempty value stops for an explicit
+`synchronizer_alias` decision without starting v4.
 
 Choose the section for your current deployment:
 
@@ -18,7 +25,7 @@ Choose the section for your current deployment:
 Set the cluster values:
 
 ```bash
-export KUBE_CONTEXT=canton-mainnet
+export KUBE_CONTEXT=
 export NAMESPACE=validator
 ```
 
@@ -145,7 +152,8 @@ Install without `--wait` so you can inspect long database preparation and partic
 
 ```bash
 helm upgrade --install noves-canton-data-app \
-  ./chart/noves-canton-data-app \
+  oci://ghcr.io/noves-inc/charts/noves-canton-app \
+  --version 4.0.0 \
   --kube-context "$KUBE_CONTEXT" \
   --namespace "$NAMESPACE" \
   --values migration-values.yaml
@@ -183,7 +191,7 @@ Confirm:
 
 1. `/ready` succeeds.
 2. `/api/v2/capture/status` reports `captureEnabled: true`.
-3. Each node finishes initial capture and catches up.
+3. Each node finishes initial M2M indexing and catches up.
 4. Browser sign-in works.
 5. Participant identity matches the recorded value.
 6. A representative private transaction query returns expected data.
@@ -219,7 +227,7 @@ docker compose exec database \
   cat /home/postgres/pgdata/data/PG_VERSION
 ```
 
-The result must be `18`. Create a database backup or snapshot and restore it to a separate test volume. Keep the backup until the v4 application and capture checks pass.
+The result must be `18`. Create a database backup or snapshot and restore it to a separate test volume. Keep the backup until the v4 application and M2M indexing checks pass.
 
 ### 2. Stop v3
 
@@ -243,12 +251,18 @@ The command must return no containers.
 
 Follow steps 2 through 5 in the [Docker Compose installation guide](docker-compose.md) to create the v4 `.env` and `.state` files. Use the existing v3 `appuser` password as `DATABASE_PASSWORD`; do not generate a new password for the initialized database.
 
+Prepare those files manually; do not run `install-compose.sh` during this migration procedure. The
+migration wrapper validates and safely upgrades them after `--old-workload-stopped` has been
+acknowledged. Nodes with an explicit `m2mIndexing` object use their own secret files. A
+`.state/m2m-indexing.env` file is required only when at least one node relies on the global M2M indexing
+credentials.
+
 Carry forward the recorded browser-login settings before starting v4. A newly copied `.env` deliberately has blank OIDC values; it is not a valid replacement for the running v3 frontend configuration. Set `APP_URL` to the existing public URL and copy exactly one provider's public browser settings:
 
 - Auth0: `VITE_AUTH0_DOMAIN`, `VITE_AUTH0_CLIENT_ID`, and `VITE_AUTH0_AUDIENCE`.
 - Keycloak: `VITE_KEYCLOAK_URL`, `VITE_KEYCLOAK_REALM`, and `VITE_KEYCLOAK_CLIENT_ID`.
 
-Leave the inactive provider's variables empty. Do not use the capture client credentials for these browser values.
+Leave the inactive provider's variables empty. Do not use the M2M indexing client credentials for these browser values.
 
 Set the installation directory and render the migration configuration before starting it:
 
@@ -318,7 +332,7 @@ Startup can take time while v4 prepares the schema and rebuilds derived data. A 
 
 ### 5. Verify the cutover
 
-Confirm that `/ready` succeeds, capture is enabled and current, browser sign-in works, and representative private transactions match the v3 installation.
+Confirm that `/ready` succeeds, M2M indexing is enabled and current, browser sign-in works, and representative private transactions match the v3 installation.
 
 Keep using both Compose files for this converted database:
 

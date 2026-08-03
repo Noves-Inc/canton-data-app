@@ -25,10 +25,10 @@ backend:
   extraEnv: []
   # These defaults suit a standard deployment using the resource requests and limits below.
   # Increase one setting at a time while watching database CPU, write latency, connections,
-  # backend memory, capture lag, and readiness.
+  # backend memory, indexing lag, and readiness.
   performance:
     database:
-      # Capture commits contain at most this many updates. Lower it for constrained storage.
+      # The main indexer will commit at most this many updates on each batch. Lower it for lower CPU usage.
       writeBatchSize: 250
       # Keep 0 unless parallel PostgreSQL queries are known to fit the pod's shared memory.
       maxParallelWorkersPerGather: 0
@@ -156,20 +156,31 @@ accounting:
     key: accounting-token-encryption-key
 
 canton:
-  nodeId: main-node
-  participantAddress: participant:5001
-  expectedParticipantId: ""
-  validatorParty: ""
-  synchronizerAlias: global
-  certificateSecret: ""
-  certificateKey: ca.crt
-  clientCertificateKey: ""
-  clientPrivateKeyKey: ""
-  tlsServerName: ""
   scanApiUrl: http://validator-app:5003/api/validator
+  # Array of nodes (add more items to the array for a multi-node deployment).
+  nodes:
+    - id: main-node
+      addr: participant:5001
+      validatorParty: ""
+      synchronizerAlias: global
+      tls:
+        existingSecret: ""
+        certificateKey: ""
+        clientCertificateKey: ""
+        clientPrivateKeyKey: ""
+        serverName: ""
+      m2mIndexing:
+        mode: global # global | clientCredentials | staticToken
+        tokenEndpoint: ""
+        clientId: ""
+        audience: ""
+        scope: ""
+        existingSecret: ""
+        clientSecretKey: client-secret
+        staticTokenKey: token
 
-capture:
-  existingSecret: noves-canton-data-app-capture-auth
+m2mIndexing:
+  existingSecret: noves-canton-data-app-m2m-indexing-auth
   ledgerApiUserKey: ledger-api-user
   tokenEndpointKey: token-endpoint
   clientIdKey: client-id

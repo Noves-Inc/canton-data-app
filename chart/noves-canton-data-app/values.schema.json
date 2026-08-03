@@ -93,22 +93,17 @@
     "canton": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["nodeId", "participantAddress"],
+      "required": ["scanApiUrl", "nodes"],
       "properties": {
-        "nodeId": { "type": "string", "minLength": 1 },
-        "participantAddress": { "type": "string", "minLength": 1 },
-        "expectedParticipantId": { "type": "string" },
-        "validatorParty": { "type": "string" },
-        "synchronizerAlias": { "type": "string" },
-        "certificateSecret": { "type": "string" },
-        "certificateKey": { "type": "string" },
-        "clientCertificateKey": { "type": "string" },
-        "clientPrivateKeyKey": { "type": "string" },
-        "tlsServerName": { "type": "string" },
-        "scanApiUrl": { "type": "string" }
+        "scanApiUrl": { "type": "string" },
+        "nodes": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/cantonNode" }
+        }
       }
     },
-    "capture": {
+    "m2mIndexing": {
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -239,13 +234,52 @@
     "backup",
     "accounting",
     "canton",
-    "capture",
+    "m2mIndexing",
     "oidc",
     "routing",
     "migration",
     "networkPolicy"
   ],
   "$defs": {
+    "cantonNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "addr", "tls", "m2mIndexing"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$" },
+        "addr": { "type": "string", "minLength": 1 },
+        "validatorParty": { "type": "string" },
+        "synchronizerAlias": { "type": "string" },
+        "tls": { "$ref": "#/$defs/cantonTls" },
+        "m2mIndexing": { "$ref": "#/$defs/nodeM2mIndexing" }
+      }
+    },
+    "cantonTls": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "existingSecret": { "type": "string" },
+        "certificateKey": { "type": "string" },
+        "clientCertificateKey": { "type": "string" },
+        "clientPrivateKeyKey": { "type": "string" },
+        "serverName": { "type": "string" }
+      }
+    },
+    "nodeM2mIndexing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode"],
+      "properties": {
+        "mode": { "enum": ["global", "clientCredentials", "staticToken"] },
+        "tokenEndpoint": { "type": "string" },
+        "clientId": { "type": "string" },
+        "audience": { "type": "string" },
+        "scope": { "type": "string" },
+        "existingSecret": { "type": "string" },
+        "clientSecretKey": { "type": "string", "minLength": 1 },
+        "staticTokenKey": { "type": "string", "minLength": 1 }
+      }
+    },
     "image": {
       "type": "object",
       "additionalProperties": false,

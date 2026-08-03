@@ -66,8 +66,11 @@ guided installation is not part of this release.
 For Helm, create the Secrets and values described in the guide, then run:
 
 ```bash
+
 helm upgrade --install noves-canton-data-app \
-  ./chart/noves-canton-data-app \
+  oci://ghcr.io/noves-inc/charts/noves-canton-app \
+  --version 4.0.0 \
+  --kube-context "$KUBE_CONTEXT" \
   --namespace validator \
   --values enterprise-values.yaml
 ```
@@ -114,7 +117,7 @@ The frontend supports Auth0 and Keycloak through OIDC. Configure one provider:
 - [Keycloak setup](docs/authentication/keycloak.md)
 
 Users sign in with an account from your identity provider. Canton rights
-determine which parties they can read. Data capture uses a separate machine
+determine which parties they can read. Background indexing uses a separate machine
 identity so the index can cover the participant without relying on a person's
 browser session.
 
@@ -138,7 +141,7 @@ network. See [encryption at rest](encryption_at_rest.md) for storage guidance.
 
 ## Operations
 
-The Backend Status page shows startup, capture, and materialization for the
+The Backend Status page shows startup, M2M indexing, and materialization for the
 party currently open. The backend also provides `/health`, `/ready`, and
 `/startupStatus` for deployment checks. The Helm and Compose guides include
 commands for each endpoint.

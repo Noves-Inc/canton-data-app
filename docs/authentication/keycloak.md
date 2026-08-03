@@ -5,7 +5,7 @@ The Noves Data App needs two Keycloak clients:
 | Client | Type | Use |
 |---|---|---|
 | `noves-canton-data-app-browser` | Public, authorization code with PKCE | Human sign-in |
-| `noves-canton-data-app-capture` | Confidential, service account | Background participant capture |
+| `noves-canton-data-app-m2m-indexing` | Confidential, service account | Background participant M2M indexing |
 
 Do not reuse the validator client. In the examples, replace:
 
@@ -66,9 +66,9 @@ oidc:
     clientId: noves-canton-data-app-browser
 ```
 
-## 2. Create the capture client
+## 2. Create the M2M indexing client
 
-1. Create another OpenID Connect client with client ID `noves-canton-data-app-capture`.
+1. Create another OpenID Connect client with client ID `noves-canton-data-app-m2m-indexing`.
 2. In **Capability config**:
    - enable **Client authentication**;
    - disable **Standard flow**;
@@ -89,7 +89,7 @@ On the client's **Client scopes** tab:
 
 The access token must contain the Ledger API audience. Request a token in the next section and inspect `aud` first. If `AUDIENCE` is absent, add an audience mapper to this client's dedicated scope:
 
-1. Open the capture client and select **Client scopes**.
+1. Open the M2M indexing client and select **Client scopes**.
 2. Open the row whose name ends in `-dedicated`.
 3. Select **Configure a new mapper**, then choose **Audience**.
 4. Set:
@@ -97,30 +97,29 @@ The access token must contain the Ledger API audience. Request a token in the ne
    - **Included Custom Audience:** `AUDIENCE`
 5. Keep **Add to access token** enabled and save.
 
-This keeps the app-specific mapper on the capture client instead of changing a realm-wide scope.
+This keeps the app-specific mapper on the M2M indexing client instead of changing a realm-wide scope.
 
 Use this private Compose file:
 
 ```dotenv
-M2M_INDEXER_ENABLED=true
 M2M_TOKEN_ENDPOINT=https://keycloak.example.com/realms/canton/protocol/openid-connect/token
-M2M_CLIENT_ID=noves-canton-data-app-capture
+M2M_CLIENT_ID=noves-canton-data-app-m2m-indexing
 M2M_CLIENT_SECRET=replace-with-the-generated-client-secret
 M2M_AUDIENCE=https://canton.network.global
 M2M_SCOPE=daml_ledger_api
 ```
 
-Store it at `docker-compose/.state/capture.env` with mode `0600`.
+Store it at `docker-compose/.state/m2m-indexing.env` with mode `0600`.
 
-## 3. Read the exact capture subject
+## 3. Read the exact M2M indexing subject
 
 Set shell variables without adding the secret to shell history, then request one client-credentials token:
 
 ```bash
 read -r -p 'Keycloak URL: ' KEYCLOAK_URL
 read -r -p 'Realm: ' REALM
-read -r -p 'Capture client ID: ' M2M_CLIENT_ID
-read -r -s -p 'Capture client secret: ' M2M_CLIENT_SECRET
+read -r -p 'M2M indexing client ID: ' M2M_CLIENT_ID
+read -r -s -p 'M2M indexing client secret: ' M2M_CLIENT_SECRET
 printf '\n'
 M2M_AUDIENCE=https://canton.network.global
 

@@ -8,8 +8,7 @@ See [Container environment variables](environment-variables.md) for the variable
 
 ## 1. Check the host
 
-The Noves Data App adds a database, backend, and frontend to the validator host. Check CPU, memory, and disk before starting; initial capture and read-model catch-up add load until the app reaches the ledger end.
-
+The Noves Data App adds a database, backend, and frontend to the validator host. Check CPU, memory, and disk before starting; the initial indexing will incur some load.
 Find a Docker network that the app can use to reach the Ledger API and scan API. The default network name is shown here:
 
 ```bash
@@ -86,9 +85,9 @@ docker compose --env-file .env -f compose.yaml restart backend
 
 For an unrelated server-CA rollover, create `ca-bundle.pem` with the old root followed by the new root. Point `cert_file` at that bundle, restart the backend, and verify it still reaches the participant using the old certificate. Then switch the participant to its new certificate and verify connectivity. Finally replace the bundle with the new root only and restart the backend again. If a trust-overlap bundle or cross-signed participant certificate is not available, schedule a maintenance window instead. For a client-identity rollover, keep both client identities trusted until the restarted backend is healthy.
 
-## 3. Configure browser login and capture
+## 3. Configure browser login and M2M indexing
 
-Create separate browser and capture clients. Do not reuse the validator's client.
+Create separate browser and M2M indexing clients. Do not reuse the validator's client.
 
 - [Keycloak](authentication/keycloak.md)
 - [Auth0](authentication/auth0.md)
@@ -105,26 +104,65 @@ VITE_KEYCLOAK_REALM=canton
 VITE_KEYCLOAK_CLIENT_ID=noves-canton-data-app-browser
 ```
 
-Create `.state/capture.env` with the dedicated machine client:
+Create `.state/m2m-indexing.env` with the dedicated machine client:
 
 ```dotenv
-M2M_INDEXER_ENABLED=true
 M2M_TOKEN_ENDPOINT=https://keycloak.example.com/realms/canton/protocol/openid-connect/token
-M2M_CLIENT_ID=noves-canton-data-app-capture
+M2M_CLIENT_ID=noves-canton-data-app-m2m-indexing
 M2M_CLIENT_SECRET=replace-with-the-generated-client-secret
 M2M_AUDIENCE=https://canton.network.global
 M2M_SCOPE=daml_ledger_api
 ```
 
-The capture token's exact `sub` must match a Canton user with only `CanReadAsAnyParty`. The installer treats a missing or incomplete capture file as an error instead of silently starting without capture.
+The M2M indexing token's exact `sub` must match a Canton user with only `CanReadAsAnyParty`. When at least one node needs the global fallback, the installer treats a missing or invalid global M2M indexing file as an error instead of silently starting without M2M indexing. An unused invalid `.state/m2m-indexing.env` does not block an all-explicit node configuration.
 
-## 4. Create the capture user and optionally pin the participant identity
+### Optional node-specific M2M indexing credentials
 
-Use your validator's administrator procedure to obtain a short-lived Ledger API administrator token. The example below reads the settings used by Canton's Compose bundle. If your deployment stores them elsewhere, export the same values from your own secret manager. Set `CAPTURE_USER_ID` to the exact `sub` from the capture token check in the Keycloak or Auth0 guide:
+`.state/m2m-indexing.env` remains the default global M2M indexing identity. For an individual node, add a
+`m2mIndexing` object to that node in `.state/nodes-config.json`; it takes precedence over the global
+file. Use either client credentials with a secret file or a static token file. The backend fails
+closed when an explicit object is incomplete or its file is unreadable; it does not fall back to
+`.state/m2m-indexing.env` for that node.
+
+Keep secret values out of `nodes-config.json`. Initially create the directory with mode `0700` and
+every secret file with mode `0600`. Before startup, the installer uses the pinned backend image as a
+root one-shot container to assign the root and referenced subdirectories to group `1654` with mode
+`0750`, and referenced files to group `1654` with mode `0440`. It then proves the backend container
+user can read every configured file. Compose mounts the directory read-only only into the backend at
+`/m2m-indexing-secrets`, never into the frontend:
+
+```bash
+install -d -m 0700 "$APP_INSTALL_DIR/docker-compose/.state/m2m-indexing-secrets/main-node"
+install -m 0600 /secure/path/m2m-indexing-client-secret \
+  "$APP_INSTALL_DIR/docker-compose/.state/m2m-indexing-secrets/main-node/client-secret"
+```
+
+For client credentials, the nonsecret endpoint metadata stays in the node configuration while the
+secret stays in the mounted file:
+
+```json
+"m2mIndexing": {
+  "token_endpoint": "https://auth.example.com/oauth/token",
+  "client_id": "noves-canton-data-app-m2m-indexing",
+  "audience": "https://canton.network.global",
+  "scope": "daml_ledger_api",
+  "client_secret_file": "/m2m-indexing-secrets/main-node/client-secret"
+}
+```
+
+For a static token, use only `"static_token_file": "/m2m-indexing-secrets/main-node/token"`. Restart
+the backend after changing either secret file because M2M indexing clients are created at startup.
+`M2M_INDEXER_ENABLED=true` remains required and active with either explicit source; only the global
+token-source variables are bypassed for that node. Rerun the installer after adding or replacing a
+secret file so it reapplies and verifies the constrained permissions before restarting the backend.
+
+## 4. Create the M2M indexing user
+
+Use your validator's administrator procedure to obtain a short-lived Ledger API administrator token. The example below reads the settings used by Canton's Compose bundle. If your deployment stores them elsewhere, export the same values from your own secret manager. Set `M2M_INDEXING_USER_ID` to the exact `sub` from the M2M indexing token check in the Keycloak or Auth0 guide:
 
 ```bash
 export VALIDATOR_DIR=/path/to/splice-node/docker-compose/validator
-export CAPTURE_USER_ID='replace-with-the-exact-capture-token-subject'
+export M2M_INDEXING_USER_ID='replace-with-the-exact-m2m-indexing-token-subject'
 export PARTICIPANT_ADDRESS=participant:5001
 
 set -a
@@ -160,27 +198,13 @@ Use a pinned `grpcurl` container on the validator network:
 
 ```bash
 export GRPCURL_IMAGE='fullstorydev/grpcurl:v1.9.3@sha256:085e183ca334eb4e81ca81ee12cbb2b2737505d1d77f5e33dabc5d066593d998'
-
-PARTICIPANT_ID="$(
-  docker run --rm \
-    --network "$CANTON_DOCKER_NETWORK" \
-    --env PARTICIPANT_ADMIN_TOKEN \
-    "$GRPCURL_IMAGE" \
-    -plaintext -expand-headers \
-    -H 'authorization: Bearer ${PARTICIPANT_ADMIN_TOKEN}' \
-    -d '{}' \
-    "$PARTICIPANT_ADDRESS" \
-    com.daml.ledger.api.v2.admin.PartyManagementService/GetParticipantId |
-    jq -er '.participant_id // .participantId'
-)"
-printf '%s\n' "$PARTICIPANT_ID"
 ```
 
-The example uses `-plaintext`. For an mTLS-only Ledger API, add `--volume "$APP_INSTALL_DIR/docker-compose/.state/certificates:/certificates:ro"` to each `docker run` command and replace `-plaintext` with `-cacert /certificates/ca.crt -cert /certificates/client.crt -key /certificates/client.key -authority ledger.example.com` for the participant-ID and user-management calls.
+The example uses `-plaintext`. For an mTLS-only Ledger API, add `--volume "$APP_INSTALL_DIR/docker-compose/.state/certificates:/certificates:ro"` to each `docker run` command and replace `-plaintext` with `-cacert /certificates/ca.crt -cert /certificates/client.crt -key /certificates/client.key -authority ledger.example.com` for the user-management calls.
 
-`grpcurl` currently prints the field as `participant_id`; the fallback also accepts camel case. `expectedParticipantId` is optional in `.state/nodes-config.json`: set it to pin the app to this exact participant, or omit it and let the app discover the participant identity through its authenticated Ledger API connection.
+The backend discovers the live participant identity through this authenticated Ledger API connection.
 
-Create the Canton user with the capture token's exact subject:
+Create the Canton user with the M2M indexing token's exact subject:
 
 ```bash
 docker run --rm \
@@ -189,7 +213,7 @@ docker run --rm \
   "$GRPCURL_IMAGE" \
   -plaintext -expand-headers \
   -H 'authorization: Bearer ${PARTICIPANT_ADMIN_TOKEN}' \
-  -d "{\"user\":{\"id\":\"${CAPTURE_USER_ID}\"},\"rights\":[{\"canReadAsAnyParty\":{}}]}" \
+  -d "{\"user\":{\"id\":\"${M2M_INDEXING_USER_ID}\"},\"rights\":[{\"canReadAsAnyParty\":{}}]}" \
   "$PARTICIPANT_ADDRESS" \
   com.daml.ledger.api.v2.admin.UserManagementService/CreateUser
 ```
@@ -203,7 +227,7 @@ docker run --rm \
   "$GRPCURL_IMAGE" \
   -plaintext -expand-headers \
   -H 'authorization: Bearer ${PARTICIPANT_ADMIN_TOKEN}' \
-  -d "{\"userId\":\"${CAPTURE_USER_ID}\"}" \
+  -d "{\"userId\":\"${M2M_INDEXING_USER_ID}\"}" \
   "$PARTICIPANT_ADDRESS" \
   com.daml.ledger.api.v2.admin.UserManagementService/ListUserRights
 
@@ -231,8 +255,10 @@ Protect all local configuration:
 
 ```bash
 chmod 600 \
-  "$APP_INSTALL_DIR/docker-compose/.env" \
-  "$APP_INSTALL_DIR/docker-compose/.state/capture.env"
+  "$APP_INSTALL_DIR/docker-compose/.env"
+if [ -f "$APP_INSTALL_DIR/docker-compose/.state/m2m-indexing.env" ]; then
+  chmod 600 "$APP_INSTALL_DIR/docker-compose/.state/m2m-indexing.env"
+fi
 chmod 644 "$APP_INSTALL_DIR/docker-compose/.state/nodes-config.json"
 ```
 
@@ -337,13 +363,13 @@ curl -fsS https://api.data.example.com/ready
 curl -fsS https://api.data.example.com/docs/v1/openapi.json | jq '.info'
 ```
 
-Open `https://data.example.com`, sign in, and confirm the browser returns to `https://data.example.com/callback`. Check capture separately:
+Open `https://data.example.com`, sign in, and confirm the browser returns to `https://data.example.com/callback`. Check M2M indexing separately:
 
 ```bash
 curl -fsS http://127.0.0.1:8090/api/v2/capture/status | jq
 ```
 
-The capture status must show the indexer running across the participant without a network or token error.
+The M2M indexing status must show the indexer running across the participant without a network or token error.
 
 ## Operations and upgrades
 

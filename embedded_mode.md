@@ -208,7 +208,7 @@ window.addEventListener('message', (event) => {
 |-------|----------|-------------|
 | `type` | Yes | Must be `'noves:auth'` |
 | `token` | Yes | JWT access token from the OIDC provider |
-| `refreshToken` | Yes | OIDC refresh token. The Data App stores it in the browser and sends it to its BFF, which refreshes the user's access token server-side even when the tab is closed. It is not used for v4 global ledger capture; capture uses the deployment's M2M credentials. |
+| `refreshToken` | Yes | OIDC refresh token. The Data App stores it in the browser and sends it to its BFF, which refreshes the user's access token server-side even when the tab is closed. It is not used for v4 global ledger M2M indexing; M2M indexing uses the deployment's M2M credentials. |
 | `hostBaseUrl` | No | Base URL for shareable links (e.g., `https://host.example.com/data-app`). When set, "Copy link" features generate URLs pointing to the host domain. |
 
 > **Important:** Always specify the target origin (second argument to `postMessage`) — never use `'*'`. This prevents token leakage to unintended windows.

@@ -5,7 +5,7 @@
 Use two distinct OIDC clients:
 
 - a public browser client for user sign-in;
-- a confidential M2M client used only by backend capture.
+- a confidential M2M client used only by backend M2M indexing.
 
 Create a Canton user whose ID exactly matches the M2M token's `sub`. Grant only `CanReadAsAnyParty`. Leave `participantAdmin`, `identityProviderAdmin`, `actAs`, `readAs`, `executeAs`, and `executeAsAnyParty` empty or false.
 
@@ -54,9 +54,9 @@ Never:
 - reuse a validator, wallet, or administrative credential;
 - put M2M credentials in the browser OIDC client;
 - publish the database or participant Ledger API;
-- commit `.env`, `capture.env`, tokens, or client secrets.
+- commit `.env`, `m2m-indexing.env`, tokens, or client secrets.
 
-Canton-user provisioning requires an administrator credential, used only as administrator authority and never as the app's capture credential. Use your normal Canton administrator procedure for Helm and Compose installations.
+Canton-user provisioning requires an administrator credential, used only as administrator authority and never as the app's M2M indexing credential. Use your normal Canton administrator procedure for Helm and Compose installations.
 
 ## Data
 

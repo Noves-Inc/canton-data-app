@@ -82,25 +82,54 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- if and (eq .Values.oidc.provider "keycloak") (or (not .Values.oidc.keycloak.url) (not .Values.oidc.keycloak.realm) (not .Values.oidc.keycloak.clientId)) -}}
 {{- fail "oidc.keycloak.url, oidc.keycloak.realm, and oidc.keycloak.clientId are required for Keycloak" -}}
 {{- end -}}
-{{- if ne (empty .Values.canton.clientCertificateKey) (empty .Values.canton.clientPrivateKeyKey) -}}
-{{- fail "canton.clientCertificateKey and canton.clientPrivateKeyKey must be configured together" -}}
+{{- $seenNodeIds := dict -}}
+{{- $needsGlobalM2mIndexing := false -}}
+{{- range $node := .Values.canton.nodes -}}
+{{- if hasKey $seenNodeIds $node.id -}}
+{{- fail (printf "canton.nodes contains duplicate id %q" $node.id) -}}
 {{- end -}}
-{{- if and .Values.canton.clientCertificateKey (not .Values.canton.certificateSecret) -}}
-{{- fail "canton.certificateSecret is required when configuring a Ledger API client certificate" -}}
+{{- $_ := set $seenNodeIds $node.id true -}}
+{{- $tls := $node.tls -}}
+{{- if ne (empty $tls.clientCertificateKey) (empty $tls.clientPrivateKeyKey) -}}
+{{- fail (printf "canton.nodes[%s].tls.clientCertificateKey and clientPrivateKeyKey must be configured together" $node.id) -}}
 {{- end -}}
-{{- if not .Values.capture.existingSecret -}}
-{{- fail "capture.existingSecret is required" -}}
+{{- if and (or $tls.certificateKey $tls.clientCertificateKey) (not $tls.existingSecret) -}}
+{{- fail (printf "canton.nodes[%s].tls.existingSecret is required when configuring TLS certificate keys" $node.id) -}}
+{{- end -}}
+{{- $credential := $node.m2mIndexing -}}
+{{- if eq $credential.mode "clientCredentials" -}}
+{{- if or (not $credential.tokenEndpoint) (not $credential.clientId) (not $credential.existingSecret) -}}
+{{- fail (printf "canton.nodes[%s].m2mIndexing.tokenEndpoint, clientId, and existingSecret are required when mode=clientCredentials" $node.id) -}}
+{{- end -}}
+{{- else if eq $credential.mode "staticToken" -}}
+{{- if not $credential.existingSecret -}}
+{{- fail (printf "canton.nodes[%s].m2mIndexing.existingSecret is required when mode=staticToken" $node.id) -}}
+{{- end -}}
+{{- if or $credential.tokenEndpoint $credential.clientId $credential.audience $credential.scope -}}
+{{- fail (printf "canton.nodes[%s].m2mIndexing client-credentials fields are incompatible with mode=staticToken" $node.id) -}}
+{{- end -}}
+{{- else if eq $credential.mode "global" -}}
+{{- $needsGlobalM2mIndexing = true -}}
+{{- if or $credential.tokenEndpoint $credential.clientId $credential.audience $credential.scope $credential.existingSecret -}}
+{{- fail (printf "canton.nodes[%s].m2mIndexing fields require mode=clientCredentials or mode=staticToken" $node.id) -}}
+{{- end -}}
+{{- else -}}
+{{- fail (printf "canton.nodes[%s].m2mIndexing.mode must be global, clientCredentials, or staticToken" $node.id) -}}
+{{- end -}}
+{{- end -}}
+{{- if and $needsGlobalM2mIndexing (not .Values.m2mIndexing.existingSecret) -}}
+{{- fail "m2mIndexing.existingSecret is required when any canton.nodes m2mIndexing mode is global" -}}
 {{- end -}}
 {{- if not .Values.database.existingSecret -}}
 {{- fail "database.existingSecret is required" -}}
 {{- end -}}
 {{- range $field, $value := dict
-  "capture.ledgerApiUserKey" .Values.capture.ledgerApiUserKey
-  "capture.tokenEndpointKey" .Values.capture.tokenEndpointKey
-  "capture.clientIdKey" .Values.capture.clientIdKey
-  "capture.clientSecretKey" .Values.capture.clientSecretKey
-  "capture.audienceKey" .Values.capture.audienceKey
-  "capture.scopeKey" .Values.capture.scopeKey
+  "m2mIndexing.ledgerApiUserKey" .Values.m2mIndexing.ledgerApiUserKey
+  "m2mIndexing.tokenEndpointKey" .Values.m2mIndexing.tokenEndpointKey
+  "m2mIndexing.clientIdKey" .Values.m2mIndexing.clientIdKey
+  "m2mIndexing.clientSecretKey" .Values.m2mIndexing.clientSecretKey
+  "m2mIndexing.audienceKey" .Values.m2mIndexing.audienceKey
+  "m2mIndexing.scopeKey" .Values.m2mIndexing.scopeKey
 -}}
 {{- if not $value -}}
 {{- fail (printf "%s is required" $field) -}}

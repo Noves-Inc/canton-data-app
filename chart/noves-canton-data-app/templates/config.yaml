@@ -7,29 +7,23 @@ metadata:
     {{- include "cda.labels" . | nindent 4 }}
 data:
   nodes-config.json: |
-    {
-      "primaryNodeId": {{ .Values.canton.nodeId | quote }},
-      "nodes": {
-        {{ .Values.canton.nodeId | quote }}: {
-          "addr": {{ .Values.canton.participantAddress | quote }},
-          {{- if and .Values.canton.certificateSecret .Values.canton.certificateKey }}
-          "cert_file": "/certificates/ca.crt",
-          {{- end }}
-          {{- if and .Values.canton.clientCertificateKey .Values.canton.clientPrivateKeyKey }}
-          "client_cert_file": "/certificates/client.crt",
-          "client_key_file": "/certificates/client.key",
-          {{- end }}
-          {{- if .Values.canton.tlsServerName }}
-          "tls_server_name": {{ .Values.canton.tlsServerName | quote }},
-          {{- end }}
-          {{- if .Values.canton.expectedParticipantId }}
-          "expectedParticipantId": {{ .Values.canton.expectedParticipantId | quote }},
-          {{- end }}
-          "validator_party": {{ .Values.canton.validatorParty | quote }},
-          "synchronizer_alias": {{ .Values.canton.synchronizerAlias | quote }}
-        }
-      }
-    }
+    {{- $nodes := dict -}}
+    {{- range $node := .Values.canton.nodes -}}
+    {{- $entry := dict "addr" $node.addr "validator_party" (default "" $node.validatorParty) "synchronizer_alias" (default "" $node.synchronizerAlias) -}}
+    {{- if $node.tls.certificateKey }}{{- $_ := set $entry "cert_file" (printf "/certificates/nodes/%s/ca.crt" $node.id) -}}{{- end -}}
+    {{- if $node.tls.clientCertificateKey }}
+    {{- $_ := set $entry "client_cert_file" (printf "/certificates/nodes/%s/client.crt" $node.id) -}}
+    {{- $_ := set $entry "client_key_file" (printf "/certificates/nodes/%s/client.key" $node.id) -}}
+    {{- end -}}
+    {{- if $node.tls.serverName }}{{- $_ := set $entry "tls_server_name" $node.tls.serverName -}}{{- end -}}
+    {{- if eq $node.m2mIndexing.mode "clientCredentials" -}}
+    {{- $_ := set $entry "m2mIndexing" (dict "token_endpoint" $node.m2mIndexing.tokenEndpoint "client_id" $node.m2mIndexing.clientId "audience" (default "" $node.m2mIndexing.audience) "scope" (default "" $node.m2mIndexing.scope) "client_secret_file" (printf "/m2m-indexing-secrets/%s/client-secret" $node.id)) -}}
+    {{- else if eq $node.m2mIndexing.mode "staticToken" -}}
+    {{- $_ := set $entry "m2mIndexing" (dict "static_token_file" (printf "/m2m-indexing-secrets/%s/token" $node.id)) -}}
+    {{- end -}}
+    {{- $_ := set $nodes $node.id $entry -}}
+    {{- end -}}
+    {{- dict "primaryNodeId" (first .Values.canton.nodes).id "nodes" $nodes | toPrettyJson | nindent 4 }}
 ---
 apiVersion: v1
 kind: ConfigMap

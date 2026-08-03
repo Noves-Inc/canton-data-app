@@ -1,6 +1,6 @@
 # Auth0 configuration
 
-Create two Auth0 applications. The browser application signs users in and the M2M application captures participant history. They must not share credentials.
+Create two Auth0 applications. The browser application signs users in and the M2M indexing application indexes participant history. They must not share credentials.
 
 In the examples below, `APP_URL` is the exact public URL, such as `https://data.example.com`, and `AUDIENCE` is the API identifier used by the Canton validator.
 
@@ -29,7 +29,7 @@ oidc:
 
 For Compose, use the equivalent `VITE_AUTH0_*` values in `.env`.
 
-## 2. Dedicated capture application
+## 2. Dedicated M2M indexing application
 
 1. Create another application and choose **Machine to Machine Applications**.
 2. Select the API whose identifier is `AUDIENCE`.

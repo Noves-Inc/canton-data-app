@@ -12,18 +12,22 @@ This reference lists the environment variables exposed by the Helm chart and Doc
 
 
 
-### Capture authentication
+### M2M indexing authentication
 
-The backend requires:
+For the default indexer user, the backend requires:
 
 - `M2M_TOKEN_ENDPOINT`
 - `M2M_CLIENT_ID`
 - `M2M_CLIENT_SECRET`
 - `M2M_AUDIENCE`
 
-Helm reads them from `capture.existingSecret`. Compose reads them from `.state/capture.env`.
+Helm reads them from `m2mIndexing.existingSecret`. Compose reads them from `.state/m2m-indexing.env`. A node
+with an explicit `m2mIndexing` object instead reads its client secret or static token from the configured
+file under `/m2m-indexing-secrets`; those nodes do not use the global token-source variables.
 
-`M2M_INDEXER_ENABLED=true` is fixed by Helm and must be present in the Compose capture file. `M2M_SCOPE` is optional.
+`M2M_INDEXER_ENABLED=true` remains enabled for both global and explicit node credentials. Helm and
+Compose both fix it in the backend container; it does not belong in the operator-maintained M2M indexing
+file. `M2M_SCOPE` is optional, as are the explicit node client-credential `audience` and `scope`.
 
 ### Browser authentication
 
@@ -48,7 +52,7 @@ Helm uses the matching `oidc.auth0` or `oidc.keycloak` values. Compose reads the
 - The backend detects the Canton network from the configured synchronizer alias and its authenticated identity catalog; there is no operator network selector.
 - `SCAN_PROXY_URL` comes from `canton.scanApiUrl` in Helm or `CANTON_SCAN_API_URL` in Compose. The defaults are `http://validator-app:5003/api/validator` for Helm and `http://validator:5003/api/validator` for Compose. It must be the validator application's scan-proxy base path (including `/api/validator`), not the bare service origin. Override the value when that address is not reachable.
 
-Ledger API TLS and mTLS do not add container environment variables. Helm uses `canton.certificateSecret`, `canton.certificateKey`, `canton.clientCertificateKey`, `canton.clientPrivateKeyKey`, and `canton.tlsServerName`. Compose uses `cert_file`, `client_cert_file`, `client_key_file`, and `tls_server_name` in `.state/nodes-config.json`, with certificate files mounted read-only under `/certificates`. See the [Helm](helm.md#4-create-application-secrets) or [Docker Compose](docker-compose.md#optional-ledger-api-tls-and-mtls) instructions.
+Ledger API TLS and mTLS do not add container environment variables. Helm configures each connection under `canton.nodes[].tls`; its Secret is mounted only in the backend under `/certificates/nodes/<node-id>`. Compose uses `cert_file`, `client_cert_file`, `client_key_file`, and `tls_server_name` in `.state/nodes-config.json`, with certificate files mounted read-only under `/certificates`. See the [Helm](helm.md#4-create-application-secrets) or [Docker Compose](docker-compose.md#optional-ledger-api-tls-and-mtls) instructions.
 
 ### S3 features
 

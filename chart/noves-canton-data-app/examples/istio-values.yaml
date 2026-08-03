@@ -3,11 +3,18 @@ database:
   persistence:
     storageClass: replace-with-production-ssd-storage-class
 
-capture:
-  existingSecret: noves-canton-data-app-capture-auth
+m2mIndexing:
+  existingSecret: noves-canton-data-app-m2m-indexing-auth
 
 canton:
-  expectedParticipantId: "participant::replace-me"
+  nodes:
+    - id: main-node
+      addr: participant:5001
+      validatorParty: ""
+      synchronizerAlias: global
+      tls: {}
+      m2mIndexing:
+        mode: global
 
 oidc:
   provider: auth0

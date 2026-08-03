@@ -7,14 +7,14 @@ Use this guide to install the Noves Data App on Kubernetes. The examples place t
 Set the context and namespace where you want to run the app:
 
 ```bash
-export KUBE_CONTEXT=canton-mainnet
+export KUBE_CONTEXT=
 export NAMESPACE=validator
 
 kubectl --context "$KUBE_CONTEXT" config current-context
 kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" get pods
 ```
 
-The chart defaults to `participant:5001` for the Ledger API and `http://validator-app:5003/api/validator` for the scan API. `canton.scanApiUrl` must be the validator application's scan-proxy base path (including `/api/validator`), not the bare service origin. Set `canton.participantAddress` and `canton.scanApiUrl` to addresses that the app pods can reach. The services may run in another namespace or outside the cluster.
+The chart defaults to the first `canton.nodes` entry at `participant:5001` and to `http://validator-app:5003/api/validator` for the scan API. `canton.scanApiUrl` must be the validator application's scan-proxy base path (including `/api/validator`), not the bare service origin. Set each node's `addr` and `canton.scanApiUrl` to addresses that the app pods can reach. The services may run in another namespace or outside the cluster. Array order matters: the first node is the backend's default node.
 
 Check storage and routing:
 
@@ -56,11 +56,11 @@ kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
   get secret noves-acr-pull noves-ghcr-pull
 ```
 
-## 3. Configure Auth0 and the capture user
+## 3. Configure Auth0 and the M2M indexing user
 
-Create the browser and capture applications described in [Auth0 configuration](authentication/auth0.md). Request a token for the capture application and copy its exact `sub` claim. That subject becomes the Canton capture user ID and the `ledger-api-user` Secret value.
+Create the browser and M2M indexing applications described in [Auth0 configuration](authentication/auth0.md). Request a token for the M2M indexing application and copy its exact `sub` claim. That subject becomes the Canton M2M indexing user ID and the `ledger-api-user` Secret value.
 
-The standard validator stores an administrator client in `splice-app-validator-ledger-api-auth`. Use it only to create and inspect the dedicated capture user. The following commands keep the administrator access token in shell memory.
+The standard validator stores an administrator client in `splice-app-validator-ledger-api-auth`. Use it only to create and inspect the dedicated M2M indexing user. The following commands keep the administrator access token in shell memory.
 
 ```bash
 ADMIN_SECRET=splice-app-validator-ledger-api-auth
@@ -111,24 +111,14 @@ kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
 
 If the Ledger API requires TLS or mTLS, replace `-plaintext` in each `grpcurl` command below with `-cacert /secure/path/ca.crt -cert /secure/path/client.crt -key /secure/path/client.key -authority ledger.example.com`. Omit `-cert` and `-key` for server-only TLS, and omit `-cacert` when the server certificate uses normal system trust. Set `-authority` to a DNS name in the participant certificate SAN.
 
-Read the full participant ID:
+Set the M2M indexing subject, then create the user:
 
 ```bash
-grpcurl -plaintext -expand-headers \
-  -H 'authorization: Bearer ${PARTICIPANT_ADMIN_TOKEN}' \
-  -d '{}' \
-  localhost:5001 \
-  com.daml.ledger.api.v2.admin.PartyManagementService/GetParticipantId
-```
-
-Set the capture subject, then create the user:
-
-```bash
-export CAPTURE_USER_ID='replace-with-the-exact-capture-token-subject'
+export M2M_INDEXING_USER_ID='replace-with-the-exact-m2m-indexing-token-subject'
 
 grpcurl -plaintext -expand-headers \
   -H 'authorization: Bearer ${PARTICIPANT_ADMIN_TOKEN}' \
-  -d "{\"user\":{\"id\":\"${CAPTURE_USER_ID}\"},\"rights\":[{\"canReadAsAnyParty\":{}}]}" \
+  -d "{\"user\":{\"id\":\"${M2M_INDEXING_USER_ID}\"},\"rights\":[{\"canReadAsAnyParty\":{}}]}" \
   localhost:5001 \
   com.daml.ledger.api.v2.admin.UserManagementService/CreateUser
 ```
@@ -138,7 +128,7 @@ If the user exists without the required right, grant it:
 ```bash
 grpcurl -plaintext -expand-headers \
   -H 'authorization: Bearer ${PARTICIPANT_ADMIN_TOKEN}' \
-  -d "{\"userId\":\"${CAPTURE_USER_ID}\",\"rights\":[{\"canReadAsAnyParty\":{}}]}" \
+  -d "{\"userId\":\"${M2M_INDEXING_USER_ID}\",\"rights\":[{\"canReadAsAnyParty\":{}}]}" \
   localhost:5001 \
   com.daml.ledger.api.v2.admin.UserManagementService/GrantUserRights
 ```
@@ -148,7 +138,7 @@ Confirm that `CanReadAsAnyParty` is the only right:
 ```bash
 grpcurl -plaintext -expand-headers \
   -H 'authorization: Bearer ${PARTICIPANT_ADMIN_TOKEN}' \
-  -d "{\"userId\":\"${CAPTURE_USER_ID}\"}" \
+  -d "{\"userId\":\"${M2M_INDEXING_USER_ID}\"}" \
   localhost:5001 \
   com.daml.ledger.api.v2.admin.UserManagementService/ListUserRights
 
@@ -168,15 +158,15 @@ kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
   --from-literal=postgres-password='replace-with-a-long-random-value'
 ```
 
-Create the capture Secret with the dedicated Auth0 application:
+Create the M2M indexing Secret with the dedicated Auth0 application:
 
 ```bash
 kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
-  create secret generic noves-canton-data-app-capture-auth \
-  --from-literal=ledger-api-user="$CAPTURE_USER_ID" \
+  create secret generic noves-canton-data-app-m2m-indexing-auth \
+  --from-literal=ledger-api-user="$M2M_INDEXING_USER_ID" \
   --from-literal=token-endpoint='https://TENANT.auth0.com/oauth/token' \
-  --from-literal=client-id='replace-with-capture-client-id' \
-  --from-literal=client-secret='replace-with-capture-client-secret' \
+  --from-literal=client-id='replace-with-m2m-indexing-client-id' \
+  --from-literal=client-secret='replace-with-m2m-indexing-client-secret' \
   --from-literal=audience='https://canton.network.global' \
   --from-literal=scope=''
 ```
@@ -235,17 +225,24 @@ database:
   persistence:
     storageClass: managed-csi-premium
 
-capture:
-  existingSecret: noves-canton-data-app-capture-auth
+m2mIndexing:
+  existingSecret: noves-canton-data-app-m2m-indexing-auth
 
 canton:
-  participantAddress: participant:5001
-  certificateSecret: noves-canton-ledger-mtls
-  certificateKey: ca.crt
-  clientCertificateKey: client.crt
-  clientPrivateKeyKey: client.key
-  tlsServerName: ledger.example.com
   scanApiUrl: http://validator-app:5003/api/validator
+  nodes:
+    - id: main-node
+      addr: participant:5001
+      validatorParty: ""
+      synchronizerAlias: global
+      tls:
+        existingSecret: noves-canton-ledger-mtls
+        certificateKey: ca.crt
+        clientCertificateKey: client.crt
+        clientPrivateKeyKey: client.key
+        serverName: ledger.example.com
+      m2mIndexing:
+        mode: global
 
 oidc:
   provider: auth0
@@ -269,7 +266,9 @@ routing:
 
 An empty backend host produces `api.data.example.com`. An empty backend TLS Secret reuses `routing.tlsSecret`; that certificate must include both hostnames. Set `routing.backend.tlsSecret` when the backend uses a separate certificate. With Istio, the Gateway terminates TLS, so its certificate must cover both names.
 
-`canton.certificateKey` is the participant server CA, not the client certificate. When the participant uses a publicly or otherwise system-trusted server certificate, keep the client pair and set `certificateKey: ""`; the chart then omits `cert_file` and the backend performs normal system hostname validation. The client keys must be set together and require `certificateSecret`. `tlsServerName` is optional and should match the participant certificate SAN when `participantAddress` uses a different internal host name. `expectedParticipantId` is also optional: set it only when you want to pin the deployment to one exact participant; otherwise the app discovers the identity using its authenticated Ledger API connection.
+Each node's `tls.certificateKey` is the participant server CA, not the client certificate. When the participant uses a publicly or otherwise system-trusted server certificate, keep the client pair and set `certificateKey: ""`; the chart then omits `cert_file` and the backend performs normal system hostname validation. The client keys must be set together and require `tls.existingSecret`.
+
+`tls.serverName` is optional and should match the participant certificate SAN when `addr` uses a different internal host name.
 
 For embedded mode, add the exact origins allowed to host the iframe:
 
@@ -283,7 +282,39 @@ Leave `embedded.allowedOrigins` empty for a standalone deployment. See the [embe
 
 The backend stores exports on the retained `/exports` PVC by default. Set `exports.storage: s3` only when you have configured the typed `exports.s3` block and bucket access. Transaction-history backups use the independent `backup.s3` block. See [`values.yaml`](../chart/noves-canton-data-app/values.yaml) for the Secret key names and optional endpoint and region fields, and see [Container environment variables](environment-variables.md) for the variables injected into each container.
 
-The defaults under `backend.performance` and `backend.streaming` suit a standard deployment. Change one value at a time while observing database load, backend memory, capture lag, and stream delivery.
+The defaults under `backend.performance` and `backend.streaming` suit a standard deployment. Change one value at a time while observing database load, backend memory, M2M indexing lag, and stream delivery.
+
+Each `canton.nodes` entry selects its M2M indexing identity. `m2mIndexing.mode: global` uses the top-level
+`m2mIndexing.existingSecret` environment configuration for all nodes (this works if you create the same Ledger user and grant `ReadAsAnyParty` to that same M2M Ledger user in all your nodes).
+
+To use a node-specific identity, create a separate
+Secret and select `clientCredentials` or `staticToken`. The chart projects only that node's chosen
+secret file into the backend pod under `/m2m-indexing-secrets/<node-id>`; the ConfigMap contains metadata
+and a file path, never a secret value, and the frontend receives no mount.
+
+```yaml
+canton:
+  nodes:
+    - id: validator-a
+      addr: participant-a:5001
+      tls: {}
+      m2mIndexing:
+        mode: clientCredentials
+        tokenEndpoint: https://TENANT.auth0.com/oauth/token
+        clientId: noves-canton-data-app-m2m-indexing
+        audience: "" # optional
+        scope: "" # optional
+        existingSecret: noves-canton-data-app-node-M2M indexing
+        clientSecretKey: client-secret
+```
+
+Create that Secret with `client-secret` from your secret manager. For a static token, use
+`mode: staticToken`, set `existingSecret` and `staticTokenKey`, and leave the client-credentials
+fields empty. Missing fields or mixed modes fail chart rendering; an explicit invalid file leaves
+that node unready without using the global fallback. Restart the backend deployment after changing
+the selected Secret because M2M indexing clients read the file at startup. The chart keeps
+`M2M_INDEXER_ENABLED=true` in every mode; global token-source environment variables are rendered if
+any node uses global mode. The top-level `m2mIndexing.existingSecret` is required only in that case.
 
 ## 6. Render and install
 
@@ -298,11 +329,23 @@ kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
   apply --dry-run=server -f -
 ```
 
-Install from this checkout:
+Install the exact published OCI chart with the checked-out helper. `--version` selects the OCI chart
+version; the checkout supplies its default but the helper never installs the local chart directory:
+
+```bash
+scripts/install-helm.sh \
+  --kube-context "$KUBE_CONTEXT" \
+  --namespace "$NAMESPACE" \
+  --version 4.0.0 \
+  --values /secure/path/values.yaml
+```
+
+The equivalent direct command is context- and version-explicit:
 
 ```bash
 helm upgrade --install noves-canton-data-app \
-  ./chart/noves-canton-data-app \
+  oci://ghcr.io/noves-inc/charts/noves-canton-app \
+  --version 4.0.0 \
   --kube-context "$KUBE_CONTEXT" \
   --namespace "$NAMESPACE" \
   --values enterprise-values.yaml \
@@ -310,7 +353,7 @@ helm upgrade --install noves-canton-data-app \
   --timeout 20m
 ```
 
-## 7. Verify startup and capture
+## 7. Verify startup and M2M indexing
 
 ```bash
 kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" get pods
@@ -343,7 +386,7 @@ curl -fsS "$BACKEND_URL/docs/v1/openapi.json" | jq '.info'
 
 Open `https://api.data.example.com/docs` for Swagger UI. Requests to `/docs` on `data.example.com` still go to the frontend SPA because that hostname routes to the frontend Service.
 
-`/ready` proves that startup and database preparation finished. It does not prove that participant capture is running. The capture response should report `captureEnabled: true`; after initial loading, the node should report `initialCaptureComplete: true` and `caughtUp: true`.
+`/ready` proves that startup and database preparation finished. It does not prove that participant M2M indexing is running. The M2M indexing response should report `captureEnabled: true`; after initial loading, the node should report `initialCaptureComplete: true` and `caughtUp: true`.
 
 ## Troubleshooting
 
@@ -356,9 +399,9 @@ Open `https://api.data.example.com/docs` for Swagger UI. Requests to `/docs` on 
 | Backend TLS certificate mismatch | Add both names to the shared certificate or set `routing.backend.tlsSecret` |
 | Istio render fails server dry-run | Install the VirtualService CRD or select `routing.provider: ingress` |
 | Backend stays unready | Read `/startupStatus`, then backend logs |
-| Ledger API TLS handshake fails | Check the client certificate/key pair, server CA or system trust, server-auth EKU, and that `tlsServerName` or `participantAddress` matches a certificate SAN |
+| Ledger API TLS handshake fails | Check the node's client certificate/key pair, server CA or system trust, server-auth EKU, and that `canton.nodes[].tls.serverName` or `canton.nodes[].addr` matches a certificate SAN |
 | Ledger API rejects the client | Confirm the participant trusts the client issuer and that `client.crt` includes any required intermediate certificates |
-| Capture disabled or stale | Read `/api/v2/capture/status`; verify the capture Secret, token subject, Canton user, and its exact rights |
+| M2M indexing disabled or stale | Read `/api/v2/capture/status`; verify the M2M indexing Secret, token subject, Canton user, and its exact rights |
 | Browser login loops | Compare the Auth0 callback, logout, origin, audience, and `oidc.appUrl` values |
 
 ## Uninstall

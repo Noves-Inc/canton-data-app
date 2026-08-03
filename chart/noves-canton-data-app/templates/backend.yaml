@@ -1,3 +1,7 @@
+{{- $hasGlobalM2mIndexing := false -}}
+{{- range $node := .Values.canton.nodes -}}
+{{- if eq $node.m2mIndexing.mode "global" -}}{{- $hasGlobalM2mIndexing = true -}}{{- end -}}
+{{- end -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -182,32 +186,34 @@ spec:
             {{- end }}
             - name: M2M_INDEXER_ENABLED
               value: "true"
+            {{- if $hasGlobalM2mIndexing }}
             - name: M2M_TOKEN_ENDPOINT
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.capture.existingSecret }}
-                  key: {{ .Values.capture.tokenEndpointKey }}
+                  name: {{ .Values.m2mIndexing.existingSecret }}
+                  key: {{ .Values.m2mIndexing.tokenEndpointKey }}
             - name: M2M_CLIENT_ID
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.capture.existingSecret }}
-                  key: {{ .Values.capture.clientIdKey }}
+                  name: {{ .Values.m2mIndexing.existingSecret }}
+                  key: {{ .Values.m2mIndexing.clientIdKey }}
             - name: M2M_CLIENT_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.capture.existingSecret }}
-                  key: {{ .Values.capture.clientSecretKey }}
+                  name: {{ .Values.m2mIndexing.existingSecret }}
+                  key: {{ .Values.m2mIndexing.clientSecretKey }}
             - name: M2M_AUDIENCE
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.capture.existingSecret }}
-                  key: {{ .Values.capture.audienceKey }}
+                  name: {{ .Values.m2mIndexing.existingSecret }}
+                  key: {{ .Values.m2mIndexing.audienceKey }}
             - name: M2M_SCOPE
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.capture.existingSecret }}
-                  key: {{ .Values.capture.scopeKey }}
+                  name: {{ .Values.m2mIndexing.existingSecret }}
+                  key: {{ .Values.m2mIndexing.scopeKey }}
                   optional: true
+            {{- end }}
             {{- if .Values.migration.enabled }}
             - name: DATABASE_EXPECTED_SOURCE
               value: "v3"
@@ -223,10 +229,17 @@ spec:
             - name: exports
               mountPath: /exports
             {{- end }}
-            {{- if and .Values.canton.certificateSecret (or .Values.canton.certificateKey .Values.canton.clientCertificateKey) }}
-            - name: canton-certificate
-              mountPath: /certificates
+            {{- range $node := .Values.canton.nodes }}
+            {{- if and $node.tls.existingSecret (or $node.tls.certificateKey $node.tls.clientCertificateKey) }}
+            - name: {{ printf "node-tls-%s" (sha256sum $node.id | trunc 12) }}
+              mountPath: {{ printf "/certificates/nodes/%s" $node.id | quote }}
               readOnly: true
+            {{- end }}
+            {{- if ne $node.m2mIndexing.mode "global" }}
+            - name: {{ printf "node-m2m-indexing-%s" (sha256sum $node.id | trunc 12) }}
+              mountPath: {{ printf "/m2m-indexing-secrets/%s" $node.id | quote }}
+              readOnly: true
+            {{- end }}
             {{- end }}
           startupProbe:
             httpGet:
@@ -257,22 +270,41 @@ spec:
           persistentVolumeClaim:
             claimName: {{ include "cda.fullname" . }}-exports
         {{- end }}
-        {{- if and .Values.canton.certificateSecret (or .Values.canton.certificateKey .Values.canton.clientCertificateKey) }}
-        - name: canton-certificate
+        {{- range $node := .Values.canton.nodes }}
+        {{- if and $node.tls.existingSecret (or $node.tls.certificateKey $node.tls.clientCertificateKey) }}
+        - name: {{ printf "node-tls-%s" (sha256sum $node.id | trunc 12) }}
           secret:
-            secretName: {{ .Values.canton.certificateSecret }}
+            secretName: {{ $node.tls.existingSecret }}
             defaultMode: 0440
             items:
-              {{- if .Values.canton.certificateKey }}
-              - key: {{ .Values.canton.certificateKey }}
+              {{- if $node.tls.certificateKey }}
+              - key: {{ $node.tls.certificateKey }}
                 path: ca.crt
               {{- end }}
-              {{- if .Values.canton.clientCertificateKey }}
-              - key: {{ .Values.canton.clientCertificateKey }}
+              {{- if $node.tls.clientCertificateKey }}
+              - key: {{ $node.tls.clientCertificateKey }}
                 path: client.crt
-              - key: {{ .Values.canton.clientPrivateKeyKey }}
+              - key: {{ $node.tls.clientPrivateKeyKey }}
                 path: client.key
               {{- end }}
+        {{- end }}
+        {{- if eq $node.m2mIndexing.mode "clientCredentials" }}
+        - name: {{ printf "node-m2m-indexing-%s" (sha256sum $node.id | trunc 12) }}
+          secret:
+            secretName: {{ $node.m2mIndexing.existingSecret }}
+            defaultMode: 0440
+            items:
+              - key: {{ default "client-secret" $node.m2mIndexing.clientSecretKey }}
+                path: client-secret
+        {{- else if eq $node.m2mIndexing.mode "staticToken" }}
+        - name: {{ printf "node-m2m-indexing-%s" (sha256sum $node.id | trunc 12) }}
+          secret:
+            secretName: {{ $node.m2mIndexing.existingSecret }}
+            defaultMode: 0440
+            items:
+              - key: {{ default "token" $node.m2mIndexing.staticTokenKey }}
+                path: token
+        {{- end }}
         {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:

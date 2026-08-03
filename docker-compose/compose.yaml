@@ -46,9 +46,10 @@ services:
       ALLOW_PRIVATE_WEBHOOK_TARGETS: ${ALLOW_PRIVATE_WEBHOOK_TARGETS:-false}
       NODES_CONFIG_FILE_PATH: /config/nodes-config.json
       SCAN_PROXY_URL: ${CANTON_SCAN_API_URL:-http://validator:5003/api/validator}
+      M2M_INDEXER_ENABLED: "true"
     env_file:
-      - path: ./.state/capture.env
-        required: true
+      - path: ./.state/m2m-indexing.env
+        required: false
       - path: ./.state/accounting.env
         required: true
       - path: ./.state/storage.env
@@ -63,6 +64,12 @@ services:
       - type: bind
         source: ./.state/certificates
         target: /certificates
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./.state/m2m-indexing-secrets
+        target: /m2m-indexing-secrets
         read_only: true
         bind:
           create_host_path: false

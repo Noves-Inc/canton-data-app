@@ -5,6 +5,12 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/.." && pwd)"
 # shellcheck source=lib/common.sh
 source "$script_dir/lib/common.sh"
+# shellcheck source=lib/canton-certificates.sh
+source "$script_dir/lib/canton-certificates.sh"
+# shellcheck source=lib/m2m-indexing-secrets.sh
+source "$script_dir/lib/m2m-indexing-secrets.sh"
+# shellcheck source=lib/node-config-upgrade.sh
+source "$script_dir/lib/node-config-upgrade.sh"
 
 compose_dir="$repo_root/docker-compose"
 source_version=""
@@ -43,11 +49,23 @@ done
   die "Migration requires --old-workload-stopped."
 [[ -n "$database_volume" ]] || die "Migration requires --volume NAME."
 [[ -f "$compose_dir/.env" ]] || die "Missing $compose_dir/.env."
-[[ -f "$compose_dir/.state/capture.env" ]] ||
-  die "Missing dedicated capture credentials at $compose_dir/.state/capture.env."
+[[ -f "$compose_dir/.state/nodes-config.json" ]] ||
+  die "Missing $compose_dir/.state/nodes-config.json."
 
 require_command docker
+require_command jq
 cd "$compose_dir"
+upgrade_nodes_config_file .state/nodes-config.json ||
+  die "The retained node configuration needs operator review."
+validate_m2m_indexing_configuration .state/nodes-config.json .state/m2m-indexing.env ||
+  die "M2M indexing credential configuration is invalid."
+validate_canton_certificate_files .state/nodes-config.json .state/certificates ||
+  die "Ledger API certificate configuration is invalid."
+validate_m2m_indexing_secret_files .state/nodes-config.json .state/m2m-indexing-secrets ||
+  die "M2M indexing secret-file configuration is invalid."
+chmod 600 .env
+[[ ! -f .state/m2m-indexing.env ]] || chmod 600 .state/m2m-indexing.env
+chmod 644 .state/nodes-config.json
 DATABASE_VOLUME="$database_volume" \
 exec docker compose --env-file .env \
   -f compose.yaml \

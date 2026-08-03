@@ -9,6 +9,10 @@ source "$script_dir/lib/common.sh"
 source "$script_dir/lib/canton-certificates.sh"
 # shellcheck source=lib/export-storage.sh
 source "$script_dir/lib/export-storage.sh"
+# shellcheck source=lib/m2m-indexing-secrets.sh
+source "$script_dir/lib/m2m-indexing-secrets.sh"
+# shellcheck source=lib/node-config-upgrade.sh
+source "$script_dir/lib/node-config-upgrade.sh"
 
 install_dir="$PWD/noves-canton-data-app-v4"
 
@@ -30,6 +34,11 @@ while (($#)); do
   esac
 done
 
+m2m_indexing_secret_root="$install_dir/docker-compose/.state/m2m-indexing-secrets"
+if [[ -L "$m2m_indexing_secret_root" ]]; then
+  die "M2M indexing secret root must be a real directory, not a symbolic link: $m2m_indexing_secret_root"
+fi
+
 require_command docker
 docker compose version >/dev/null 2>&1 || die "Docker Compose v2 or newer is required."
 require_command openssl
@@ -45,6 +54,10 @@ cp "$repo_root/docker-compose/config/storage.env.example" \
 mkdir -p "$install_dir/docker-compose/.state"
 mkdir -p -m 0750 "$install_dir/docker-compose/.state/certificates"
 chmod 0750 "$install_dir/docker-compose/.state/certificates"
+mkdir -p -m 0700 "$m2m_indexing_secret_root"
+require_real_m2m_indexing_secret_root "$m2m_indexing_secret_root" ||
+  die "M2M indexing secret root validation failed."
+chmod 0700 "$m2m_indexing_secret_root"
 if [[ ! -f "$install_dir/docker-compose/.state/nodes-config.json" ]]; then
   cp "$repo_root/docker-compose/config/nodes-config.json" \
     "$install_dir/docker-compose/.state/nodes-config.json"
@@ -85,17 +98,6 @@ env_value() {
   sed -n "s/^${1}=//p" .env | tail -1
 }
 
-validate_capture_env() {
-  local file=".state/capture.env"
-  local key
-  for key in M2M_TOKEN_ENDPOINT M2M_CLIENT_ID M2M_CLIENT_SECRET M2M_AUDIENCE; do
-    if ! grep -Eq "^${key}=(\"[^\"]+\"|[^[:space:]].*)$" "$file" ||
-      grep -Eq "^${key}=\"?replace-with-" "$file"; then
-      die "$file must contain a non-blank, non-placeholder $key."
-    fi
-  done
-}
-
 wait_for_backend_ready() {
   local origin="$1"
   local attempt
@@ -112,17 +114,23 @@ wait_for_backend_ready() {
 }
 
 [[ -f .env ]] || die "Create .env from .env.example before installation."
-[[ -f .state/capture.env ]] || die "Create .state/capture.env with dedicated M2M credentials."
 [[ -f .state/nodes-config.json ]] ||
   die "Create .state/nodes-config.json with the Ledger API address."
+upgrade_nodes_config_file .state/nodes-config.json ||
+  die "The retained node configuration needs operator review."
 ensure_env_secret DATABASE_PASSWORD >/dev/null
-validate_capture_env
+validate_m2m_indexing_configuration .state/nodes-config.json .state/m2m-indexing.env ||
+  die "M2M indexing credential configuration is invalid."
 validate_canton_certificate_files \
   .state/nodes-config.json .state/certificates ||
   die "Ledger API certificate configuration is invalid."
+validate_m2m_indexing_secret_files \
+  .state/nodes-config.json .state/m2m-indexing-secrets ||
+  die "M2M indexing secret-file configuration is invalid."
 canton_docker_network="$(env_value CANTON_DOCKER_NETWORK)"
 canton_docker_network="${canton_docker_network:-splice-validator_splice_validator}"
-chmod 600 .env .state/capture.env "$accounting_env_file"
+chmod 600 .env "$accounting_env_file"
+[[ ! -f .state/m2m-indexing.env ]] || chmod 600 .state/m2m-indexing.env
 chmod 644 .state/nodes-config.json
 docker compose --env-file .env -f compose.yaml config --quiet ||
   die "The Compose application configuration is invalid."
@@ -132,6 +140,17 @@ docker compose --env-file .env -f compose.yaml pull ||
   die "Could not pull the Noves Data App images. Log in to the configured registries and retry."
 prepare_export_volume .env compose.yaml ||
   die "Could not prepare the export volume for backend user 1654."
+if ((${#m2m_indexing_secret_container_paths[@]})); then
+  secure_m2m_indexing_secret_files \
+    .env compose.yaml "$PWD/.state/m2m-indexing-secrets" \
+    "${m2m_indexing_secret_container_paths[@]}" ||
+    die "Could not assign M2M indexing secret files to backend group 1654."
+  for m2m_indexing_secret_path in "${m2m_indexing_secret_container_paths[@]}"; do
+    docker compose --env-file .env -f compose.yaml run --rm --no-deps \
+      --entrypoint /bin/sh backend -c 'test -r "$1"' sh "$m2m_indexing_secret_path" ||
+      die "The backend container user cannot read M2M indexing secret file: $m2m_indexing_secret_path"
+  done
+fi
 if ((${#canton_certificate_container_paths[@]})); then
   secure_canton_certificate_files \
     .env compose.yaml "$PWD/.state/certificates" \
