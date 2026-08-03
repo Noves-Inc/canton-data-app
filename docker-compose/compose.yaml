@@ -2,7 +2,7 @@ name: noves-canton-data-app-v4
 
 services:
   database:
-    image: ${DATABASE_IMAGE:-ghcr.io/noves-inc/noves-canton-database-v4:4.0.0@sha256:b6f75ff104fa4b8b7018d8cbc75aacd21f07851117767de5354fcd63ce8144ff}
+    image: ${DATABASE_IMAGE:-ghcr.io/noves-inc/noves-canton-database-v4:4.0.1@sha256:2d7c50d59116555d191e718347c0c0b60fce0304b4fe17db90ec001373223a55}
     container_name: noves-canton-database-v4
     environment:
       POSTGRES_USER: appuser
@@ -22,7 +22,7 @@ services:
     restart: unless-stopped
 
   backend:
-    image: ${BACKEND_IMAGE:-ghcr.io/noves-inc/noves-canton-backend-v4:4.0.0@sha256:fcce5b373425319bd9f549a5f39b1445379e69777e99c07307fe33fa014aadc7}
+    image: ${BACKEND_IMAGE:-ghcr.io/noves-inc/noves-canton-backend-v4:4.0.1@sha256:495459bb6a0c179f4191725c95bb6859b54c4482029389cb75899e65ad704036}
     container_name: noves-canton-backend-v4
     environment:
       INDEX_DB_HOST: database
@@ -84,7 +84,7 @@ services:
     restart: unless-stopped
 
   frontend:
-    image: ${FRONTEND_IMAGE:-ghcr.io/noves-inc/noves-canton-frontend-v4:4.0.0@sha256:6908c30d86d92afc42dee0103f56a851cc0ecd82e628c2cf641196d2ef2fb614}
+    image: ${FRONTEND_IMAGE:-ghcr.io/noves-inc/noves-canton-frontend-v4:4.0.1@sha256:86cb1daacbf659ee7d9ebac5917675f50e30086926f640659147c217144af008}
     container_name: noves-canton-frontend-v4
     environment:
       PORT: "3000"
