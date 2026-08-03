@@ -1,0 +1,35 @@
+database:
+  existingSecret: noves-canton-data-app-database
+  persistence:
+    storageClass: replace-with-production-ssd-storage-class
+
+m2mIndexing:
+  existingSecret: noves-canton-data-app-m2m-indexing-auth
+
+canton:
+  nodes:
+    - id: main-node
+      addr: participant:5001
+      validatorParty: ""
+      synchronizerAlias: global
+      tls: {}
+      m2mIndexing:
+        mode: global
+
+oidc:
+  provider: auth0
+  appUrl: https://data.example.com
+  auth0:
+    domain: tenant.example.auth0.com
+    clientId: replace-with-browser-client-id
+    audience: https://canton.network.global
+
+routing:
+  provider: istio
+  host: data.example.com
+  backend:
+    enabled: true
+    host: ""
+    tlsSecret: ""
+  istio:
+    gateway: cluster-ingress/cn-http-gateway

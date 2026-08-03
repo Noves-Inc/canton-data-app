@@ -1,0 +1,67 @@
+{{- include "cda.validate" . }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "cda.fullname" . }}-nodes
+  labels:
+    {{- include "cda.labels" . | nindent 4 }}
+data:
+  nodes-config.json: |
+    {{- $nodes := dict -}}
+    {{- range $node := .Values.canton.nodes -}}
+    {{- $entry := dict "addr" $node.addr "validator_party" (default "" $node.validatorParty) "synchronizer_alias" (default "" $node.synchronizerAlias) -}}
+    {{- if $node.tls.certificateKey }}{{- $_ := set $entry "cert_file" (printf "/certificates/nodes/%s/ca.crt" $node.id) -}}{{- end -}}
+    {{- if $node.tls.clientCertificateKey }}
+    {{- $_ := set $entry "client_cert_file" (printf "/certificates/nodes/%s/client.crt" $node.id) -}}
+    {{- $_ := set $entry "client_key_file" (printf "/certificates/nodes/%s/client.key" $node.id) -}}
+    {{- end -}}
+    {{- if $node.tls.serverName }}{{- $_ := set $entry "tls_server_name" $node.tls.serverName -}}{{- end -}}
+    {{- if eq $node.m2mIndexing.mode "clientCredentials" -}}
+    {{- $_ := set $entry "m2mIndexing" (dict "token_endpoint" $node.m2mIndexing.tokenEndpoint "client_id" $node.m2mIndexing.clientId "audience" (default "" $node.m2mIndexing.audience) "scope" (default "" $node.m2mIndexing.scope) "client_secret_file" (printf "/m2m-indexing-secrets/%s/client-secret" $node.id)) -}}
+    {{- else if eq $node.m2mIndexing.mode "staticToken" -}}
+    {{- $_ := set $entry "m2mIndexing" (dict "static_token_file" (printf "/m2m-indexing-secrets/%s/token" $node.id)) -}}
+    {{- end -}}
+    {{- $_ := set $nodes $node.id $entry -}}
+    {{- end -}}
+    {{- dict "primaryNodeId" (first .Values.canton.nodes).id "nodes" $nodes | toPrettyJson | nindent 4 }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "cda.fullname" . }}-frontend
+  labels:
+    {{- include "cda.labels" . | nindent 4 }}
+data:
+  BACKEND_BASE_URL: {{ printf "http://%s-backend:8090" (include "cda.fullname" .) | quote }}
+  CANTON_DATA_APP_URL: {{ .Values.oidc.appUrl | quote }}
+  VITE_AUTH0_DOMAIN: {{ ternary .Values.oidc.auth0.domain "" (eq .Values.oidc.provider "auth0") | quote }}
+  VITE_AUTH0_CLIENT_ID: {{ ternary .Values.oidc.auth0.clientId "" (eq .Values.oidc.provider "auth0") | quote }}
+  VITE_AUTH0_AUDIENCE: {{ ternary .Values.oidc.auth0.audience "" (eq .Values.oidc.provider "auth0") | quote }}
+  VITE_AUTH0_REDIRECT_URI: {{ printf "%s/callback" (trimSuffix "/" .Values.oidc.appUrl) | quote }}
+  VITE_AUTH0_LOGOUT_URL: {{ trimSuffix "/" .Values.oidc.appUrl | quote }}
+  VITE_KEYCLOAK_URL: {{ ternary .Values.oidc.keycloak.url "" (eq .Values.oidc.provider "keycloak") | quote }}
+  VITE_KEYCLOAK_REALM: {{ ternary .Values.oidc.keycloak.realm "" (eq .Values.oidc.provider "keycloak") | quote }}
+  VITE_KEYCLOAK_CLIENT_ID: {{ ternary .Values.oidc.keycloak.clientId "" (eq .Values.oidc.provider "keycloak") | quote }}
+  VITE_KEYCLOAK_REDIRECT_URI: {{ printf "%s/callback" (trimSuffix "/" .Values.oidc.appUrl) | quote }}
+  VITE_KEYCLOAK_LOGOUT_URL: {{ trimSuffix "/" .Values.oidc.appUrl | quote }}
+  EMBED_ALLOWED_ORIGINS: {{ join "," .Values.embedded.allowedOrigins | quote }}
+{{- if eq .Values.exports.storage "pvc" }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "cda.fullname" . }}-exports
+  annotations:
+    helm.sh/resource-policy: keep
+  labels:
+    {{- include "cda.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  {{- if .Values.exports.persistence.storageClass }}
+  storageClassName: {{ .Values.exports.persistence.storageClass | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.exports.persistence.size }}
+{{- end }}

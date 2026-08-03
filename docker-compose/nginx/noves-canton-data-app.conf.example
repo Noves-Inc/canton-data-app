@@ -1,0 +1,61 @@
+# This include is for an NGINX container attached to the same Docker network as
+# the Noves Data App. Replace the two example hostnames and certificate paths.
+server {
+    listen 80;
+    listen [::]:80;
+    server_name data.example.com api.data.example.com;
+
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name data.example.com;
+
+    ssl_certificate /etc/nginx/ssl/cert.pem;
+    ssl_certificate_key /etc/nginx/ssl/cert.key;
+
+    # Resolve the container again after the Noves Data App restarts. A literal upstream block
+    # would make nginx -t or reload fail while the application is stopped.
+    resolver 127.0.0.11 valid=30s ipv6=off;
+
+    location / {
+        set $noves_app_frontend noves-canton-frontend-v4:3000;
+        proxy_pass http://$noves_app_frontend;
+        proxy_http_version 1.1;
+
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+        proxy_buffering off;
+    }
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name api.data.example.com;
+
+    ssl_certificate /etc/nginx/ssl/cert.pem;
+    ssl_certificate_key /etc/nginx/ssl/cert.key;
+
+    resolver 127.0.0.11 valid=30s ipv6=off;
+
+    location / {
+        set $noves_app_backend noves-canton-backend-v4:8090;
+        proxy_pass http://$noves_app_backend;
+        proxy_http_version 1.1;
+
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}

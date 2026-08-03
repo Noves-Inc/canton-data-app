@@ -1,0 +1,242 @@
+nameOverride: ""
+fullnameOverride: ""
+
+imagePullSecrets: []
+
+backend:
+  replicaCount: 1
+  image:
+    repository: ghcr.io/noves-inc/noves-canton-backend-v4
+    tag: "4.0.1"
+    digest: "sha256:495459bb6a0c179f4191725c95bb6859b54c4482029389cb75899e65ad704036"
+    pullPolicy: IfNotPresent
+  podSecurityContext:
+    fsGroup: 1654
+    fsGroupChangePolicy: OnRootMismatch
+    seccompProfile:
+      type: RuntimeDefault
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    runAsNonRoot: true
+    runAsUser: 1654
+    capabilities:
+      drop:
+        - ALL
+  extraEnv: []
+  # These defaults suit a standard deployment using the resource requests and limits below.
+  # Increase one setting at a time while watching database CPU, write latency, connections,
+  # backend memory, indexing lag, and readiness.
+  performance:
+    database:
+      # The main indexer will commit at most this many updates on each batch. Lower it for lower CPU usage.
+      writeBatchSize: 250
+      # Keep 0 unless parallel PostgreSQL queries are known to fit the pod's shared memory.
+      maxParallelWorkersPerGather: 0
+      # "off" improves ingestion throughput but trades away synchronous WAL durability.
+      synchronousCommit: "off"
+    readModel:
+      # Total indexing concurrency, including capacity reserved for current ledger activity.
+      totalCapacity: 4
+      reservedLiveCapacity: 1
+      # 100 runs normally. Values 1-99 pace background indexing to leave foreground headroom.
+      backgroundIndexingDutyPercent: 100
+  # Streaming runs inside the backend. Tune only after measuring delivery latency, query load,
+  # and WebSocket memory use.
+  streaming:
+    pollIntervalMs: 5000
+    pageSize: 100
+    retryDelayMs: 2000
+    websocketBufferLimit: 10000
+    databaseTimeoutSeconds: 60
+    deduplicationWindowRecords: 1000000
+    deliveryRecencyMinutes: 1440
+  # Security opt-in for webhook receivers on private network addresses.
+  allowPrivateWebhookTargets: false
+  resources:
+    requests:
+      cpu: "1"
+      memory: 1Gi
+    limits:
+      cpu: "1.5"
+      memory: 4Gi
+frontend:
+  replicaCount: 1
+  image:
+    repository: ghcr.io/noves-inc/noves-canton-frontend-v4
+    tag: "4.0.1"
+    digest: "sha256:86cb1daacbf659ee7d9ebac5917675f50e30086926f640659147c217144af008"
+    pullPolicy: IfNotPresent
+  podSecurityContext:
+    seccompProfile:
+      type: RuntimeDefault
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    capabilities:
+      drop:
+        - ALL
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+embedded:
+  # Exact host origins allowed to embed the frontend. Wildcards are not supported.
+  allowedOrigins: []
+
+database:
+  image:
+    repository: ghcr.io/noves-inc/noves-canton-database-v4
+    tag: "4.0.1"
+    digest: "sha256:2d7c50d59116555d191e718347c0c0b60fce0304b4fe17db90ec001373223a55"
+    pullPolicy: IfNotPresent
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 70
+    runAsGroup: 70
+    fsGroup: 70
+    fsGroupChangePolicy: OnRootMismatch
+    seccompProfile:
+      type: RuntimeDefault
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+  existingSecret: noves-canton-data-app-database
+  passwordKey: postgres-password
+  name: canton_index
+  user: appuser
+  persistence:
+    existingClaim: ""
+    size: 100Gi
+    # Production should explicitly select verified encrypted SSD-backed block storage.
+    storageClass: ""
+  resources:
+    requests:
+      cpu: "1"
+      memory: 2Gi
+    limits:
+      cpu: "4"
+      memory: 8Gi
+
+exports:
+  storage: pvc
+  persistence:
+    size: 20Gi
+    storageClass: ""
+  s3:
+    bucket: ""
+    endpointUrl: ""
+    region: ""
+    existingSecret: ""
+    accessKeyIdKey: access-key-id
+    secretAccessKeyKey: secret-access-key
+    sessionTokenKey: session-token
+
+backup:
+  s3:
+    enabled: false
+    bucket: ""
+    endpointUrl: ""
+    region: ""
+    existingSecret: ""
+    accessKeyIdKey: access-key-id
+    secretAccessKeyKey: secret-access-key
+    sessionTokenKey: session-token
+
+accounting:
+  tokenEncryption:
+    existingSecret: ""
+    key: accounting-token-encryption-key
+
+canton:
+  scanApiUrl: http://validator-app:5003/api/validator
+  # Array of nodes (add more items to the array for a multi-node deployment).
+  nodes:
+    - id: main-node
+      addr: participant:5001
+      validatorParty: ""
+      synchronizerAlias: global
+      tls:
+        existingSecret: ""
+        certificateKey: ""
+        clientCertificateKey: ""
+        clientPrivateKeyKey: ""
+        serverName: ""
+      m2mIndexing:
+        mode: global # global | clientCredentials | staticToken
+        tokenEndpoint: ""
+        clientId: ""
+        audience: ""
+        scope: ""
+        existingSecret: ""
+        clientSecretKey: client-secret
+        staticTokenKey: token
+
+m2mIndexing:
+  existingSecret: noves-canton-data-app-m2m-indexing-auth
+  ledgerApiUserKey: ledger-api-user
+  tokenEndpointKey: token-endpoint
+  clientIdKey: client-id
+  clientSecretKey: client-secret
+  audienceKey: audience
+  scopeKey: scope
+
+oidc:
+  provider: ""
+  appUrl: ""
+  auth0:
+    domain: ""
+    clientId: ""
+    audience: ""
+  keycloak:
+    url: ""
+    realm: canton
+    clientId: ""
+
+routing:
+  # none: create no public route; use an external gateway or port-forwarding.
+  # ingress: create Kubernetes Ingress resources and require ingress.className.
+  # istio: create VirtualServices and require istio.gateway.
+  provider: none
+  # Required for ingress or istio. This is the frontend/BFF hostname.
+  host: ""
+  # TLS Secret used by Ingress. Istio terminates TLS at the configured Gateway.
+  tlsSecret: ""
+  annotations: {}
+  backend:
+    # Publish the backend API and /docs on a second hostname.
+    enabled: true
+    # Empty derives api.<routing.host>.
+    host: ""
+    # Empty reuses routing.tlsSecret for Ingress.
+    tlsSecret: ""
+  istio:
+    # Namespace/name of the existing Istio Gateway.
+    gateway: cluster-ingress/cn-http-gateway
+  ingress:
+    # Exact name from kubectl get ingressclass.
+    className: ""
+
+migration:
+  enabled: false
+  sourceVersion: ""
+  backupConfirmed: false
+  oldWorkloadStopped: false
+  existingClaim: ""
+
+networkPolicy:
+  database:
+    enabled: true
+
+podAnnotations: {}
+podLabels: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}

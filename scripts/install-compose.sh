@@ -1,0 +1,171 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd "$script_dir/.." && pwd)"
+# shellcheck source=lib/common.sh
+source "$script_dir/lib/common.sh"
+# shellcheck source=lib/canton-certificates.sh
+source "$script_dir/lib/canton-certificates.sh"
+# shellcheck source=lib/export-storage.sh
+source "$script_dir/lib/export-storage.sh"
+# shellcheck source=lib/m2m-indexing-secrets.sh
+source "$script_dir/lib/m2m-indexing-secrets.sh"
+# shellcheck source=lib/node-config-upgrade.sh
+source "$script_dir/lib/node-config-upgrade.sh"
+
+install_dir="$PWD/noves-canton-data-app-v4"
+
+usage() {
+  cat <<'EOF'
+Usage:
+  install-compose.sh [--directory DIR]
+
+Options:
+  --directory DIR   Installation directory
+EOF
+}
+
+while (($#)); do
+  case "$1" in
+    --directory) install_dir="${2:?Missing directory}"; shift 2 ;;
+    -h|--help) usage; exit 0 ;;
+    *) die "Unknown option: $1" ;;
+  esac
+done
+
+m2m_indexing_secret_root="$install_dir/docker-compose/.state/m2m-indexing-secrets"
+if [[ -L "$m2m_indexing_secret_root" ]]; then
+  die "M2M indexing secret root must be a real directory, not a symbolic link: $m2m_indexing_secret_root"
+fi
+
+require_command docker
+docker compose version >/dev/null 2>&1 || die "Docker Compose v2 or newer is required."
+require_command openssl
+require_command curl
+require_command jq
+
+mkdir -p "$install_dir/docker-compose/config"
+for file in compose.yaml compose.migrate-v3.yaml .env.example; do
+  cp "$repo_root/docker-compose/$file" "$install_dir/docker-compose/$file"
+done
+cp "$repo_root/docker-compose/config/storage.env.example" \
+  "$install_dir/docker-compose/config/storage.env.example"
+mkdir -p "$install_dir/docker-compose/.state"
+mkdir -p -m 0750 "$install_dir/docker-compose/.state/certificates"
+chmod 0750 "$install_dir/docker-compose/.state/certificates"
+mkdir -p -m 0700 "$m2m_indexing_secret_root"
+require_real_m2m_indexing_secret_root "$m2m_indexing_secret_root" ||
+  die "M2M indexing secret root validation failed."
+chmod 0700 "$m2m_indexing_secret_root"
+if [[ ! -f "$install_dir/docker-compose/.state/nodes-config.json" ]]; then
+  cp "$repo_root/docker-compose/config/nodes-config.json" \
+    "$install_dir/docker-compose/.state/nodes-config.json"
+fi
+
+cd "$install_dir/docker-compose"
+accounting_env_file=".state/accounting.env"
+if [[ ! -f "$accounting_env_file" ]]; then
+  write_private_file "$accounting_env_file"
+  printf 'ACCOUNTING_TOKEN_ENCRYPTION_KEY=%s\n' \
+    "$(openssl rand -base64 32 | tr -d '\n')" >"$accounting_env_file"
+fi
+accounting_key_count="$(grep -c '^ACCOUNTING_TOKEN_ENCRYPTION_KEY=' "$accounting_env_file" || true)"
+[[ "$accounting_key_count" == 1 ]] ||
+  die "$accounting_env_file must contain exactly one ACCOUNTING_TOKEN_ENCRYPTION_KEY."
+accounting_key="$(sed -n 's/^ACCOUNTING_TOKEN_ENCRYPTION_KEY=//p' "$accounting_env_file")"
+[[ "$accounting_key" =~ ^[A-Za-z0-9+/]{43}=$ ]] ||
+  die "$accounting_env_file must contain a 32-byte base64 ACCOUNTING_TOKEN_ENCRYPTION_KEY."
+chmod 600 "$accounting_env_file"
+
+ensure_env_secret() {
+  local key="$1"
+  local value
+  value="$(sed -n "s/^${key}=//p" .env | tail -1)"
+  if [[ -z "$value" || "$value" == replace-with-* ]]; then
+    value="$(random_secret)"
+    if grep -q "^${key}=" .env; then
+      sed -i.bak -e "s/^${key}=.*/${key}=${value}/" .env
+      rm -f .env.bak
+    else
+      printf '%s=%s\n' "$key" "$value" >>.env
+    fi
+  fi
+  printf '%s' "$value"
+}
+
+env_value() {
+  sed -n "s/^${1}=//p" .env | tail -1
+}
+
+wait_for_backend_ready() {
+  local origin="$1"
+  local attempt
+  for attempt in $(seq 1 120); do
+    if curl -fsS "$origin/ready" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 5
+  done
+  printf 'Last backend startup status:\n' >&2
+  curl -sS "$origin/startupStatus" >&2 || true
+  printf '\n' >&2
+  return 1
+}
+
+[[ -f .env ]] || die "Create .env from .env.example before installation."
+[[ -f .state/nodes-config.json ]] ||
+  die "Create .state/nodes-config.json with the Ledger API address."
+upgrade_nodes_config_file .state/nodes-config.json ||
+  die "The retained node configuration needs operator review."
+ensure_env_secret DATABASE_PASSWORD >/dev/null
+validate_m2m_indexing_configuration .state/nodes-config.json .state/m2m-indexing.env ||
+  die "M2M indexing credential configuration is invalid."
+validate_canton_certificate_files \
+  .state/nodes-config.json .state/certificates ||
+  die "Ledger API certificate configuration is invalid."
+validate_m2m_indexing_secret_files \
+  .state/nodes-config.json .state/m2m-indexing-secrets ||
+  die "M2M indexing secret-file configuration is invalid."
+canton_docker_network="$(env_value CANTON_DOCKER_NETWORK)"
+canton_docker_network="${canton_docker_network:-splice-validator_splice_validator}"
+chmod 600 .env "$accounting_env_file"
+[[ ! -f .state/m2m-indexing.env ]] || chmod 600 .state/m2m-indexing.env
+chmod 644 .state/nodes-config.json
+docker compose --env-file .env -f compose.yaml config --quiet ||
+  die "The Compose application configuration is invalid."
+docker network inspect "$canton_docker_network" >/dev/null 2>&1 ||
+  die "Docker network '$canton_docker_network' does not exist."
+docker compose --env-file .env -f compose.yaml pull ||
+  die "Could not pull the Noves Data App images. Log in to the configured registries and retry."
+prepare_export_volume .env compose.yaml ||
+  die "Could not prepare the export volume for backend user 1654."
+if ((${#m2m_indexing_secret_container_paths[@]})); then
+  secure_m2m_indexing_secret_files \
+    .env compose.yaml "$PWD/.state/m2m-indexing-secrets" \
+    "${m2m_indexing_secret_container_paths[@]}" ||
+    die "Could not assign M2M indexing secret files to backend group 1654."
+  for m2m_indexing_secret_path in "${m2m_indexing_secret_container_paths[@]}"; do
+    docker compose --env-file .env -f compose.yaml run --rm --no-deps \
+      --entrypoint /bin/sh backend -c 'test -r "$1"' sh "$m2m_indexing_secret_path" ||
+      die "The backend container user cannot read M2M indexing secret file: $m2m_indexing_secret_path"
+  done
+fi
+if ((${#canton_certificate_container_paths[@]})); then
+  secure_canton_certificate_files \
+    .env compose.yaml "$PWD/.state/certificates" \
+    "${canton_certificate_container_paths[@]}" ||
+    die "Could not assign Ledger API certificate files to backend group 1654."
+  for certificate_path in "${canton_certificate_container_paths[@]}"; do
+    docker compose --env-file .env -f compose.yaml run --rm --no-deps \
+      --entrypoint /bin/sh backend -c 'test -r "$1"' sh "$certificate_path" ||
+      die "The backend container user cannot read certificate file: $certificate_path"
+  done
+fi
+docker compose --env-file .env -f compose.yaml up -d
+backend_port="$(env_value BACKEND_PORT)"
+backend_port="${backend_port:-8090}"
+backend_origin="http://127.0.0.1:$backend_port"
+wait_for_backend_ready "$backend_origin" ||
+  die "The Noves Data App did not become ready. Run: docker compose --env-file .env -f compose.yaml logs backend"
+printf 'Installation complete. Backend status: %s/startupStatus\n' "$backend_origin"

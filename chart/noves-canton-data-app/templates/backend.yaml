@@ -1,0 +1,336 @@
+{{- $hasGlobalM2mIndexing := false -}}
+{{- range $node := .Values.canton.nodes -}}
+{{- if eq $node.m2mIndexing.mode "global" -}}{{- $hasGlobalM2mIndexing = true -}}{{- end -}}
+{{- end -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "cda.fullname" . }}-backend
+  labels:
+    {{- include "cda.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backend
+spec:
+  replicas: {{ .Values.backend.replicaCount }}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "cda.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: backend
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/config.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "cda.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: backend
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        {{- toYaml .Values.backend.podSecurityContext | nindent 8 }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      initContainers:
+        - name: wait-for-database
+          image: {{ include "cda.image" .Values.database.image | quote }}
+          imagePullPolicy: {{ .Values.database.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: {{ .Values.database.podSecurityContext.runAsUser }}
+            runAsGroup: {{ .Values.database.podSecurityContext.runAsGroup }}
+            capabilities:
+              drop:
+                - ALL
+          env:
+            - name: INDEX_DB_HOST
+              value: {{ printf "%s-database" (include "cda.fullname" .) | quote }}
+            - name: POSTGRES_USER
+              value: {{ .Values.database.user | quote }}
+            - name: POSTGRES_DB
+              value: {{ .Values.database.name | quote }}
+          command:
+            - sh
+            - -ec
+            - |
+              until pg_isready -h "$INDEX_DB_HOST" -p 5432 -U "$POSTGRES_USER" -d "$POSTGRES_DB"; do
+                sleep 2
+              done
+      containers:
+        - name: backend
+          image: {{ include "cda.image" .Values.backend.image | quote }}
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.backend.containerSecurityContext | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: 8090
+          env:
+            - name: INDEX_DB_HOST
+              value: {{ printf "%s-database" (include "cda.fullname" .) | quote }}
+            - name: INDEX_DB_PORT
+              value: "5432"
+            - name: INDEX_DB_NAME
+              value: {{ .Values.database.name | quote }}
+            - name: INDEX_DB_USER
+              value: {{ .Values.database.user | quote }}
+            - name: INDEX_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.existingSecret }}
+                  key: {{ .Values.database.passwordKey }}
+            - name: INDEX_DB_WRITE_BATCH_SIZE
+              value: {{ .Values.backend.performance.database.writeBatchSize | int64 | quote }}
+            - name: DATABASE_MAX_PARALLEL_WORKERS_PER_GATHER
+              value: {{ .Values.backend.performance.database.maxParallelWorkersPerGather | int64 | quote }}
+            - name: DATABASE_SYNCHRONOUS_COMMIT
+              value: {{ .Values.backend.performance.database.synchronousCommit | quote }}
+            - name: READ_MODEL_TOTAL_CAPACITY
+              value: {{ .Values.backend.performance.readModel.totalCapacity | int64 | quote }}
+            - name: READ_MODEL_RESERVED_LIVE_CAPACITY
+              value: {{ .Values.backend.performance.readModel.reservedLiveCapacity | int64 | quote }}
+            - name: BACKGROUND_INDEXING_DUTY_PERCENT
+              value: {{ .Values.backend.performance.readModel.backgroundIndexingDutyPercent | int64 | quote }}
+            - name: STREAM_POLL_INTERVAL_MS
+              value: {{ .Values.backend.streaming.pollIntervalMs | int64 | quote }}
+            - name: STREAM_PAGE_SIZE
+              value: {{ .Values.backend.streaming.pageSize | int64 | quote }}
+            - name: STREAM_RETRY_DELAY_MS
+              value: {{ .Values.backend.streaming.retryDelayMs | int64 | quote }}
+            - name: STREAM_WEBSOCKET_BUFFER_LIMIT
+              value: {{ .Values.backend.streaming.websocketBufferLimit | int64 | quote }}
+            - name: STREAM_DATABASE_TIMEOUT_SECONDS
+              value: {{ .Values.backend.streaming.databaseTimeoutSeconds | int64 | quote }}
+            - name: STREAM_DEDUPLICATION_WINDOW_RECORDS
+              value: {{ .Values.backend.streaming.deduplicationWindowRecords | int64 | quote }}
+            - name: STREAM_DELIVERY_RECENCY_MINUTES
+              value: {{ .Values.backend.streaming.deliveryRecencyMinutes | int64 | quote }}
+            - name: ALLOW_PRIVATE_WEBHOOK_TARGETS
+              value: {{ .Values.backend.allowPrivateWebhookTargets | quote }}
+            - name: NODES_CONFIG_FILE_PATH
+              value: /config/nodes-config.json
+            - name: SCAN_PROXY_URL
+              value: {{ .Values.canton.scanApiUrl | quote }}
+            - name: ACCOUNTING_TOKEN_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default (printf "%s-accounting-token-encryption" (include "cda.fullname" .)) .Values.accounting.tokenEncryption.existingSecret }}
+                  key: {{ .Values.accounting.tokenEncryption.key }}
+            {{- if eq .Values.exports.storage "s3" }}
+            - name: EXPORTS_S3_BUCKET
+              value: {{ .Values.exports.s3.bucket | quote }}
+            {{- with .Values.exports.s3.endpointUrl }}
+            - name: EXPORTS_S3_ENDPOINT_URL
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.exports.s3.region }}
+            - name: EXPORTS_S3_REGION
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.exports.s3.existingSecret }}
+            - name: EXPORTS_S3_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ . }}
+                  key: {{ $.Values.exports.s3.accessKeyIdKey }}
+            - name: EXPORTS_S3_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ . }}
+                  key: {{ $.Values.exports.s3.secretAccessKeyKey }}
+            - name: EXPORTS_S3_SESSION_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ . }}
+                  key: {{ $.Values.exports.s3.sessionTokenKey }}
+                  optional: true
+            {{- end }}
+            {{- end }}
+            {{- if .Values.backup.s3.enabled }}
+            - name: BACKUP_S3_BUCKET
+              value: {{ .Values.backup.s3.bucket | quote }}
+            {{- with .Values.backup.s3.endpointUrl }}
+            - name: BACKUP_S3_ENDPOINT_URL
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.backup.s3.region }}
+            - name: BACKUP_S3_REGION
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.backup.s3.existingSecret }}
+            - name: BACKUP_S3_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ . }}
+                  key: {{ $.Values.backup.s3.accessKeyIdKey }}
+            - name: BACKUP_S3_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ . }}
+                  key: {{ $.Values.backup.s3.secretAccessKeyKey }}
+            - name: BACKUP_S3_SESSION_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ . }}
+                  key: {{ $.Values.backup.s3.sessionTokenKey }}
+                  optional: true
+            {{- end }}
+            {{- end }}
+            - name: M2M_INDEXER_ENABLED
+              value: "true"
+            {{- if $hasGlobalM2mIndexing }}
+            - name: M2M_TOKEN_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.m2mIndexing.existingSecret }}
+                  key: {{ .Values.m2mIndexing.tokenEndpointKey }}
+            - name: M2M_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.m2mIndexing.existingSecret }}
+                  key: {{ .Values.m2mIndexing.clientIdKey }}
+            - name: M2M_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.m2mIndexing.existingSecret }}
+                  key: {{ .Values.m2mIndexing.clientSecretKey }}
+            - name: M2M_AUDIENCE
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.m2mIndexing.existingSecret }}
+                  key: {{ .Values.m2mIndexing.audienceKey }}
+            - name: M2M_SCOPE
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.m2mIndexing.existingSecret }}
+                  key: {{ .Values.m2mIndexing.scopeKey }}
+                  optional: true
+            {{- end }}
+            {{- if .Values.migration.enabled }}
+            - name: DATABASE_EXPECTED_SOURCE
+              value: "v3"
+            {{- end }}
+            {{- with .Values.backend.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          volumeMounts:
+            - name: nodes
+              mountPath: /config
+              readOnly: true
+            {{- if eq .Values.exports.storage "pvc" }}
+            - name: exports
+              mountPath: /exports
+            {{- end }}
+            {{- range $node := .Values.canton.nodes }}
+            {{- if and $node.tls.existingSecret (or $node.tls.certificateKey $node.tls.clientCertificateKey) }}
+            - name: {{ printf "node-tls-%s" (sha256sum $node.id | trunc 12) }}
+              mountPath: {{ printf "/certificates/nodes/%s" $node.id | quote }}
+              readOnly: true
+            {{- end }}
+            {{- if ne $node.m2mIndexing.mode "global" }}
+            - name: {{ printf "node-m2m-indexing-%s" (sha256sum $node.id | trunc 12) }}
+              mountPath: {{ printf "/m2m-indexing-secrets/%s" $node.id | quote }}
+              readOnly: true
+            {{- end }}
+            {{- end }}
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            failureThreshold: 60
+            periodSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            failureThreshold: 3
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            failureThreshold: 3
+            periodSeconds: 20
+          resources:
+            {{- toYaml .Values.backend.resources | nindent 12 }}
+      volumes:
+        - name: nodes
+          configMap:
+            name: {{ include "cda.fullname" . }}-nodes
+        {{- if eq .Values.exports.storage "pvc" }}
+        - name: exports
+          persistentVolumeClaim:
+            claimName: {{ include "cda.fullname" . }}-exports
+        {{- end }}
+        {{- range $node := .Values.canton.nodes }}
+        {{- if and $node.tls.existingSecret (or $node.tls.certificateKey $node.tls.clientCertificateKey) }}
+        - name: {{ printf "node-tls-%s" (sha256sum $node.id | trunc 12) }}
+          secret:
+            secretName: {{ $node.tls.existingSecret }}
+            defaultMode: 0440
+            items:
+              {{- if $node.tls.certificateKey }}
+              - key: {{ $node.tls.certificateKey }}
+                path: ca.crt
+              {{- end }}
+              {{- if $node.tls.clientCertificateKey }}
+              - key: {{ $node.tls.clientCertificateKey }}
+                path: client.crt
+              - key: {{ $node.tls.clientPrivateKeyKey }}
+                path: client.key
+              {{- end }}
+        {{- end }}
+        {{- if eq $node.m2mIndexing.mode "clientCredentials" }}
+        - name: {{ printf "node-m2m-indexing-%s" (sha256sum $node.id | trunc 12) }}
+          secret:
+            secretName: {{ $node.m2mIndexing.existingSecret }}
+            defaultMode: 0440
+            items:
+              - key: {{ default "client-secret" $node.m2mIndexing.clientSecretKey }}
+                path: client-secret
+        {{- else if eq $node.m2mIndexing.mode "staticToken" }}
+        - name: {{ printf "node-m2m-indexing-%s" (sha256sum $node.id | trunc 12) }}
+          secret:
+            secretName: {{ $node.m2mIndexing.existingSecret }}
+            defaultMode: 0440
+            items:
+              - key: {{ default "token" $node.m2mIndexing.staticTokenKey }}
+                path: token
+        {{- end }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "cda.fullname" . }}-backend
+  labels:
+    {{- include "cda.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backend
+spec:
+  selector:
+    {{- include "cda.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: backend
+  ports:
+    - name: http
+      port: 8090
+      targetPort: http

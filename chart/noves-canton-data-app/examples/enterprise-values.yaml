@@ -1,0 +1,38 @@
+database:
+  existingSecret: noves-canton-data-app-database
+  persistence:
+    # Production requires encrypted SSD-backed block storage. Examples:
+    # AKS: managed-csi-premium; EKS: an encrypted gp3 class; GKE: premium-rwo.
+    storageClass: replace-with-production-ssd-storage-class
+
+m2mIndexing:
+  existingSecret: noves-canton-data-app-m2m-indexing-auth
+
+canton:
+  nodes:
+    - id: main-node
+      addr: participant:5001
+      validatorParty: ""
+      synchronizerAlias: global
+      tls: {}
+      m2mIndexing:
+        mode: global
+
+oidc:
+  provider: auth0
+  appUrl: https://data.example.com
+  auth0:
+    domain: tenant.example.auth0.com
+    clientId: replace-with-browser-client-id
+    audience: https://canton.network.global
+
+routing:
+  provider: ingress
+  host: data.example.com
+  tlsSecret: data-example-com-tls
+  backend:
+    enabled: true
+    host: ""
+    tlsSecret: ""
+  ingress:
+    className: nginx

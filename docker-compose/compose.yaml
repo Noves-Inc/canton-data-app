@@ -1,133 +1,122 @@
+name: noves-canton-data-app-v4
+
 services:
-  canton-data-app-frontend:
-    image: ghcr.io/noves-inc/canton-translate-ui:latest
-    container_name: canton-data-app-frontend
-    ports:
-      - "8091:8091"
+  database:
+    image: ${DATABASE_IMAGE:-ghcr.io/noves-inc/noves-canton-database-v4:4.0.1@sha256:2d7c50d59116555d191e718347c0c0b60fce0304b4fe17db90ec001373223a55}
+    container_name: noves-canton-database-v4
     environment:
-      PORT: "8091"
-      # Backend endpoint (internal Docker DNS)
-      CANTON_TRANSLATE_BASE_URL: "http://canton-data-app-backend:8090"
-
-      # ===== Auth0 Configuration (Option 1) =====
-      # Uncomment these to use Auth0 for authentication
-      VITE_AUTH0_DOMAIN: "your-tenant.us.auth0.com"
-      VITE_AUTH0_CLIENT_ID: "<SPA_CLIENT_ID>" # From Auth0 SPA app
-      VITE_AUTH0_AUDIENCE: "https://canton.network.global" # Custom API identifier - REQUIRED for JWT tokens
-      VITE_AUTH0_REDIRECT_URI: "https://canton-data-ui.yourdomain.com/callback"
-      VITE_AUTH0_LOGOUT_URL: "https://canton-data-ui.yourdomain.com"
-
-      # ===== Keycloak Configuration (Option 2) =====
-      # Uncomment these to use Keycloak for authentication (alternative to Auth0)
-      # NOTE: Presence of VITE_KEYCLOAK_URL triggers Keycloak authentication
-      # VITE_KEYCLOAK_URL: "https://keycloak.yourdomain.com"  # Base URL of Keycloak server
-      # VITE_KEYCLOAK_REALM: "your-realm-name"  # Keycloak realm name
-      # VITE_KEYCLOAK_CLIENT_ID: "data-app-ui"  # From Keycloak Public Client
-      # VITE_KEYCLOAK_REDIRECT_URI: "https://canton-data-ui.yourdomain.com/callback"
-      # VITE_KEYCLOAK_LOGOUT_URL: "https://canton-data-ui.yourdomain.com"
-      # IMPORTANT: Keycloak client must have 'daml_ledger_api' as a default scope
-
-      # ===== Wallet Configuration (Optional) =====
-      # VITE_WALLET_CONFIRMATION_THRESHOLD: "100000"  # CC threshold requiring "CONFIRM" for large transfers (default: 100000)
-    networks:
-      - splice-validator_splice_validator
-    depends_on:
-      canton-data-app-backend:
-        condition: service_started
-    restart: unless-stopped
-
-  canton-data-app-backend:
-    image: ghcr.io/noves-inc/canton-translate:latest
-    container_name: canton-data-app-backend
-    ports:
-      - "8090:8090"
-    environment:
-      # Canton Ledger API connection
-      # OR if using external participant:
-      # CANTON_NODE_ADDR: "canton-validator.yourdomain.com:8443"
-      CANTON_NODE_ADDR: "participant:5001" # Internal Docker DNS
-      # CANTON_NODE_CERT_FILE_PATH: "/code/validator_certificate.crt"
-      CANTON_NODE_CERT_FILE_PATH: ""
-      INDEX_DB_HOST: "canton-data-app-db"
-      INDEX_DB_PORT: "5432"
-      INDEX_DB_NAME: "canton_index"
-      INDEX_DB_USER: "appuser"
-      INDEX_DB_PASSWORD: ${CANTON_TRANSLATE_DB_PASSWORD:-change-me}
-      # The backend always serves built-in traffic-cost ingestion on port 5124.
-      # There is no TRAFFIC_ANALYSIS_ENABLED feature gate in v4.
-
-      # Optional: Automatic Unclassified Reporting
-      # AUTOMATIC_UNCLASSIFIED_REPORTING: "true"  # Default is "false". When enabled, unclassified transactions are automatically included in reporting workflows.
-
-      # Validator uptime monitoring is enabled by default. Set false to disable.
-      VALIDATOR_UPTIME_ENABLED: "true"
-      # CDA_VALIDATOR_UPTIME_INTERVAL_SECONDS: "30"
-      # CDA_VALIDATOR_UPTIME_RPC_TIMEOUT_SECONDS: "3"
-      # CDA_VALIDATOR_UPTIME_RAW_RETENTION_DAYS: "35"
-      # CDA_VALIDATOR_UPTIME_HOURLY_RETENTION_DAYS: "400"
-      # Public index used for the on-ledger liveness overlay and automatic validator-party discovery.
-      # PUBLIC_SCAN_INDEXER_URL: "https://your-public-indexer.example"
-      # Uptime and Party Events rehearsal both reuse the backend's existing capture identity.
-      # Party Events rehearsal uses a bounded, timestamped Debug-log capture; the backend has no
-      # Prometheus exporter or /metrics route.
-
-      # Optional S3 backup configuration
-      BACKUP_S3_BUCKET: ""
-      BACKUP_S3_PREFIX: ""
-      BACKUP_S3_ENDPOINT_URL: ""
-      BACKUP_S3_ACCESS_KEY_ID: ""
-      BACKUP_S3_SECRET_ACCESS_KEY: ""
-      BACKUP_S3_SESSION_TOKEN: ""
-
-      # Optional S3 configuration for asynchronous transaction, cost-basis, and rollup artifacts.
-      # If left empty, exports reuse BACKUP_S3_* and then the sample's persistent /exports volume.
-      # A 501 is returned only when neither S3 nor a valid /exports mount is available.
-      # See readme.md -> Data Exports.
-      # EXPORTS_S3_BUCKET: ""
-      # EXPORTS_S3_ENDPOINT_URL: ""
-      # EXPORTS_S3_ACCESS_KEY_ID: ""
-      # EXPORTS_S3_SECRET_ACCESS_KEY: ""
-      # Wallet features (optional - leave empty to disable wallet functionality)
-      SCAN_PROXY_URL: "http://validator:5003/api/validator"
-      # Nodes configuration (JSON file mount)
-      NODES_CONFIG_FILE_PATH: "/app/config/nodes-config.json"
-    volumes:
-      - ./config/nodes-config.json:/app/config/nodes-config.json:ro
-      # Filesystem export provider. S3 still wins when either bucket variable is set.
-      - accounting-exports:/exports
-    networks:
-      - splice-validator_splice_validator
-    depends_on:
-      canton-data-app-db:
-        condition: service_healthy
-    restart: unless-stopped
-
-  canton-data-app-db:
-    image: ghcr.io/noves-inc/canton-translate-db:latest
-    container_name: canton-data-app-db
-    ports:
-      - "5432:5432"
-    environment:
-      POSTGRES_USER: "appuser"
-      POSTGRES_DB: "canton_index"
-      POSTGRES_PASSWORD: ${CANTON_TRANSLATE_DB_PASSWORD:-change-me}
+      POSTGRES_USER: appuser
+      POSTGRES_DB: canton_index
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:?Set DATABASE_PASSWORD}
       PGDATA: /home/postgres/pgdata/data
     volumes:
-      - canton-data-app-db-data:/home/postgres/pgdata
+      - ${DATABASE_DATA_PATH:-database}:/home/postgres/pgdata
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
-      interval: 30s
-      timeout: 15s
-      retries: 5
+      test: ["CMD-SHELL", "pg_isready -U appuser -d canton_index -h 127.0.0.1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
     networks:
-      - splice-validator_splice_validator
+      - canton
+    restart: unless-stopped
+
+  backend:
+    image: ${BACKEND_IMAGE:-ghcr.io/noves-inc/noves-canton-backend-v4:4.0.1@sha256:495459bb6a0c179f4191725c95bb6859b54c4482029389cb75899e65ad704036}
+    container_name: noves-canton-backend-v4
+    environment:
+      INDEX_DB_HOST: database
+      INDEX_DB_PORT: "5432"
+      INDEX_DB_NAME: canton_index
+      INDEX_DB_USER: appuser
+      INDEX_DB_PASSWORD: ${DATABASE_PASSWORD:?Set DATABASE_PASSWORD}
+      INDEX_DB_WRITE_BATCH_SIZE: ${INDEX_DB_WRITE_BATCH_SIZE:-250}
+      DATABASE_MAX_PARALLEL_WORKERS_PER_GATHER: ${DATABASE_MAX_PARALLEL_WORKERS_PER_GATHER:-0}
+      DATABASE_SYNCHRONOUS_COMMIT: ${DATABASE_SYNCHRONOUS_COMMIT:-off}
+      READ_MODEL_TOTAL_CAPACITY: ${READ_MODEL_TOTAL_CAPACITY:-4}
+      READ_MODEL_RESERVED_LIVE_CAPACITY: ${READ_MODEL_RESERVED_LIVE_CAPACITY:-1}
+      BACKGROUND_INDEXING_DUTY_PERCENT: ${BACKGROUND_INDEXING_DUTY_PERCENT:-100}
+      STREAM_POLL_INTERVAL_MS: ${STREAM_POLL_INTERVAL_MS:-5000}
+      STREAM_PAGE_SIZE: ${STREAM_PAGE_SIZE:-100}
+      STREAM_RETRY_DELAY_MS: ${STREAM_RETRY_DELAY_MS:-2000}
+      STREAM_WEBSOCKET_BUFFER_LIMIT: ${STREAM_WEBSOCKET_BUFFER_LIMIT:-10000}
+      STREAM_DATABASE_TIMEOUT_SECONDS: ${STREAM_DATABASE_TIMEOUT_SECONDS:-60}
+      STREAM_DEDUPLICATION_WINDOW_RECORDS: ${STREAM_DEDUPLICATION_WINDOW_RECORDS:-1000000}
+      STREAM_DELIVERY_RECENCY_MINUTES: ${STREAM_DELIVERY_RECENCY_MINUTES:-1440}
+      ALLOW_PRIVATE_WEBHOOK_TARGETS: ${ALLOW_PRIVATE_WEBHOOK_TARGETS:-false}
+      NODES_CONFIG_FILE_PATH: /config/nodes-config.json
+      SCAN_PROXY_URL: ${CANTON_SCAN_API_URL:-http://validator:5003/api/validator}
+      M2M_INDEXER_ENABLED: "true"
+    env_file:
+      - path: ./.state/m2m-indexing.env
+        required: false
+      - path: ./.state/accounting.env
+        required: true
+      - path: ./.state/storage.env
+        required: false
+    volumes:
+      - type: bind
+        source: ./.state/nodes-config.json
+        target: /config/nodes-config.json
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./.state/certificates
+        target: /certificates
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./.state/m2m-indexing-secrets
+        target: /m2m-indexing-secrets
+        read_only: true
+        bind:
+          create_host_path: false
+      - exports:/exports
+    ports:
+      - "${BACKEND_BIND_ADDRESS:-127.0.0.1}:${BACKEND_PORT:-8090}:8090"
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - canton
+    restart: unless-stopped
+
+  frontend:
+    image: ${FRONTEND_IMAGE:-ghcr.io/noves-inc/noves-canton-frontend-v4:4.0.1@sha256:86cb1daacbf659ee7d9ebac5917675f50e30086926f640659147c217144af008}
+    container_name: noves-canton-frontend-v4
+    environment:
+      PORT: "3000"
+      BACKEND_BASE_URL: http://backend:8090
+      VITE_AUTH0_DOMAIN: ${VITE_AUTH0_DOMAIN:-}
+      VITE_AUTH0_CLIENT_ID: ${VITE_AUTH0_CLIENT_ID:-}
+      VITE_AUTH0_AUDIENCE: ${VITE_AUTH0_AUDIENCE:-}
+      VITE_AUTH0_REDIRECT_URI: ${APP_URL:?Set APP_URL}/callback
+      VITE_AUTH0_LOGOUT_URL: ${APP_URL}
+      VITE_KEYCLOAK_URL: ${VITE_KEYCLOAK_URL:-}
+      VITE_KEYCLOAK_REALM: ${VITE_KEYCLOAK_REALM:-}
+      VITE_KEYCLOAK_CLIENT_ID: ${VITE_KEYCLOAK_CLIENT_ID:-}
+      VITE_KEYCLOAK_REDIRECT_URI: ${APP_URL}/callback
+      VITE_KEYCLOAK_LOGOUT_URL: ${APP_URL}
+      EMBED_ALLOWED_ORIGINS: ${EMBED_ALLOWED_ORIGINS:-}
+    ports:
+      - "${FRONTEND_BIND_ADDRESS:-127.0.0.1}:${FRONTEND_PORT:-8091}:3000"
+    depends_on:
+      backend:
+        condition: service_started
+    networks:
+      - canton
     restart: unless-stopped
 
 networks:
-  splice-validator_splice_validator:
+  canton:
     external: true
-    name: splice-validator_splice_validator
+    name: ${CANTON_DOCKER_NETWORK:-splice-validator_splice_validator}
 
 volumes:
-  canton-data-app-db-data:
-  accounting-exports:
+  database:
+    name: ${DATABASE_VOLUME:-noves-canton-data-app-v4-data}
+  exports:
+    name: ${EXPORTS_VOLUME:-noves-canton-data-app-v4-exports}
+    external: true

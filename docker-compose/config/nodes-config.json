@@ -1,8 +1,14 @@
 {
+  "primaryNodeId": "main-node",
   "nodes": {
     "main-node": {
       "addr": "participant:5001",
-      "expectedParticipantId": "REPLACE_WITH_PARTICIPANT_ID"
+      "cert_file": "",
+      "client_cert_file": "",
+      "client_key_file": "",
+      "tls_server_name": "",
+      "validator_party": "",
+      "synchronizer_alias": "global"
     }
   }
 }

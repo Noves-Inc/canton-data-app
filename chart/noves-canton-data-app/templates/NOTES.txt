@@ -1,0 +1,33 @@
+{{- $backendHost := include "cda.backendHost" . }}
+{{- $backendTlsSecret := default .Values.routing.tlsSecret .Values.routing.backend.tlsSecret }}
+{{- $backendScheme := "http" }}
+{{- if or (and (eq .Values.routing.provider "ingress") $backendTlsSecret) (and (eq .Values.routing.provider "istio") (hasPrefix "https://" .Values.oidc.appUrl)) }}
+{{- $backendScheme = "https" }}
+{{- end }}
+The Noves Data App is installed.
+{{- if ne .Values.routing.provider "none" }}
+
+Open {{ .Values.oidc.appUrl }}.
+{{- if .Values.routing.backend.enabled }}
+
+Backend API: {{ $backendScheme }}://{{ $backendHost }}
+Backend docs: {{ $backendScheme }}://{{ $backendHost }}/docs
+
+Create DNS records for {{ .Values.routing.host }} and {{ $backendHost }} that point to the ingress or gateway address.
+{{- end }}
+{{- else }}
+
+No public route was created. Access the app locally:
+
+  kubectl --context "$KUBE_CONTEXT" --namespace {{ .Release.Namespace }} port-forward service/{{ include "cda.fullname" . }}-frontend 3000:3000
+
+Access the backend docs locally:
+
+  kubectl --context "$KUBE_CONTEXT" --namespace {{ .Release.Namespace }} port-forward service/{{ include "cda.fullname" . }}-backend 8090:8090
+  Open http://127.0.0.1:8090/docs
+{{- end }}
+
+Check startup and migration progress:
+
+  kubectl --context "$KUBE_CONTEXT" --namespace {{ .Release.Namespace }} port-forward service/{{ include "cda.fullname" . }}-backend 8090:8090
+  curl http://127.0.0.1:8090/startupStatus
