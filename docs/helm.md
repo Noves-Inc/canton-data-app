@@ -336,7 +336,7 @@ version; the checkout supplies its default but the helper never installs the loc
 scripts/install-helm.sh \
   --kube-context "$KUBE_CONTEXT" \
   --namespace "$NAMESPACE" \
-  --version 4.0.2 \
+  --version 4.0.3 \
   --values /secure/path/values.yaml
 ```
 
@@ -345,7 +345,7 @@ The equivalent direct command is context- and version-explicit:
 ```bash
 helm upgrade --install noves-canton-data-app \
   oci://ghcr.io/noves-inc/charts/noves-canton-app \
-  --version 4.0.2 \
+  --version 4.0.3 \
   --kube-context "$KUBE_CONTEXT" \
   --namespace "$NAMESPACE" \
   --values enterprise-values.yaml \
