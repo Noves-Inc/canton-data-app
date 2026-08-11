@@ -6,6 +6,17 @@ If your app is running on the v3.16.1 version, the last database schema (which i
 
 The v3 and v4 database workloads must never mount the same PVC at the same time. Keep a tested pre-upgrade backup until you finish application and M2M indexing verification.
 
+## Authentication change in v4
+
+v4 keeps browser authentication for human users and adds a separate machine identity for unattended background indexing. Before the cutover:
+
+1. Keep or configure the public browser client used for human sign-in. Its access tokens must contain the participant Ledger API audience, and each token's exact `sub` must continue to match the corresponding Canton user.
+2. Create a dedicated confidential M2M client that uses the client-credentials flow. Do not reuse the browser, validator, wallet, or participant-administrator client.
+3. Request an M2M token, copy its exact, case-sensitive `sub`, and create the matching Canton user with only `CanReadAsAnyParty` on every distinct participant that will use those credentials.
+4. Configure the M2M credentials through Helm `m2mIndexing.existingSecret` or Compose `.state/m2m-indexing.env`.
+
+The M2M identity is new deployment configuration; it does not replace or modify existing human users. For Helm, `m2mIndexing.existingSecret` is a new v4 value that names the Kubernetes Secret containing those credentials. See the [Keycloak](authentication/keycloak.md) or [Auth0](authentication/auth0.md) guide for client setup and token verification.
+
 For a retained Docker Compose installation, do not rerun the normal v4 installer during the
 cutover: that installer starts the v4 application. After v3 is stopped, the migration wrapper
 upgrades the retained node configuration before it invokes Docker. It removes only null or blank
@@ -114,7 +125,7 @@ kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
 
 Do not generate a new password for an initialized database.
 
-Complete the normal values from [Helm installation](helm.md), then add:
+Complete the normal values from [Helm installation](helm.md), including the dedicated M2M indexing Secret and browser OIDC client, then add:
 
 ```yaml
 migration:
@@ -192,7 +203,7 @@ Confirm:
 1. `/ready` succeeds.
 2. `/api/v2/capture/status` reports `captureEnabled: true`.
 3. Each node finishes initial M2M indexing and catches up.
-4. Browser sign-in works.
+4. Browser sign-in works with a newly issued token whose `aud` contains the Ledger API audience.
 5. Participant identity matches the recorded value.
 6. A representative private transaction query returns expected data.
 7. Preserved streams, connectors, alerts, delivery history, and WebSocket buffers remain available.
@@ -249,7 +260,7 @@ The command must return no containers.
 
 ### 3. Prepare the v4 files
 
-Follow steps 2 through 5 in the [Docker Compose installation guide](docker-compose.md) to create the v4 `.env` and `.state` files. Use the existing v3 `appuser` password as `DATABASE_PASSWORD`; do not generate a new password for the initialized database.
+Follow steps 2 through 5 in the [Docker Compose installation guide](docker-compose.md) to create the v4 `.env` and `.state` files, including the dedicated M2M indexing credentials. Use the existing v3 `appuser` password as `DATABASE_PASSWORD`; do not generate a new password for the initialized database.
 
 Prepare those files manually; do not run `install-compose.sh` during this migration procedure. The
 migration wrapper validates and safely upgrades them after `--old-workload-stopped` has been
@@ -332,7 +343,7 @@ Startup can take time while v4 prepares the schema and rebuilds derived data. A 
 
 ### 5. Verify the cutover
 
-Confirm that `/ready` succeeds, M2M indexing is enabled and current, browser sign-in works, and representative private transactions match the v3 installation.
+Confirm that `/ready` succeeds, M2M indexing is enabled and current for every node, browser sign-in works with a newly issued token containing the Ledger API audience, and representative private transactions match the v3 installation.
 
 Keep using both Compose files for this converted database:
 

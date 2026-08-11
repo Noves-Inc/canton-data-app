@@ -14,6 +14,8 @@ Do not reuse the validator client. In the examples, replace:
 - `REALM` with the validator realm; and
 - `AUDIENCE` with the validator Ledger API audience, normally `https://canton.network.global`.
 
+Both the browser and M2M access tokens must contain `AUDIENCE`. Assign the Ledger API scope and audience to each client separately. `AUDIENCE` is the Ledger API identifier, not the M2M client ID.
+
 You can verify the issuer and token endpoint before opening the admin console:
 
 ```bash
@@ -41,6 +43,7 @@ In the Keycloak admin console:
 6. Save the client.
 7. On **Settings > Capability config**, set **PKCE Method** to `S256`.
 8. Assign `daml_ledger_api` as a default client scope. Follow [Assign the Ledger API scope](#assign-the-ledger-api-scope).
+9. Ensure the browser access token contains `AUDIENCE`. Follow [Add the Ledger API audience](#add-the-ledger-api-audience).
 
 The browser client has no secret. Put only these public values in Compose `.env`:
 
@@ -66,6 +69,12 @@ oidc:
     clientId: noves-canton-data-app-browser
 ```
 
+### Browser users
+
+Users sign in with normal human accounts from this realm, not with the M2M service account. Each browser access token's exact, case-sensitive `sub` must match a Canton user on the selected participant. That Canton user's `CanReadAs` and `CanActAs` rights determine which parties the user can read or act as in the UI.
+
+Creating the M2M client in the next section does not replace or modify browser users. Existing browser users can continue to sign in as long as their token subjects remain unchanged and their new tokens contain the Ledger API audience.
+
 ## 2. Create the M2M indexing client
 
 1. Create another OpenID Connect client with client ID `noves-canton-data-app-m2m-indexing`.
@@ -76,7 +85,8 @@ oidc:
    - enable **Service accounts roles**.
 3. Leave **Root URL** and **Home URL** blank in **Login settings**, then save the client.
 4. Assign `daml_ledger_api` as a default client scope. Follow [Assign the Ledger API scope](#assign-the-ledger-api-scope).
-5. Open **Credentials** and record the generated client secret.
+5. Ensure the M2M access token contains `AUDIENCE`. Follow [Add the Ledger API audience](#add-the-ledger-api-audience).
+6. Open **Credentials** and record the generated client secret.
 
 ### Assign the Ledger API scope
 
@@ -87,9 +97,11 @@ On the client's **Client scopes** tab:
 3. Open the **Add** menu and choose **Default**.
 4. Confirm that the `daml_ledger_api` row shows **Default**.
 
-The access token must contain the Ledger API audience. Request a token in the next section and inspect `aud` first. If `AUDIENCE` is absent, add an audience mapper to this client's dedicated scope:
+### Add the Ledger API audience
 
-1. Open the M2M indexing client and select **Client scopes**.
+Repeat this check for both the browser and M2M clients. If the realm already provides a client scope that adds the exact Ledger API audience, assign that scope as **Default** to the client and verify the resulting token. Otherwise add an audience mapper to the client's dedicated scope:
+
+1. Open the client and select **Client scopes**.
 2. Open the row whose name ends in `-dedicated`.
 3. Select **Configure a new mapper**, then choose **Audience**.
 4. Set:
@@ -97,7 +109,9 @@ The access token must contain the Ledger API audience. Request a token in the ne
    - **Included Custom Audience:** `AUDIENCE`
 5. Keep **Add to access token** enabled and save.
 
-This keeps the app-specific mapper on the M2M indexing client instead of changing a realm-wide scope.
+This keeps the app-specific mapper on the selected client instead of changing a realm-wide scope. Configure the mapper independently on both clients. Do not add `noves-canton-data-app-m2m-indexing` as the browser token's Ledger API audience.
+
+### Store the M2M client credentials
 
 Use this private Compose file:
 
@@ -162,7 +176,7 @@ Clear the credential and token variables when the check is complete:
 unset M2M_CLIENT_SECRET TOKEN TOKEN_RESPONSE PAYLOAD
 ```
 
-## 4. Create the matching Canton user
+## 4. Create the matching M2M Canton user
 
 Create a Canton user whose ID exactly equals the observed token `sub`:
 
@@ -176,6 +190,8 @@ participant.ledger_api.users.create(
 If the user already exists, grant `CanReadAsAnyParty` and list its rights. Remove anything else. In particular, the user must not have participant or identity provider administration, act as, execute as, or rights for individual parties.
 
 Use your validator's normal Canton administrator procedure to create or update the Canton user.
+
+When the same M2M credentials are used for multiple distinct participants, create this same user ID with the same restricted right on every participant. The participants authorize the token independently; authorization on one participant does not propagate to another.
 
 ## 5. Verify the Noves Data App configuration
 

@@ -56,9 +56,14 @@ kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
   get secret noves-acr-pull noves-ghcr-pull
 ```
 
-## 3. Configure Auth0 and the M2M indexing user
+## 3. Configure browser authentication and the M2M indexing user
 
-Create the browser and M2M indexing applications described in [Auth0 configuration](authentication/auth0.md). Request a token for the M2M indexing application and copy its exact `sub` claim. That subject becomes the Canton M2M indexing user ID and the `ledger-api-user` Secret value.
+Create separate browser and M2M indexing applications using the guide for your provider:
+
+- [Auth0 configuration](authentication/auth0.md)
+- [Keycloak configuration](authentication/keycloak.md)
+
+Request a token for the M2M indexing application and copy its exact `sub` claim. That subject becomes the Canton M2M indexing user ID and the `ledger-api-user` Secret value. Human users continue to sign in through the public browser client; their own token subjects and Canton rights remain independent from the M2M user.
 
 The standard validator stores an administrator client in `splice-app-validator-ledger-api-auth`. Use it only to create and inspect the dedicated M2M indexing user. The following commands keep the administrator access token in shell memory.
 
@@ -158,7 +163,7 @@ kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
   --from-literal=postgres-password='replace-with-a-long-random-value'
 ```
 
-Create the M2M indexing Secret with the dedicated Auth0 application:
+Create the M2M indexing Secret with the dedicated machine application. This example uses Auth0, where `scope` is normally empty:
 
 ```bash
 kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
@@ -170,6 +175,22 @@ kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
   --from-literal=audience='https://canton.network.global' \
   --from-literal=scope=''
 ```
+
+For Keycloak, use its realm token endpoint and normally set `scope` to `daml_ledger_api`. The `audience` value is still the participant Ledger API audience; Keycloak emits it through the client scope or audience mapper configured in the [Keycloak guide](authentication/keycloak.md#add-the-ledger-api-audience).
+
+The Helm values under `m2mIndexing` identify the Secret and its data keys:
+
+| Helm value | Default | Meaning |
+|---|---|---|
+| `existingSecret` | `noves-canton-data-app-m2m-indexing-auth` | Name of the Kubernetes Secret. |
+| `ledgerApiUserKey` | `ledger-api-user` | Key that records the exact M2M token `sub` used to provision the matching Canton user. Canton authorizes the subject in the JWT; this entry is not a second credential. |
+| `tokenEndpointKey` | `token-endpoint` | Key containing the OAuth token endpoint. |
+| `clientIdKey` | `client-id` | Key containing the confidential M2M Client ID. |
+| `clientSecretKey` | `client-secret` | Key containing the M2M Client Secret. |
+| `audienceKey` | `audience` | Key containing the participant Ledger API audience. |
+| `scopeKey` | `scope` | Key containing the optional OAuth scope. Keycloak commonly uses `daml_ledger_api`; Auth0 commonly leaves it empty. |
+
+The `*Key` values are key names, not credential values. Keep their defaults when creating the Secret exactly as shown above. The browser client ID and M2M client ID are different values and must not be interchanged.
 
 If the participant Ledger API requires mTLS, create a separate Secret from the unencrypted PEM files. `ca.crt` verifies the participant server; `client.crt` and `client.key` are the Data App's client identity:
 
@@ -284,8 +305,36 @@ The backend stores exports on the retained `/exports` PVC by default. Set `expor
 
 The defaults under `backend.performance` and `backend.streaming` suit a standard deployment. Change one value at a time while observing database load, backend memory, M2M indexing lag, and stream delivery.
 
-Each `canton.nodes` entry selects its M2M indexing identity. `m2mIndexing.mode: global` uses the top-level
-`m2mIndexing.existingSecret` environment configuration for all nodes (this works if you create the same Ledger user and grant `ReadAsAnyParty` to that same M2M Ledger user in all your nodes).
+Each `canton.nodes` entry is connected and indexed independently. Array order selects only the default node used by requests that omit `nodeId`; it does not establish a leader/follower or replication relationship.
+
+For example, two participants that accept the same global M2M credentials can use:
+
+```yaml
+m2mIndexing:
+  existingSecret: noves-canton-data-app-m2m-indexing-auth
+
+canton:
+  nodes:
+    - id: validator-a
+      addr: participant-a:5001
+      validatorParty: "ValidatorA::..."
+      synchronizerAlias: global
+      tls: {}
+      m2mIndexing:
+        mode: global
+
+    - id: validator-b
+      addr: participant-b:5001
+      validatorParty: "ValidatorB::..."
+      synchronizerAlias: global
+      tls: {}
+      m2mIndexing:
+        mode: global
+```
+
+`id`, `addr`, `tls`, and `m2mIndexing.mode` are required for every entry. `validatorParty` is an optional override for automatic discovery. `synchronizerAlias` is optional and defaults to `global`. An empty `tls: {}` selects plaintext and is valid only when the internal Ledger API connection does not require TLS.
+
+`m2mIndexing.mode: global` uses the top-level `m2mIndexing.existingSecret` for every node that selects it. The same M2M token is presented to each participant, so its exact `sub` must exist as a Canton user with only `CanReadAsAnyParty` on every distinct participant. This is one shared user ID provisioned independently on each participant, not multiple users per validator.
 
 To use a node-specific identity, create a separate
 Secret and select `clientCredentials` or `staticToken`. The chart projects only that node's chosen
@@ -304,7 +353,7 @@ canton:
         clientId: noves-canton-data-app-m2m-indexing
         audience: "" # optional
         scope: "" # optional
-        existingSecret: noves-canton-data-app-node-M2M indexing
+        existingSecret: noves-canton-data-app-node-m2m-indexing
         clientSecretKey: client-secret
 ```
 
@@ -403,6 +452,8 @@ Open `https://api.data.example.com/docs` for Swagger UI. Requests to `/docs` on 
 | Ledger API rejects the client | Confirm the participant trusts the client issuer and that `client.crt` includes any required intermediate certificates |
 | M2M indexing disabled or stale | Read `/api/v2/capture/status`; verify the M2M indexing Secret, token subject, Canton user, and its exact rights |
 | Browser login loops | Compare the Auth0 callback, logout, origin, audience, and `oidc.appUrl` values |
+| Browser sign-in succeeds but Ledger API calls return `401` | Inspect a newly issued browser token; confirm its issuer, Ledger API audience, provider-required scope, and exact `sub`, then confirm the matching Canton user exists on the selected participant |
+| Startup fails while reading connected synchronizers | Inspect the M2M token and confirm its issuer, Ledger API audience, exact `sub`, matching Canton user, and `CanReadAsAnyParty` right for the affected node |
 
 ## Uninstall
 
