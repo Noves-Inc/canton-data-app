@@ -114,6 +114,34 @@ M2M_SCOPE=daml_ledger_api
 
 The M2M indexing token's exact `sub` must match a Canton user with only `CanReadAsAnyParty`. When at least one node needs the global fallback, the installer treats a missing or invalid global M2M indexing file as an error instead of silently starting without M2M indexing. An unused invalid `.state/m2m-indexing.env` does not block an all-explicit node configuration.
 
+### Multiple nodes with global M2M indexing credentials
+
+Each entry in `.state/nodes-config.json` is connected and indexed independently. `primaryNodeId` selects only the default node used when a request omits `nodeId`; it does not create a leader/follower relationship.
+
+For example, two participants that accept the same `.state/m2m-indexing.env` credentials can use:
+
+```json
+{
+  "primaryNodeId": "validator-a",
+  "nodes": {
+    "validator-a": {
+      "addr": "participant-a:5001",
+      "validator_party": "ValidatorA::...",
+      "synchronizer_alias": "global"
+    },
+    "validator-b": {
+      "addr": "participant-b:5001",
+      "validator_party": "ValidatorB::...",
+      "synchronizer_alias": "global"
+    }
+  }
+}
+```
+
+Omitting the per-node `m2mIndexing` object selects the global credentials. The same M2M token is presented to each participant, so its exact `sub` must exist as a Canton user with only `CanReadAsAnyParty` on every distinct participant. This is one shared user ID provisioned independently on each participant, not multiple users per validator.
+
+`validator_party` is an optional override for automatic discovery, and `synchronizer_alias` defaults to `global`. Add the TLS fields described above when a participant does not accept plaintext Ledger API connections.
+
 ### Optional node-specific M2M indexing credentials
 
 `.state/m2m-indexing.env` remains the default global M2M indexing identity. For an individual node, add a
@@ -367,7 +395,7 @@ Open `https://data.example.com`, sign in, and confirm the browser returns to `ht
 curl -fsS http://127.0.0.1:8090/api/v2/capture/status | jq
 ```
 
-The M2M indexing status must show the indexer running across the participant without a network or token error.
+The M2M indexing status must show the indexer running across every configured participant without a network or token error. Complete the browser and M2M checks in [Verify authentication](authentication/verify.md).
 
 ## Operations and upgrades
 

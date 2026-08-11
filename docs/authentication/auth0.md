@@ -2,7 +2,7 @@
 
 Create two Auth0 applications. The browser application signs users in and the M2M indexing application indexes participant history. They must not share credentials.
 
-In the examples below, `APP_URL` is the exact public URL, such as `https://data.example.com`, and `AUDIENCE` is the API identifier used by the Canton validator.
+In the examples below, `APP_URL` is the exact public URL, such as `https://data.example.com`, and `AUDIENCE` is the Ledger API identifier used by the Canton validator. Both browser and M2M access tokens must contain this audience; it is not the M2M application's Client ID.
 
 ## 1. Browser application
 
@@ -28,6 +28,12 @@ oidc:
 ```
 
 For Compose, use the equivalent `VITE_AUTH0_*` values in `.env`.
+
+### Browser users
+
+Users sign in with normal human accounts from the Auth0 tenant, not with the M2M application. Each browser access token's exact, case-sensitive `sub` must match a Canton user on the selected participant. That Canton user's `CanReadAs` and `CanActAs` rights determine which parties the user can read or act as in the UI.
+
+Creating the M2M application in the next section does not replace or modify browser users. Existing browser users can continue to sign in as long as their token subjects remain unchanged and their new tokens contain `AUDIENCE`.
 
 ## 2. Dedicated M2M indexing application
 
@@ -56,7 +62,7 @@ unset TOKEN TOKEN_RESPONSE PAYLOAD
 
 Copy the exact `sub`, then clear the shell variables that contain credentials.
 
-## 3. Matching Canton user
+## 3. Matching M2M Canton user
 
 Create a Canton user whose ID exactly equals the token's `sub`, then grant only `CanReadAsAnyParty`. The console pattern is:
 
@@ -68,6 +74,8 @@ participant.ledger_api.users.create(
 ```
 
 Leave all administration, act-as, execute-as, and per-party rights unset. See [Security](../security.md) for the complete boundary.
+
+When the same M2M credentials are used for multiple distinct participants, create this same user ID with the same restricted right on every participant. The participants authorize the token independently; authorization on one participant does not propagate to another.
 
 ## 4. Verify
 

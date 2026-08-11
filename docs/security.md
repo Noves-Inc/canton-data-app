@@ -2,10 +2,17 @@
 
 ## Identities
 
-Use two distinct OIDC clients:
+Use two distinct OIDC clients and keep the provisioning administrator separate from both:
 
-- a public browser client for user sign-in;
-- a confidential M2M client used only by backend M2M indexing.
+| Identity | Purpose | Matching Canton user |
+|---|---|---|
+| Public browser client and human account | Interactive sign-in. The browser access token is forwarded to the selected participant. | The token's exact, case-sensitive `sub`, with only the `CanReadAs` and `CanActAs` rights appropriate for that person. |
+| Confidential M2M client | Unattended backend indexing. It is never used to sign in to the UI. | The token's exact, case-sensitive `sub`, with only `CanReadAsAnyParty`. |
+| Participant administrator | Creates and inspects Canton users during provisioning. | An existing participant administrator. Its credential is never stored by the Data App. |
+
+Both browser and M2M access tokens must contain the participant Ledger API audience. The clients may have different subjects and flows, but they target the same Ledger API. Do not add the M2M client ID itself as the browser token's Ledger API audience.
+
+Creating the M2M identity does not replace or change existing browser users. A human signs in with a normal account from the configured identity provider; the participant resolves that token's `sub` to the matching Canton user and applies that user's rights.
 
 Create a Canton user whose ID exactly matches the M2M token's `sub`. Grant only `CanReadAsAnyParty`. Leave `participantAdmin`, `identityProviderAdmin`, `actAs`, `readAs`, `executeAs`, and `executeAsAnyParty` empty or false.
 
