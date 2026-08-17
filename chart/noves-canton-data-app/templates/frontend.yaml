@@ -44,9 +44,15 @@ spec:
           envFrom:
             - configMapRef:
                 name: {{ include "cda.fullname" . }}-frontend
+          # Readiness answers whether this process can serve, not whether the backend
+          # is reachable. The app renders its own backend-unavailable state; a pod
+          # removed from the Service renders nothing at all, so gating readiness on a
+          # 3-second call to the backend replaces a clear in-app message with an
+          # ingress error at exactly the moment the operator needs to be told what is
+          # wrong. /api/health stays available as a diagnostic and is what the UI reads.
           readinessProbe:
             httpGet:
-              path: /api/health
+              path: /health
               port: http
             periodSeconds: 10
           livenessProbe:
