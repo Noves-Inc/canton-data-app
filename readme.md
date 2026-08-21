@@ -69,7 +69,7 @@ For Helm, create the Secrets and values described in the guide, then run:
 
 helm upgrade --install noves-canton-data-app \
   oci://ghcr.io/noves-inc/charts/noves-canton-app \
-  --version 4.0.3 \
+  --version 4.0.4 \
   --kube-context "$KUBE_CONTEXT" \
   --namespace validator \
   --values enterprise-values.yaml
