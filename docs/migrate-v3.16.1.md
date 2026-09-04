@@ -54,10 +54,16 @@ kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
 Identify the PVC mounted at the v3 PostgreSQL data path. Record:
 
 - the exact PVC and namespace;
+- the exact **name and kind** of every v3 workload that writes to that PVC;
 - the v3 Helm release and replica counts;
 - the v3 application and database images;
 - the existing `appuser` database password;
 - participant ID, Canton service addresses, OIDC values, and Secrets.
+
+The raw manifests shipped with v3.16.1 install `Deployment/data-app-backend`,
+`Deployment/data-app-db`, and `Deployment/data-app-frontend`, with the database claim named
+`data-app-db-pvc`. A customized or Helm-based installation may differ, which is why you record the
+names and kinds you actually have rather than trusting this list.
 
 PVCs are namespace-scoped. Install v4 in the same namespace as the v3 database claim.
 
@@ -75,14 +81,16 @@ The result must be `18`. The v4 database init container refuses another major ve
 
 Create a database backup or storage snapshot and test a restore to a separate volume. Record the backup ID, completion time, and restore result.
 
-Stop every v3 writer. Use the workload names recorded in the previous step:
+Do not update the image tags on the v3 manifests and apply them as an in-place v4 upgrade. The v3 backend Deployment uses Kubernetes' rolling-update default, which can overlap old and new backend pods against one database. Install v4 through the migration values below after every v3 workload has stopped.
+
+Stop every v3 writer. Both shipped workloads are Deployments, so one command covers them:
 
 ```bash
 kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
-  scale deployment/replace-with-v3-backend --replicas=0
-kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
-  scale statefulset/replace-with-v3-database --replicas=0
+  scale deployment/data-app-backend deployment/data-app-db --replicas=0
 ```
+
+If your installation is customized or Helm-based, substitute the workload names and kinds you recorded in step 1 — for example `scale statefulset/<your-database-statefulset> --replicas=0` for a database installed as a StatefulSet.
 
 Wait for the old pods to disappear:
 
@@ -111,7 +119,10 @@ kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
   '
 ```
 
-Do not continue unless the command prints `No pods mount <claim>`.
+Do not continue unless the command prints `No pods mount <claim>`. `ReadWriteOnce` does not prove
+single-pod access: it restricts the claim to one *node*, and two pods scheduled onto that node can mount
+it together. This query is the proof, so treat a non-empty result as a stop, not a warning. Do not point
+v3 at the converted volume at any point after this step.
 
 ## 3. Prepare v4 values
 
