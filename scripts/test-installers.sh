@@ -300,6 +300,21 @@ EOF
   [[ ! -s "$log" ]] || fail "migration wrapper started Docker after node upgrade failed"
 }
 
+# The cutover instructions are a safety control, not prose: the shipped v3.16.1 manifests define
+# data-app-backend and data-app-db as Deployments, and the backend one declares no strategy, so it takes
+# Kubernetes' RollingUpdate default and can overlap an old and a new backend pod against one database.
+# ReadWriteOnce does not prevent that. Pin the corrected commands and the no-overlap proof so a later edit
+# cannot quietly restore the StatefulSet-only example or drop the warnings.
+migration_documentation_contracts() {
+  local guide="$root/docs/migrate-v3.16.1.md"
+  assert_contains "$guide" 'deployment/data-app-backend'
+  assert_contains "$guide" 'deployment/data-app-db'
+  assert_contains "$guide" 'Do not update the image tags on the v3 manifests'
+  assert_contains "$guide" 'No pods mount \($claim)'
+  assert_contains "$guide" 'Do not point v3 at the converted volume'
+  assert_not_contains "$guide" 'scale statefulset/replace-with-v3-database --replicas=0'
+}
+
 helm_contracts() {
   local bin="$scratch/helm-bin" log="$scratch/helm.log" values="$scratch/values.yaml"
   mkdir "$bin"
@@ -333,12 +348,13 @@ EOF
 }
 
 case "${1:-all}" in
-  all) node_config_contracts; compose_contracts; migration_contracts; helm_contracts ;;
+  all) node_config_contracts; compose_contracts; migration_contracts; migration_documentation_contracts; helm_contracts ;;
   node-config) node_config_contracts ;;
   compose) compose_contracts ;;
   migration) migration_contracts ;;
+  migration-docs) migration_documentation_contracts ;;
   helm) helm_contracts ;;
-  *) fail "Usage: $0 [all|node-config|compose|migration|helm]" ;;
+  *) fail "Usage: $0 [all|node-config|compose|migration|migration-docs|helm]" ;;
 esac
 
 echo "installer contracts passed"
