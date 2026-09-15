@@ -1,0 +1,19 @@
+{{- if and .Values.backend.dataSharing.enabled (not .Values.backend.dataSharing.persistence.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "cda.fullname" . }}-data-sharing
+  annotations:
+    helm.sh/resource-policy: keep
+  labels:
+    {{- include "cda.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  {{- if .Values.backend.dataSharing.persistence.storageClass }}
+  storageClassName: {{ .Values.backend.dataSharing.persistence.storageClass | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.backend.dataSharing.persistence.size }}
+{{- end }}

@@ -413,3 +413,7 @@ For encrypted local storage, set `DATABASE_DATA_PATH` to an absolute path on an 
 The shipped `.env.example` contains only the normal installation choices. The optional overrides below remain supported by `compose.yaml`; add a setting to `.env` only when you need to change its default.
 
 Set `ALLOW_PRIVATE_WEBHOOK_TARGETS=true` only when an alert or connector must deliver to a receiver on a private network. The default blocks those targets. Traffic cost analysis and stream processing run in the backend without extra services. Keep the database, read-model, and stream-delivery defaults until measurements justify a change.
+
+## Optional Data Sharing (awaiting the next release)
+
+Keep `DATA_SHARING_PACKAGE_ID` and `DATA_SHARING_SYNCHRONIZER_ID` empty with the current pinned images. A compatible release can enable Data Sharing using those IDs and the dedicated `data-sharing` named volume. State is stored at `/data/data-sharing/state`; keep one backend writer and back up the whole directory, including keys and blobs. See [Data Sharing](data-sharing.md) for quotas, ownership and recovery requirements.

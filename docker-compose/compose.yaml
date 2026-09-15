@@ -44,6 +44,11 @@ services:
       STREAM_DEDUPLICATION_WINDOW_RECORDS: ${STREAM_DEDUPLICATION_WINDOW_RECORDS:-1000000}
       STREAM_DELIVERY_RECENCY_MINUTES: ${STREAM_DELIVERY_RECENCY_MINUTES:-1440}
       ALLOW_PRIVATE_WEBHOOK_TARGETS: ${ALLOW_PRIVATE_WEBHOOK_TARGETS:-false}
+      # Data Sharing is disabled until a compatible release and both ledger identifiers are configured.
+      DATA_SHARING_PACKAGE_ID: ${DATA_SHARING_PACKAGE_ID:-}
+      DATA_SHARING_SYNCHRONIZER_ID: ${DATA_SHARING_SYNCHRONIZER_ID:-}
+      DATA_SHARING_STATE_DIR: /data/data-sharing/state
+      DATA_SHARING_MAX_STORED_BYTES: ${DATA_SHARING_MAX_STORED_BYTES:-1073741824}
       NODES_CONFIG_FILE_PATH: /config/nodes-config.json
       SCAN_PROXY_URL: ${CANTON_SCAN_API_URL:-http://validator:5003/api/validator}
       M2M_INDEXER_ENABLED: "true"
@@ -74,6 +79,7 @@ services:
         bind:
           create_host_path: false
       - exports:/exports
+      - data-sharing:/data/data-sharing
     ports:
       - "${BACKEND_BIND_ADDRESS:-127.0.0.1}:${BACKEND_PORT:-8090}:8090"
     depends_on:
@@ -120,3 +126,5 @@ volumes:
   exports:
     name: ${EXPORTS_VOLUME:-noves-canton-data-app-v4-exports}
     external: true
+  data-sharing:
+    name: ${DATA_SHARING_VOLUME:-noves-canton-data-app-v4-sharing}

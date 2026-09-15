@@ -115,6 +115,16 @@ spec:
               value: {{ .Values.backend.streaming.deliveryRecencyMinutes | int64 | quote }}
             - name: ALLOW_PRIVATE_WEBHOOK_TARGETS
               value: {{ .Values.backend.allowPrivateWebhookTargets | quote }}
+            {{- if .Values.backend.dataSharing.enabled }}
+            - name: DATA_SHARING_PACKAGE_ID
+              value: {{ .Values.backend.dataSharing.packageId | quote }}
+            - name: DATA_SHARING_SYNCHRONIZER_ID
+              value: {{ .Values.backend.dataSharing.synchronizerId | quote }}
+            - name: DATA_SHARING_STATE_DIR
+              value: /data/data-sharing/state
+            - name: DATA_SHARING_MAX_STORED_BYTES
+              value: {{ .Values.backend.dataSharing.maxStoredBytes | int64 | quote }}
+            {{- end }}
             - name: NODES_CONFIG_FILE_PATH
               value: /config/nodes-config.json
             - name: SCAN_PROXY_URL
@@ -222,6 +232,10 @@ spec:
             {{- toYaml . | nindent 12 }}
             {{- end }}
           volumeMounts:
+            {{- if .Values.backend.dataSharing.enabled }}
+            - name: data-sharing
+              mountPath: /data/data-sharing
+            {{- end }}
             - name: nodes
               mountPath: /config
               readOnly: true
@@ -262,6 +276,11 @@ spec:
           resources:
             {{- toYaml .Values.backend.resources | nindent 12 }}
       volumes:
+        {{- if .Values.backend.dataSharing.enabled }}
+        - name: data-sharing
+          persistentVolumeClaim:
+            claimName: {{ default (printf "%s-data-sharing" (include "cda.fullname" .)) .Values.backend.dataSharing.persistence.existingClaim }}
+        {{- end }}
         - name: nodes
           configMap:
             name: {{ include "cda.fullname" . }}-nodes
