@@ -54,6 +54,29 @@ Helm uses the matching `oidc.auth0` or `oidc.keycloak` values. Compose reads the
 
 Ledger API TLS and mTLS do not add container environment variables. Helm configures each connection under `canton.nodes[].tls`; its Secret is mounted only in the backend under `/certificates/nodes/<node-id>`. Compose uses `cert_file`, `client_cert_file`, `client_key_file`, and `tls_server_name` in `.state/nodes-config.json`, with certificate files mounted read-only under `/certificates`. See the [Helm](helm.md#4-create-application-secrets) or [Docker Compose](docker-compose.md#optional-ledger-api-tls-and-mtls) instructions.
 
+### Reviewed token package evidence
+
+| Container variable | Helm value | Default |
+|---|---|---|
+| `REVIEWED_TRANSFER_EVENTS_PACKAGE_IDS` | `backend.reviewedTokenPackages.transferEvents` | Empty |
+| `REVIEWED_MODULO_TOKEN_PACKAGE_IDS` | `backend.reviewedTokenPackages.moduloToken` | Empty |
+
+Compose accepts comma-separated full 64-character hexadecimal package hashes in `.env`; Helm accepts
+arrays of those hashes. Empty values keep the built-in reviewed TransferEvents catalog and trust no
+Modulo implementation by default. Package names, installed inventory, and `MODULO_TOKEN_PACKAGE_ID`
+(the package used for creates and exercises) do not authorize event or lifecycle interpretation.
+
+The operator must review each package's TransferEvents or Modulo lifecycle semantics before adding its
+hash. Preserve historical reviewed hashes when upgrading packages so retained transactions remain
+interpretable after packages leave the participant inventory. Restart the backend after a configuration
+change: capture, projection, repair, and enrichment use one immutable reviewed snapshot per process.
+Adding or removing reviewed hashes triggers bounded, resumable reconciliation of retained canonical
+classifications and their derived projections. History remains pending while that reconciliation runs;
+existing typed source failures follow the normal failure-reporting workflow. An unchanged configuration
+does not reclassify already matching rows.
+Adding a hash does not itself repair a previously failed supply-coverage proof. Historical proof requires
+complete replay under the supported coverage procedure. No Modulo hash is provided without review.
+
 ### S3 features
 
 When S3 exports are enabled, `EXPORTS_S3_BUCKET` is required. When S3 transaction-history backups are enabled, `BACKUP_S3_BUCKET` is required.

@@ -314,6 +314,7 @@
         "extraEnv",
         "performance",
         "streaming",
+        "reviewedTokenPackages",
         "allowPrivateWebhookTargets",
         "resources"
       ],
@@ -325,6 +326,14 @@
         "extraEnv": { "type": "array", "items": { "type": "object" } },
         "performance": { "$ref": "#/$defs/backendPerformance" },
         "streaming": { "$ref": "#/$defs/streaming" },
+        "reviewedTokenPackages": {
+          "type": "object", "additionalProperties": false,
+          "required": ["transferEvents", "moduloToken"],
+          "properties": {
+            "transferEvents": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[0-9a-fA-F]{64}$" } },
+            "moduloToken": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[0-9a-fA-F]{64}$" } }
+          }
+        },
         "allowPrivateWebhookTargets": { "type": "boolean" },
         "resources": { "type": "object" }
       }

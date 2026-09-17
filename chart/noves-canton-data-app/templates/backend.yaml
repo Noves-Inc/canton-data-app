@@ -99,6 +99,10 @@ spec:
               value: {{ .Values.backend.performance.readModel.reservedLiveCapacity | int64 | quote }}
             - name: BACKGROUND_INDEXING_DUTY_PERCENT
               value: {{ .Values.backend.performance.readModel.backgroundIndexingDutyPercent | int64 | quote }}
+            - name: REVIEWED_TRANSFER_EVENTS_PACKAGE_IDS
+              value: {{ join "," .Values.backend.reviewedTokenPackages.transferEvents | quote }}
+            - name: REVIEWED_MODULO_TOKEN_PACKAGE_IDS
+              value: {{ join "," .Values.backend.reviewedTokenPackages.moduloToken | quote }}
             - name: STREAM_POLL_INTERVAL_MS
               value: {{ .Values.backend.streaming.pollIntervalMs | int64 | quote }}
             - name: STREAM_PAGE_SIZE

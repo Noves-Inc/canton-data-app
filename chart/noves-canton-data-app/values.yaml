@@ -23,6 +23,10 @@ backend:
       drop:
         - ALL
   extraEnv: []
+  # Add only semantically reviewed full package hashes; retain historical reviewed versions.
+  reviewedTokenPackages:
+    transferEvents: []
+    moduloToken: []
   # These defaults suit a standard deployment using the resource requests and limits below.
   # Increase one setting at a time while watching database CPU, write latency, connections,
   # backend memory, indexing lag, and readiness.
