@@ -7,8 +7,8 @@ backend:
   replicaCount: 1
   image:
     repository: ghcr.io/noves-inc/noves-canton-backend-v4
-    tag: "4.1.1"
-    digest: "sha256:6a3a744f47847551e52cc1601bf8d89149ef6ef03fa03c32df62bf303b6b4a27"
+    tag: "4.1.3"
+    digest: "sha256:08a17924c14c3ef319935e92b159127df93e587c791bfd2ceee50cc47dba2c1c"
     pullPolicy: IfNotPresent
   podSecurityContext:
     fsGroup: 1654
@@ -63,8 +63,8 @@ frontend:
   replicaCount: 1
   image:
     repository: ghcr.io/noves-inc/noves-canton-frontend-v4
-    tag: "4.1.1"
-    digest: "sha256:7b72bdeb9c973825b47aa5959474c4ed8c81bb789df0bae96bcf207bf1a0c399"
+    tag: "4.1.3"
+    digest: "sha256:8d14cab4c244fafe7cf432d1949f3002bc64993fcc40b810344d55c5ebd7532a"
     pullPolicy: IfNotPresent
   podSecurityContext:
     seccompProfile:
@@ -92,8 +92,8 @@ embedded:
 database:
   image:
     repository: ghcr.io/noves-inc/noves-canton-database-v4
-    tag: "4.1.1"
-    digest: "sha256:ee1ea296593cef662e0414cd4bf17061343032f9e135cd026e312e1250a640d2"
+    tag: "4.1.3"
+    digest: "sha256:737f175dcf0a92a25777f5bae3cbaa114a14171c9522f1fcc8333bb6fcdf5248"
     pullPolicy: IfNotPresent
   podSecurityContext:
     runAsNonRoot: true

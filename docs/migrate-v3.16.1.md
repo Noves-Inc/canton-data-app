@@ -164,7 +164,7 @@ Install without `--wait` so you can inspect long database preparation and partic
 ```bash
 helm upgrade --install noves-canton-data-app \
   oci://ghcr.io/noves-inc/charts/noves-canton-app \
-  --version 4.1.1 \
+  --version 4.1.3 \
   --kube-context "$KUBE_CONTEXT" \
   --namespace "$NAMESPACE" \
   --values migration-values.yaml
