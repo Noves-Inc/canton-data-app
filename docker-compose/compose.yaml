@@ -2,7 +2,7 @@ name: noves-canton-data-app-v4
 
 services:
   database:
-    image: ${DATABASE_IMAGE:-ghcr.io/noves-inc/noves-canton-database-v4:4.1.1@sha256:ee1ea296593cef662e0414cd4bf17061343032f9e135cd026e312e1250a640d2}
+    image: ${DATABASE_IMAGE:-ghcr.io/noves-inc/noves-canton-database-v4:4.1.3@sha256:737f175dcf0a92a25777f5bae3cbaa114a14171c9522f1fcc8333bb6fcdf5248}
     container_name: noves-canton-database-v4
     environment:
       POSTGRES_USER: appuser
@@ -22,7 +22,7 @@ services:
     restart: unless-stopped
 
   backend:
-    image: ${BACKEND_IMAGE:-ghcr.io/noves-inc/noves-canton-backend-v4:4.1.1@sha256:6a3a744f47847551e52cc1601bf8d89149ef6ef03fa03c32df62bf303b6b4a27}
+    image: ${BACKEND_IMAGE:-ghcr.io/noves-inc/noves-canton-backend-v4:4.1.3@sha256:08a17924c14c3ef319935e92b159127df93e587c791bfd2ceee50cc47dba2c1c}
     container_name: noves-canton-backend-v4
     environment:
       INDEX_DB_HOST: database
@@ -47,7 +47,7 @@ services:
       # Data Sharing is disabled until a compatible release and both ledger identifiers are configured.
       DATA_SHARING_PACKAGE_ID: ${DATA_SHARING_PACKAGE_ID:-}
       DATA_SHARING_SYNCHRONIZER_ID: ${DATA_SHARING_SYNCHRONIZER_ID:-}
-      DATA_SHARING_STATE_DIR: /data/data-sharing/state
+      DATA_SHARING_STATE_DIR: /exports/data-sharing
       DATA_SHARING_MAX_STORED_BYTES: ${DATA_SHARING_MAX_STORED_BYTES:-1073741824}
       NODES_CONFIG_FILE_PATH: /config/nodes-config.json
       SCAN_PROXY_URL: ${CANTON_SCAN_API_URL:-http://validator:5003/api/validator}
@@ -79,7 +79,6 @@ services:
         bind:
           create_host_path: false
       - exports:/exports
-      - data-sharing:/data/data-sharing
     ports:
       - "${BACKEND_BIND_ADDRESS:-127.0.0.1}:${BACKEND_PORT:-8090}:8090"
     depends_on:
@@ -90,7 +89,7 @@ services:
     restart: unless-stopped
 
   frontend:
-    image: ${FRONTEND_IMAGE:-ghcr.io/noves-inc/noves-canton-frontend-v4:4.1.1@sha256:7b72bdeb9c973825b47aa5959474c4ed8c81bb789df0bae96bcf207bf1a0c399}
+    image: ${FRONTEND_IMAGE:-ghcr.io/noves-inc/noves-canton-frontend-v4:4.1.3@sha256:8d14cab4c244fafe7cf432d1949f3002bc64993fcc40b810344d55c5ebd7532a}
     container_name: noves-canton-frontend-v4
     environment:
       PORT: "3000"
@@ -126,5 +125,3 @@ volumes:
   exports:
     name: ${EXPORTS_VOLUME:-noves-canton-data-app-v4-exports}
     external: true
-  data-sharing:
-    name: ${DATA_SHARING_VOLUME:-noves-canton-data-app-v4-sharing}

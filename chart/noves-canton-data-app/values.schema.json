@@ -337,8 +337,7 @@
         "enabled",
         "packageId",
         "synchronizerId",
-        "maxStoredBytes",
-        "persistence"
+        "maxStoredBytes"
       ],
       "properties": {
         "enabled": {
@@ -354,9 +353,6 @@
           "type": "integer",
           "minimum": 1,
           "maximum": 9223372036854775807
-        },
-        "persistence": {
-          "$ref": "#/$defs/persistence"
         }
       },
       "if": {

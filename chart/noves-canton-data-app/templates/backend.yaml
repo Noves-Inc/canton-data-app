@@ -1,3 +1,6 @@
+{{- if and .Values.backend.dataSharing.enabled (ne .Values.exports.storage "pvc") -}}
+{{- fail "Data Sharing requires the existing exports PVC: set exports.storage=pvc; its local state cannot use the S3 artifact provider." -}}
+{{- end -}}
 {{- $hasGlobalM2mIndexing := false -}}
 {{- range $node := .Values.canton.nodes -}}
 {{- if eq $node.m2mIndexing.mode "global" -}}{{- $hasGlobalM2mIndexing = true -}}{{- end -}}
@@ -121,7 +124,7 @@ spec:
             - name: DATA_SHARING_SYNCHRONIZER_ID
               value: {{ .Values.backend.dataSharing.synchronizerId | quote }}
             - name: DATA_SHARING_STATE_DIR
-              value: /data/data-sharing/state
+              value: /exports/data-sharing
             - name: DATA_SHARING_MAX_STORED_BYTES
               value: {{ .Values.backend.dataSharing.maxStoredBytes | int64 | quote }}
             {{- end }}
@@ -232,10 +235,6 @@ spec:
             {{- toYaml . | nindent 12 }}
             {{- end }}
           volumeMounts:
-            {{- if .Values.backend.dataSharing.enabled }}
-            - name: data-sharing
-              mountPath: /data/data-sharing
-            {{- end }}
             - name: nodes
               mountPath: /config
               readOnly: true
@@ -276,11 +275,6 @@ spec:
           resources:
             {{- toYaml .Values.backend.resources | nindent 12 }}
       volumes:
-        {{- if .Values.backend.dataSharing.enabled }}
-        - name: data-sharing
-          persistentVolumeClaim:
-            claimName: {{ default (printf "%s-data-sharing" (include "cda.fullname" .)) .Values.backend.dataSharing.persistence.existingClaim }}
-        {{- end }}
         - name: nodes
           configMap:
             name: {{ include "cda.fullname" . }}-nodes

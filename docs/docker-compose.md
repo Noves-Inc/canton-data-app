@@ -416,4 +416,4 @@ Set `ALLOW_PRIVATE_WEBHOOK_TARGETS=true` only when an alert or connector must de
 
 ## Optional Data Sharing (awaiting the next release)
 
-Keep `DATA_SHARING_PACKAGE_ID` and `DATA_SHARING_SYNCHRONIZER_ID` empty with the current pinned images. A compatible release can enable Data Sharing using those IDs and the dedicated `data-sharing` named volume. State is stored at `/data/data-sharing/state`; keep one backend writer and back up the whole directory, including keys and blobs. See [Data Sharing](data-sharing.md) for quotas, ownership and recovery requirements.
+Keep `DATA_SHARING_PACKAGE_ID` and `DATA_SHARING_SYNCHRONIZER_ID` empty with the current pinned images. A compatible release can enable Data Sharing using those IDs and the existing `exports` named volume. State is stored at `/exports/data-sharing`; keep one backend writer and back up the whole directory, including keys and blobs. See [Data Sharing](data-sharing.md) for quotas, ownership and recovery requirements.

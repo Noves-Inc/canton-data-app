@@ -385,7 +385,7 @@ version; the checkout supplies its default but the helper never installs the loc
 scripts/install-helm.sh \
   --kube-context "$KUBE_CONTEXT" \
   --namespace "$NAMESPACE" \
-  --version 4.1.1 \
+  --version 4.1.3 \
   --values /secure/path/values.yaml
 ```
 
@@ -394,7 +394,7 @@ The equivalent direct command is context- and version-explicit:
 ```bash
 helm upgrade --install noves-canton-data-app \
   oci://ghcr.io/noves-inc/charts/noves-canton-app \
-  --version 4.1.1 \
+  --version 4.1.3 \
   --kube-context "$KUBE_CONTEXT" \
   --namespace "$NAMESPACE" \
   --values enterprise-values.yaml \
@@ -467,4 +467,4 @@ Helm retains the database PVC, exports PVC, and generated accounting-key Secret.
 
 ## Optional Data Sharing (awaiting the next release)
 
-`backend.dataSharing.enabled` defaults to `false`. Enable it only with a compatible release and configured package/synchronizer IDs. The chart then mounts a dedicated PVC, preserving its existing one-replica and `Recreate` backend constraints. See [Data Sharing](data-sharing.md) for the values example, existing-claim support, private storage and complete backup requirements.
+`backend.dataSharing.enabled` defaults to `false`. Enable it only with a compatible release and configured package/synchronizer IDs. The chart reuses the existing exports PVC (`exports.storage=pvc`), preserving its one-replica and `Recreate` backend constraints. Keep this volume and the private sharing directory when disabling the feature or changing export storage. See [Data Sharing](data-sharing.md) for the values example, shared capacity, private storage and complete backup requirements.

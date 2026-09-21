@@ -135,4 +135,4 @@ See [Helm installation](helm.md), [Docker Compose installation](docker-compose.m
 
 ### Data Sharing (awaiting the next release)
 
-The feature is currently validated on DevNet and disabled by default. `DATA_SHARING_PACKAGE_ID` and `DATA_SHARING_SYNCHRONIZER_ID` identify the vetted package and submission synchronizer. `DATA_SHARING_STATE_DIR` is `/data/data-sharing/state` on a dedicated persistent mount. `DATA_SHARING_MAX_STORED_BYTES` defaults to `1073741824` (1 GiB) per node and party. See [Data Sharing configuration and recovery](data-sharing.md) before enabling it with a compatible release.
+The feature is currently validated on DevNet and disabled by default. `DATA_SHARING_PACKAGE_ID` and `DATA_SHARING_SYNCHRONIZER_ID` identify the vetted package and submission synchronizer. `DATA_SHARING_STATE_DIR` is `/exports/data-sharing` on the existing persistent exports mount. `DATA_SHARING_MAX_STORED_BYTES` defaults to `1073741824` (1 GiB) per node and party. See [Data Sharing configuration and recovery](data-sharing.md) before enabling it with a compatible release.
