@@ -1,3 +1,6 @@
+{{- if and .Values.backend.dataSharing.enabled (ne .Values.exports.storage "pvc") -}}
+{{- fail "Data Sharing requires the existing exports PVC: set exports.storage=pvc; its local state cannot use the S3 artifact provider." -}}
+{{- end -}}
 {{- $hasGlobalM2mIndexing := false -}}
 {{- range $node := .Values.canton.nodes -}}
 {{- if eq $node.m2mIndexing.mode "global" -}}{{- $hasGlobalM2mIndexing = true -}}{{- end -}}
@@ -115,6 +118,16 @@ spec:
               value: {{ .Values.backend.streaming.deliveryRecencyMinutes | int64 | quote }}
             - name: ALLOW_PRIVATE_WEBHOOK_TARGETS
               value: {{ .Values.backend.allowPrivateWebhookTargets | quote }}
+            {{- if .Values.backend.dataSharing.enabled }}
+            - name: DATA_SHARING_PACKAGE_ID
+              value: {{ .Values.backend.dataSharing.packageId | quote }}
+            - name: DATA_SHARING_SYNCHRONIZER_ID
+              value: {{ .Values.backend.dataSharing.synchronizerId | quote }}
+            - name: DATA_SHARING_STATE_DIR
+              value: /exports/data-sharing
+            - name: DATA_SHARING_MAX_STORED_BYTES
+              value: {{ .Values.backend.dataSharing.maxStoredBytes | int64 | quote }}
+            {{- end }}
             - name: NODES_CONFIG_FILE_PATH
               value: /config/nodes-config.json
             - name: SCAN_PROXY_URL

@@ -464,3 +464,7 @@ helm uninstall noves-canton-data-app \
 ```
 
 Helm retains the database PVC, exports PVC, and generated accounting-key Secret. Remove them only after satisfying backup and retention requirements.
+
+## Optional Data Sharing (awaiting the next release)
+
+`backend.dataSharing.enabled` defaults to `false`. Enable it only with a compatible release and configured package/synchronizer IDs. The chart reuses the existing exports PVC (`exports.storage=pvc`), preserving its one-replica and `Recreate` backend constraints. Keep this volume and the private sharing directory when disabling the feature or changing export storage. See [Data Sharing](data-sharing.md) for the values example, shared capacity, private storage and complete backup requirements.

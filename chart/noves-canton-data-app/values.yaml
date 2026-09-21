@@ -50,6 +50,15 @@ backend:
     databaseTimeoutSeconds: 60
     deduplicationWindowRecords: 1000000
     deliveryRecencyMinutes: 1440
+  # Awaiting the next release; currently validated on DevNet only.
+  # Requires the matching backend/frontend release and an uploaded, vetted package.
+  dataSharing:
+    enabled: false
+    packageId: ""
+    synchronizerId: ""
+    # Reuses /exports/data-sharing; requires exports.storage=pvc.
+    # Per selected node and party, not an aggregate volume limit.
+    maxStoredBytes: 1073741824
   # Security opt-in for webhook receivers on private network addresses.
   allowPrivateWebhookTargets: false
   resources:
