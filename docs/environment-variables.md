@@ -94,6 +94,14 @@ Database and read-model tuning:
 - `DATABASE_SYNCHRONOUS_COMMIT` defaults to `off`. Changing it trades ingestion throughput for stronger synchronous WAL durability.
 - `READ_MODEL_TOTAL_CAPACITY` defaults to `4`.
 - `READ_MODEL_RESERVED_LIVE_CAPACITY` defaults to `1` and must remain lower than total capacity.
+- `DATABASE_VOLUME_CAPACITY` is the size of the volume the database is stored on, written the way the
+  storage is requested (`256Gi`, `500G`) or as plain bytes. A release that changes how transaction
+  history is defined rebuilds every materialization, writing the new copy beside the one still being
+  served, so the database is briefly larger than its settled size. Background indexing pauses at 85%
+  of this figure and resumes once the retired copies are removed, instead of filling the volume.
+  Reads and live indexing are never held back by it. The Helm chart fills it in from
+  `database.persistence.size`; Compose installations set it themselves. Unset, or `0`, leaves the
+  limit unevaluated and is the behaviour of earlier releases.
 - `BACKGROUND_INDEXING_DUTY_PERCENT` defaults to `100`. Values from `1` through `99` pace background indexing.
 
 Stream delivery tuning:

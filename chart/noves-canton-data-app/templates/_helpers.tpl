@@ -136,3 +136,22 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 {{- end -}}
 {{- end -}}
+
+{{/*
+The volume size the backend paces background indexing against.
+
+An operator who lets the chart create the claim states the size once, in
+database.persistence.size, and repeating it in the tuning block is how the two drift apart.
+An existing claim carries a size the chart cannot read, so there the figure has to be given
+explicitly, and "0" leaves the limit unevaluated.
+*/}}
+{{- define "noves-canton-data-app.databaseVolumeCapacity" -}}
+{{- $declared := .Values.backend.performance.readModel.databaseVolumeCapacity | toString -}}
+{{- if $declared -}}
+{{- $declared -}}
+{{- else if .Values.database.persistence.existingClaim -}}
+0
+{{- else -}}
+{{- .Values.database.persistence.size | toString -}}
+{{- end -}}
+{{- end -}}
