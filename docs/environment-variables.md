@@ -102,6 +102,17 @@ Database and read-model tuning:
   Reads and live indexing are never held back by it. The Helm chart fills it in from
   `database.persistence.size`; Compose installations set it themselves. Unset, or `0`, leaves the
   limit unevaluated and is the behaviour of earlier releases.
+
+  The figure the app compares against it is the size of the database. A volume also carries the
+  write-ahead log and temporary files, which is why the limit sits at 85% rather than at the brim.
+  On a volume shared with anything other than this database, declare the share this database may
+  use rather than the size of the disk.
+
+  Space a retired generation leaves behind is returned by rebuilding the affected indexes, which
+  the app does by itself, one at a time, after a generation is retired. This requires the database
+  role the app connects as to own its tables, which is the case for every installation the chart or
+  the Compose bundle creates. An installation that migrates as one role and runs as another keeps
+  working but reclaims nothing, and says so in the log.
 - `BACKGROUND_INDEXING_DUTY_PERCENT` defaults to `100`. Values from `1` through `99` pace background indexing.
 
 Stream delivery tuning:
