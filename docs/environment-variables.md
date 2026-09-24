@@ -99,9 +99,17 @@ Database and read-model tuning:
   history is defined rebuilds every materialization, writing the new copy beside the one still being
   served, so the database is briefly larger than its settled size. Background indexing pauses at 85%
   of this figure and resumes once the retired copies are removed, instead of filling the volume.
-  Reads and live indexing are never held back by it. The Helm chart fills it in from
-  `database.persistence.size`; Compose installations set it themselves. Unset, or `0`, leaves the
-  limit unevaluated and is the behaviour of earlier releases.
+  Reads and live indexing are never held back by it. Unset, or `0`, leaves the limit unevaluated and
+  is the behaviour of earlier releases.
+
+  The Helm chart fills it in from `database.persistence.size`, which is the right answer only when
+  the chart creates the claim from that value. On an existing claim, and while `migration.enabled`
+  runs the database on `migration.existingClaim`, the chart renders `0` and the size has to be given
+  in `backend.performance.readModel.databaseVolumeCapacity`. Compose installations set it themselves.
+
+  Nothing in the app measures the disk, so expanding the volume does not lift a pause on its own:
+  raise this figure with it. A figure smaller than the database pauses background indexing with no
+  way back, which the app reports as an error at startup.
 
   The figure the app compares against it is the size of the database. A volume also carries the
   write-ahead log and temporary files, which is why the limit sits at 85% rather than at the brim.

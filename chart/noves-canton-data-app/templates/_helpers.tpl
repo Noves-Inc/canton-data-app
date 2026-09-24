@@ -140,16 +140,18 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{/*
 The volume size the backend paces background indexing against.
 
-An operator who lets the chart create the claim states the size once, in
-database.persistence.size, and repeating it in the tuning block is how the two drift apart.
-An existing claim carries a size the chart cannot read, so there the figure has to be given
-explicitly, and "0" leaves the limit unevaluated.
+database.persistence.size is the answer only when the chart creates the claim from it. A claim
+the chart did not create carries a size it cannot read, and in migration mode the database runs
+on migration.existingClaim with no volumeClaimTemplate at all, so persistence.size describes no
+volume and would hand the backend a figure unrelated to the disk it is on. Declaring a capacity
+smaller than the database latches background indexing with no reachable resume, so those cases
+render "0" (unevaluated) until the operator states the size in the tuning block.
 */}}
 {{- define "noves-canton-data-app.databaseVolumeCapacity" -}}
 {{- $declared := .Values.backend.performance.readModel.databaseVolumeCapacity | toString -}}
 {{- if $declared -}}
 {{- $declared -}}
-{{- else if .Values.database.persistence.existingClaim -}}
+{{- else if or .Values.migration.enabled .Values.database.persistence.existingClaim -}}
 0
 {{- else -}}
 {{- .Values.database.persistence.size | toString -}}

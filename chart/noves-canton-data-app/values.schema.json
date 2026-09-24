@@ -353,7 +353,7 @@
           "properties": {
             "totalCapacity": { "type": "integer", "minimum": 2 },
             "reservedLiveCapacity": { "type": "integer", "minimum": 1 },
-            "databaseVolumeCapacity": { "type": "string", "pattern": "^$|^[0-9]+(k|K|M|G|T|Ki|Mi|Gi|Ti|B)?$" },
+            "databaseVolumeCapacity": { "type": "string", "pattern": "^$|^[+-]?[0-9]*[.]?[0-9]+([eE][+-]?[0-9]+)?(m|k|K|M|G|T|P|E|Ki|Mi|Gi|Ti|Pi|Ei|B)?$" },
             "backgroundIndexingDutyPercent": { "type": "integer", "minimum": 1, "maximum": 100 }
           }
         }

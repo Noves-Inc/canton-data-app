@@ -38,11 +38,16 @@ backend:
       # Total indexing concurrency, including capacity reserved for current ledger activity.
       totalCapacity: 4
       reservedLiveCapacity: 1
-      # Size of the volume the database is stored on. A release that changes how history is
-      # defined rebuilds every materialization, writing the new copy beside the one still
-      # serving, and background indexing pauses at 85% of this figure instead of filling the
-      # disk. Empty takes database.persistence.size; set it explicitly when the database uses
-      # an existing claim, and leave it "0" to leave the limit unevaluated.
+      # Size of the volume the database is stored on, written the way the storage is requested
+      # ("256Gi"). A release that changes how history is defined rebuilds every materialization,
+      # writing the new copy beside the one still serving, and background indexing pauses at 85%
+      # of this figure instead of filling the disk. Raising the real volume later does not lift
+      # the pause on its own: this is the figure the app reads, so it has to move too.
+      #
+      # Empty takes database.persistence.size, which is the right answer only when the chart
+      # creates the claim from it. State the size here whenever the database runs on a claim the
+      # chart did not create (database.persistence.existingClaim, or migration.existingClaim
+      # while migration.enabled), where the default is "0" and leaves the limit unevaluated.
       databaseVolumeCapacity: ""
       # 100 runs normally. Values 1-99 pace background indexing to leave foreground headroom.
       backgroundIndexingDutyPercent: 100
