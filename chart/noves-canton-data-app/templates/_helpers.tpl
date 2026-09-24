@@ -136,3 +136,24 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
 {{- end -}}
 {{- end -}}
+
+{{/*
+The volume size the backend paces background indexing against.
+
+database.persistence.size is the answer only when the chart creates the claim from it. A claim
+the chart did not create carries a size it cannot read, and in migration mode the database runs
+on migration.existingClaim with no volumeClaimTemplate at all, so persistence.size describes no
+volume and would hand the backend a figure unrelated to the disk it is on. Declaring a capacity
+smaller than the database latches background indexing with no reachable resume, so those cases
+render "0" (unevaluated) until the operator states the size in the tuning block.
+*/}}
+{{- define "noves-canton-data-app.databaseVolumeCapacity" -}}
+{{- $declared := .Values.backend.performance.readModel.databaseVolumeCapacity | toString -}}
+{{- if $declared -}}
+{{- $declared -}}
+{{- else if or .Values.migration.enabled .Values.database.persistence.existingClaim -}}
+0
+{{- else -}}
+{{- .Values.database.persistence.size | toString -}}
+{{- end -}}
+{{- end -}}
