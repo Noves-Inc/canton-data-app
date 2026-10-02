@@ -594,7 +594,8 @@ EOF
 }
 
 case "${1:-all}" in
-  all) node_config_contracts; compose_contracts; migration_contracts; helm_contracts ;;
+  all) node_config_contracts; compose_contracts; migration_contracts; helm_contracts; compose_file_contracts; permission_contracts ;;
+  fake-docker) node_config_contracts; compose_contracts; migration_contracts; helm_contracts ;;
   node-config) node_config_contracts ;;
   compose) compose_contracts ;;
   migration) migration_contracts ;;
@@ -602,7 +603,7 @@ case "${1:-all}" in
   compose-file) compose_file_contracts ;;
   permissions) permission_contracts ;;
   local-docker) compose_file_contracts; permission_contracts ;;
-  *) fail "Usage: $0 [all|node-config|compose|migration|helm|compose-file|permissions|local-docker]" ;;
+  *) fail "Usage: $0 [all|fake-docker|node-config|compose|migration|helm|compose-file|permissions|local-docker]" ;;
 esac
 
 echo "installer contracts passed"

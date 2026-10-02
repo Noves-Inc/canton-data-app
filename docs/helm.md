@@ -255,10 +255,11 @@ Use this when the notes warned about a new KEK on a release whose database was r
 
 1. Identify the retained Secret that holds the original KEK, for example `<old-fullname>-installation-kek`, or recreate it from the backup taken with the database.
 2. Set `installation.kek.existingSecret` to that Secret name (and `installation.kek.key` if its key is not `installation-kek`) in the values file.
-3. Delete the failed backend Deployment so its checksum of the new KEK no longer conflicts. Use the same kubectl context and namespace as the `helm` command (`KUBE_CONTEXT` and `NAMESPACE` here); the release namespace is also printed in the warning. The backend is not serving while it refuses to start, so this adds no downtime:
+3. Delete the failed backend Deployment so its checksum of the new KEK no longer conflicts. Use the same kubectl context and namespace as the `helm` command; the command stops unless `KUBE_CONTEXT` and `NAMESPACE` are set, because an empty context would make kubectl use its current one, possibly another cluster. The release namespace is also printed in the warning. The backend is not serving while it refuses to start, so this adds no downtime:
 
    ```bash
-   kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
+   kubectl --context "${KUBE_CONTEXT:?set KUBE_CONTEXT to the exact context the helm command used}" \
+     --namespace "${NAMESPACE:?set NAMESPACE to the exact namespace the helm command used}" \
      delete deployment <fullname>-backend
    ```
 
