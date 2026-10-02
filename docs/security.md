@@ -71,6 +71,8 @@ Helm and the Compose installer generate both; no configuration is required. Each
 
 Do not start a copy of a database and its KEK as a second, simultaneously running installation. Both copies would hold the same installation credential. A new installation starts from its own empty database and enrolls on its own.
 
+Every installation that shares a Noves account must run 4.1.4 or later. The account switches to per-installation credentials once none of its installations has used the old shared credential for 72 hours; from then on an installation on an earlier release has no account functions until it is upgraded and enrolls with its own database and KEK. See the [4.1.4 release notes](release-notes-4.1.4-draft.md#upgrade-every-installation-of-an-account).
+
 Never:
 
 - reuse a validator, wallet, or administrative credential;

@@ -275,7 +275,7 @@ Use this when the notes warned about a new KEK on a release whose database was r
    curl -fsS http://127.0.0.1:8090/startupStatus | jq
    ```
 
-   The backend refuses to start when it cannot decrypt its stored installation credential, so a ready backend has opened it with the original KEK. The Admin page shows the installation status it had before.
+   The backend refuses to start when it cannot decrypt its stored installation credential, so a ready backend has opened it with the original KEK. The **Installation Identity** section of the Backend Status page shows the installation status it had before.
 6. The mistakenly generated `<fullname>-installation-kek` Secret is kept by its retention policy but no longer used. Delete it once the backend is healthy, so that it is never mistaken for the original.
 
 ### Manage the installation Secrets yourself
