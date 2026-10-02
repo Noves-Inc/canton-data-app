@@ -309,6 +309,84 @@ YAML
   helm lint "$chart" --values "$values" >"$scratch/lint.out" 2>&1 || { cat "$scratch/lint.out" >&2; fail "helm lint"; }
 }
 
+# Generated installation Secret names are single DNS labels: at most 63 characters for every release
+# name Helm accepts and every fullname the 4.1.3 objects fit, stable across renders, distinct per role,
+# and used identically by the Secrets, the projections, the marker and the reserved-name validation.
+long_name_contracts() {
+  local release44 fullname54 fullname63 manifest="$scratch/long.yaml" names
+  release44="$(printf 'r%.0s' $(seq 1 44))"
+  fullname54="$(printf 'f%.0s' $(seq 1 54))"
+  fullname63="$(printf 'g%.0s' $(seq 1 63))"
+  check_long_render() {
+    local label="$1" expected_base="$2"
+    EXPECTED_BASE="$expected_base" assert_render "$manifest" "$label" <<'PY'
+secrets = {d["metadata"]["name"]: d for d in docs if d.get("kind") == "Secret"}
+kek = [n for n, d in secrets.items() if "installation-kek" in d.get("data", {})]
+canary = [n for n, d in secrets.items() if "installation-canary-capability" in d.get("data", {})]
+check(len(kek) == 1 and len(canary) == 1, f"installation Secrets {list(secrets)}")
+kek, canary = kek[0], canary[0]
+for name in (kek, canary):
+    check(len(name) <= 63, f"{name} is {len(name)} characters")
+check(kek.endswith("-installation-kek") and canary.endswith("-installation-canary"), "role suffixes kept")
+check(kek != canary, "distinct names")
+base = os.environ["EXPECTED_BASE"]
+import re
+for name, suffix in ((kek, "installation-kek"), (canary, "installation-canary")):
+    if len(base) + 1 + len(suffix) <= 63:
+        check(name == f"{base}-{suffix}", f"{name}: a name that fits is not shortened")
+    else:
+        kept = re.sub(r"[-.]+$", "", base[:63 - len(suffix) - 10])
+        check(re.fullmatch(re.escape(kept) + r"-[0-9a-f]{8}-" + re.escape(suffix), name) is not None and kept,
+              f"{name}: a shortened name keeps the fullname prefix {kept!r} and an 8-character hash")
+deployments = {d["metadata"]["name"].rsplit("-", 1)[1]: d for d in docs if d.get("kind") == "Deployment"}
+backend = deployments["backend"]["spec"]["template"]
+check(backend["metadata"]["annotations"]["noves.fi/installation-kek-secret"] == kek, "marker uses the generated name")
+sources = {v["name"]: v for v in backend["spec"]["volumes"]}["installation-secret-sources"]["projected"]["sources"]
+check([s["secret"]["name"] for s in sources] == [kek, canary], "backend projection uses the generated names")
+fsources = {v["name"]: v for v in deployments["frontend"]["spec"]["template"]["spec"]["volumes"]}["installation-secret-sources"]["projected"]["sources"]
+check([s["secret"]["name"] for s in fsources] == [canary], "frontend projection uses the generated name")
+print(kek, canary)
+PY
+  }
+  helm template "$release44" "$chart" --namespace cda-test --values "$values" \
+    --set accounting.tokenEncryption.existingSecret=operator-accounting >"$manifest"
+  names="$(check_long_render release-44 "$release44")"
+  helm template "$release44" "$chart" --namespace cda-test --values "$values" \
+    --set accounting.tokenEncryption.existingSecret=operator-accounting >"$manifest"
+  [[ "$(check_long_render release-44-again "$release44")" == "$names" ]] || fail "[long-names] generated names are not stable"
+  # The reserved-name rules see the same shortened names.
+  if helm template "$release44" "$chart" --namespace cda-test --values "$values" \
+    --set accounting.tokenEncryption.existingSecret=operator-accounting \
+    --set installation.kek.existingSecret=operator-kek \
+    --set "installation.canary.existingSecret=${names%% *}" >"$scratch/long-reserved.out" 2>&1; then
+    fail "[long-names] the canary could name the shortened generated KEK Secret"
+  fi
+  grep -Fq 'reserves that Secret for the installation KEK' "$scratch/long-reserved.out" || { cat "$scratch/long-reserved.out" >&2; fail "[long-names] reserved-name message"; }
+  if helm template "$release44" "$chart" --namespace cda-test --values "$values" \
+    --set accounting.tokenEncryption.existingSecret=operator-accounting \
+    --set "installation.kek.existingSecret=${names%% *}" >"$scratch/long-own.out" 2>&1; then
+    fail "[long-names] the KEK could name its own shortened generated Secret"
+  fi
+  grep -Fq 'own generated Secret' "$scratch/long-own.out" || fail "[long-names] own-name message"
+
+  # The truncation point falls on a hyphen, which is trimmed before the hash.
+  local hyphen_at_cut
+  hyphen_at_cut="$(printf 'a%.0s' $(seq 1 33))-$(printf 'b%.0s' $(seq 1 29))"
+  for fullname in "$fullname54" "$fullname63" "$hyphen_at_cut"; do
+    helm template cda "$chart" --namespace cda-test --values "$values" \
+      --set accounting.tokenEncryption.existingSecret=operator-accounting \
+      --set "fullnameOverride=$fullname" >"$manifest"
+    check_long_render "fullname-${#fullname}" "$fullname" >/dev/null
+  done
+  # Two fullnames sharing a long prefix still get different shortened names.
+  helm template cda "$chart" --namespace cda-test --values "$values" \
+    --set accounting.tokenEncryption.existingSecret=operator-accounting --set "fullnameOverride=${fullname63%?}x" >"$manifest"
+  [[ "$(check_long_render fullname-63-other "${fullname63%?}x")" != "$(
+    helm template cda "$chart" --namespace cda-test --values "$values" \
+      --set accounting.tokenEncryption.existingSecret=operator-accounting --set "fullnameOverride=$fullname63" >"$manifest"
+    check_long_render fullname-63-again "$fullname63")" ]] || fail "[long-names] shortened names collide"
+}
+
 # Builds a chart copy whose lookups read the fake cluster state in lookup-state.yaml (keyed
 # "<Kind>/<name>") instead of a live API server. Each substitution is counted, so a template change
 # that renames the lookup makes the harness fail instead of silently testing nothing.
@@ -367,8 +445,10 @@ lookup_contracts() {
   write_lookup_state "$harness" '{}'
   render "$manifest" "$harness"
   assert_render "$manifest" lookup-first-install <<'PY'
-check("generated a new installation KEK" in find("ConfigMap", "notice-under-test")["data"]["notice"],
-      "a newly generated KEK must be announced")
+notice = find("ConfigMap", "notice-under-test")["data"]["notice"]
+check("generated a new installation KEK" in notice, "a newly generated KEK must be announced")
+for step in ("installation.kek.existingSecret", "delete deployment cda-backend", "Recover from a KEK generated by mistake"):
+    check(step in notice, f"the notice must give the complete recovery: {step}")
 check(find("Secret", "cda-installation-kek") is not None, "first install generates the KEK")
 check(find("Secret", "cda-installation-canary") is not None, "first install generates the canary")
 PY
@@ -609,7 +689,8 @@ PY
 }
 
 case "${1:-all}" in
-  all) default_render_contracts; existing_secret_contracts; replica_and_schema_contracts; lookup_contracts ;;
+  all) default_render_contracts; existing_secret_contracts; replica_and_schema_contracts; long_name_contracts; lookup_contracts ;;
+  long-names) long_name_contracts ;;
   default) default_render_contracts ;;
   existing) existing_secret_contracts ;;
   replicas) replica_and_schema_contracts ;;
