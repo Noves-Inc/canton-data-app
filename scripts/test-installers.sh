@@ -244,13 +244,20 @@ installation_secret_contracts() {
   rm -f "$state/installation-kek.created"
   mv "$scratch/record.saved" "$state/installation-kek.created"
 
-  # A concurrent installer holds the installation lock: the second run stops before touching secrets.
+  # A concurrent installer holds the installation lock: the second run stops before touching the
+  # installation files the first run is parsing and starting, and before touching secrets.
   mkdir "$state/.install.lock"
   canary_before="$(cat "$backend")"
+  printf '%s\n' 'held-by-the-running-installer' >"$install_dir/docker-compose/compose.yaml"
+  printf '%s\n' 'held-by-the-running-installer' >"$install_dir/docker-compose/config/storage.env.example"
   if run_compose_installer "$install_dir" "$log" "$bin" "$scratch/locked.out"; then
     fail "the installer ran while another held the installation lock"
   fi
   assert_contains "$scratch/locked.out" '.install.lock'
+  [[ "$(cat "$install_dir/docker-compose/compose.yaml")" == held-by-the-running-installer ]] ||
+    fail "a locked-out run replaced compose.yaml"
+  [[ "$(cat "$install_dir/docker-compose/config/storage.env.example")" == held-by-the-running-installer ]] ||
+    fail "a locked-out run replaced storage.env.example"
   [[ "$(cat "$backend")" == "$canary_before" ]] || fail "a locked-out run replaced the canary"
   assert_not_contains "$log" 'compose.yaml pull'
   rmdir "$state/.install.lock"
@@ -432,6 +439,17 @@ EOF
   assert_contains "$log" 'docker compose --env-file .env -f compose.yaml up -d'
   installation_secret_contracts "$install_dir" "$log" "$bin"
 
+  # A relative --directory resolves once, before the lock is taken: the lock is released after the
+  # installer changes directory, so consecutive runs both succeed and none leaves the lock behind.
+  local run
+  for run in 1 2; do
+    (cd "$(dirname "$install_dir")" &&
+      run_compose_installer "$(basename "$install_dir")" "$log" "$bin" "$scratch/relative-$run.out") ||
+      { cat "$scratch/relative-$run.out" >&2; fail "relative --directory run $run failed"; }
+    [[ ! -e "$install_dir/docker-compose/.state/.install.lock" ]] ||
+      fail "relative --directory run $run left the installation lock behind"
+  done
+
   rm -rf "$install_dir"
   write_compose_fixture "$install_dir"
   printf '%s\n' '{"nodes":{"main-node":{"addr":"participant:5001"}}}' >"$install_dir/docker-compose/.state/nodes-config.json"
@@ -559,6 +577,23 @@ EOF
   fi
   assert_contains "$scratch/migration-ambiguous.out" 'synchronizer_alias'
   [[ ! -s "$log" ]] || fail "migration wrapper started Docker after node upgrade failed"
+
+  # A concurrent installer holds the installation lock: the migration stops before rewriting the
+  # retained node configuration or touching Docker.
+  write_migration_fixture
+  printf '%s\n' '{"nodes":{"main-node":{"addr":"participant:5001","expected_synchronizer_id":" ","m2mIndexing":{"static_token_file":"/m2m-indexing-secrets/main-node/token"}}}}' >"$compose_dir/.state/nodes-config.json"
+  cp "$compose_dir/.state/nodes-config.json" "$scratch/migration-locked-nodes.json"
+  mkdir "$compose_dir/.state/.install.lock"
+  : >"$log"
+  if INSTALLER_LOG="$log" PATH="$bin:$PATH" "$root/scripts/migrate-v3.sh" \
+    --source-version 3.16.1 --backup-confirmed --old-workload-stopped \
+    --volume v3-database --directory "$compose_dir" >"$scratch/migration-locked.out" 2>&1; then
+    fail "migration wrapper ran while another installer held the installation lock"
+  fi
+  assert_contains "$scratch/migration-locked.out" '.install.lock'
+  assert_file_equals "$compose_dir/.state/nodes-config.json" "$scratch/migration-locked-nodes.json"
+  [[ ! -s "$log" ]] || fail "migration wrapper started Docker while another installer held the lock"
+  rmdir "$compose_dir/.state/.install.lock"
 }
 
 helm_contracts() {

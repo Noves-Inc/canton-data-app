@@ -36,6 +36,10 @@ while (($#)); do
   esac
 done
 
+# Every later path derives from an absolute installation directory: the installer changes directory
+# before it finishes, and the EXIT trap that releases the lock must resolve the same path from there.
+[[ "$install_dir" == /* ]] || install_dir="$PWD/$install_dir"
+
 m2m_indexing_secret_root="$install_dir/docker-compose/.state/m2m-indexing-secrets"
 if [[ -L "$m2m_indexing_secret_root" ]]; then
   die "M2M indexing secret root must be a real directory, not a symbolic link: $m2m_indexing_secret_root"
@@ -47,15 +51,17 @@ require_command openssl
 require_command curl
 require_command jq
 
+# The lock is taken before any installation file is written: a concurrent run must not replace the
+# Compose files the lock holder is parsing and starting.
+mkdir -p "$install_dir/docker-compose/.state"
+acquire_installation_lock "$install_dir/docker-compose/.state" ||
+  die "The installation is locked by another installer run."
 mkdir -p "$install_dir/docker-compose/config"
 for file in compose.yaml compose.migrate-v3.yaml .env.example; do
   cp "$repo_root/docker-compose/$file" "$install_dir/docker-compose/$file"
 done
 cp "$repo_root/docker-compose/config/storage.env.example" \
   "$install_dir/docker-compose/config/storage.env.example"
-mkdir -p "$install_dir/docker-compose/.state"
-acquire_installation_lock "$install_dir/docker-compose/.state" ||
-  die "The installation is locked by another installer run."
 mkdir -p -m 0750 "$install_dir/docker-compose/.state/certificates"
 chmod 0750 "$install_dir/docker-compose/.state/certificates"
 mkdir -p -m 0700 "$m2m_indexing_secret_root"

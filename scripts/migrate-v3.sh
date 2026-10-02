@@ -58,6 +58,9 @@ require_command docker
 require_command jq
 require_command openssl
 cd "$compose_dir"
+# The lock is taken before the retained configuration is rewritten or any container is touched.
+acquire_installation_lock "$PWD/.state" ||
+  die "The installation is locked by another installer run."
 upgrade_nodes_config_file .state/nodes-config.json ||
   die "The retained node configuration needs operator review."
 validate_m2m_indexing_configuration .state/nodes-config.json .state/m2m-indexing.env ||
@@ -69,8 +72,6 @@ validate_m2m_indexing_secret_files .state/nodes-config.json .state/m2m-indexing-
 chmod 600 .env
 [[ ! -f .state/m2m-indexing.env ]] || chmod 600 .state/m2m-indexing.env
 chmod 644 .state/nodes-config.json
-acquire_installation_lock "$PWD/.state" ||
-  die "The installation is locked by another installer run."
 generate_installation_kek .state ||
   die "The installation KEK could not be prepared."
 export DATABASE_VOLUME="$database_volume"

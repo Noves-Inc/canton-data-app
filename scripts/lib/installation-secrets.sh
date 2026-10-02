@@ -24,11 +24,16 @@ installation_secret_frontend_uid=1000
 installation_secret_names=(installation-kek installation-canary-backend installation-canary-frontend)
 installation_lock_path=""
 
-# One installer run at a time per installation, from before any secret is written until the containers
-# are recreated: two interleaved runs could otherwise each publish one canary copy and start containers
-# holding different values. mkdir is atomic; the lock is released when the run exits for any reason.
+# One installer run at a time per installation, from before any installation file or secret is written
+# until the containers are recreated: two interleaved runs could otherwise replace the Compose files the
+# other is starting, or each publish one canary copy and start containers holding different values.
+# mkdir is atomic; the lock is released when the run exits for any reason. The lock path is stored
+# absolute because callers change directory after locking and the EXIT trap runs from wherever the
+# script ends.
 acquire_installation_lock() {
-  local lock="$1/.install.lock"
+  local state_dir lock
+  state_dir="$(cd "$1" && pwd)" || return 1
+  lock="$state_dir/.install.lock"
   if ! mkdir "$lock" 2>/dev/null; then
     printf 'Another installer run holds %s. Wait for it to finish; if no installer is running, remove that directory and retry.\n' \
       "$lock" >&2
