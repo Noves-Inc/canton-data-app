@@ -58,7 +58,7 @@ The Compose installer applies the same rule in `.state/accounting.env`: it gener
 
 ### Installation credential secrets
 
-Each installation proves which Noves account it belongs to with its own signing key. The backend generates that key, stores it encrypted in the database, and never sends it anywhere. Two local secrets support it:
+Each installation has its own credential for account features: a signing key that the app sets up automatically. The backend generates that key, stores it encrypted in the database, and never sends it anywhere. Two local secrets support it:
 
 | Secret | Purpose | Mounted into | Lifetime |
 |---|---|---|---|
@@ -71,7 +71,7 @@ Helm and the Compose installer generate both; no configuration is required. Each
 
 Do not start a copy of a database and its KEK as a second, simultaneously running installation. Both copies would hold the same installation credential. A new installation starts from its own empty database and enrolls on its own.
 
-Every installation that shares a Noves account must run 4.1.4 or later. The account switches to per-installation credentials once none of its installations has used the old shared credential for 72 hours; from then on an installation on an earlier release has no account functions until it is upgraded and enrolls with its own database and KEK. See the [4.1.4 release notes](release-notes-4.1.4-draft.md#upgrade-every-installation-of-an-account).
+Every installation that shares a Noves account must run 4.1.4 or later. The account switches to per-installation credentials once none of its installations has used the previous credential for 72 hours, or earlier when an account admin confirms that all installations run 4.1.4; from then on an installation on an earlier release has no account features until it is upgraded and enrolls with its own database and KEK. See the [4.1.4 release notes](release-notes-4.1.4-draft.md#upgrade-every-installation-of-an-account).
 
 Never:
 

@@ -2,13 +2,13 @@
 
 This draft is finalized in the 4.1.4 release bundle commit, which also pins the published image digests.
 
-## Per-installation credential
+## Per-installation credentials
 
-Each 4.1.4 installation now proves which Noves account it belongs to and signs every account call with its own key:
+In 4.1.4 each installation has its own credential for account features, which the app sets up automatically. Earlier releases share one credential across every installation; 4.1.4 replaces it with a signing key that belongs to the installation alone:
 
 1. On first start, the backend generates a signing key and stores it encrypted in the database.
 2. Noves places a private enrollment challenge on the ledger that only your validator party can see. The backend reads it through its own participant connection and answers it, which binds the installation to the account that owns that validator party.
-3. The backend and the frontend each run a health check through the new path. The installation then waits until no installation of its account has used the old shared credential for 72 hours (see [Upgrade every installation of an account](#upgrade-every-installation-of-an-account)). After that it becomes active, and its account stops accepting the shared credential that earlier releases use for account functions.
+3. The backend and the frontend each run a health check through the new path. The installation then waits until no installation of its account has used the previous credential for 72 hours, or until an account admin confirms that every installation runs 4.1.4 (see [Upgrade every installation of an account](#upgrade-every-installation-of-an-account)). After that it becomes active, and the account uses per-installation credentials from then on.
 
 Enrollment is automatic. Until an installation is active, it behaves exactly as 4.1.3.
 
@@ -19,14 +19,14 @@ Open the **Backend Status** page and find the **Installation Identity** section.
 | Status | Meaning |
 |---|---|
 | `Enrolling` | The installation is answering its enrollment challenge. |
-| `Activating` | Enrollment succeeded. The installation is waiting for its health checks, or for the 72 hours without old shared credential use on its account. |
+| `Activating` | Enrollment succeeded. The installation is waiting for its health checks, or for its account to switch to per-installation credentials. |
 | `Active` | The installation signs account calls with its own credential. |
 | `Not enrollable` | The installation cannot enroll. The reason is shown next to the status. |
 | `Revoked` | Noves revoked the installation credential. Contact support. |
 
-An installation can stay `Activating` for up to 72 hours after the last call from an older installation of the same account. That is expected, and every function keeps working while it waits.
+An installation can stay `Activating` for up to 72 hours after the last request from an older Data App on the same account. That is expected, and every function keeps working while it waits.
 
-Account functions are the Platform API key, the Account page with its users and plan, purchases, add-ons, subscription linking, and earnings withdrawal. Indexing, ledger access, dashboards, reports, and exports do not depend on the credential.
+Account features are the Platform API key, the Account page with its users and plan, purchases, add-ons, subscription linking, and earnings withdrawal. Indexing, ledger access, dashboards, reports, and exports do not depend on the credential.
 
 ## Before you upgrade
 
@@ -43,20 +43,24 @@ The Compose installer now recreates the backend and frontend containers on every
 
 ## Upgrade every installation of an account
 
-Many accounts link more than one validator party, for example mainnet and testnet, and run one Data App installation for each. **Every Data App installation that shares a Noves account must be upgraded to 4.1.4.**
+Many accounts link more than one validator party, for example mainnet and testnet, and run one Data App installation for each. **Upgrade every Data App installation on the account to 4.1.4 first.** An installation that stays on 4.1.3 or earlier stops working for account features after the switch.
 
-The account switches to per-installation credentials automatically once none of its installations has used the old shared credential for 72 hours. Until then everything keeps working, on 4.1.3 and on 4.1.4 installations alike. An installation running 4.1.3 or an earlier release uses the shared credential on every request, so:
+The account switches to per-installation credentials automatically once none of its installations has used the previous credential for 72 hours. Until then everything keeps working, on 4.1.3 and on 4.1.4 installations alike. An installation running 4.1.3 or an earlier release uses the previous credential on every request, so:
 
 - **A 4.1.3 or older installation that is still running keeps the switch from happening.** The upgraded installations stay `Activating` until it is upgraded or shut down, and 72 hours have passed since its last request.
-- **An installation that comes back after the switch must be upgraded.** For example, a testnet installation that was switched off for more than 72 hours and is started again on 4.1.3 keeps indexing, ledger access, dashboards, and reports, but has no account functions. Upgrade it to 4.1.4 with its own database and KEK; it enrolls as another installation of the account and gets its account functions back automatically.
+- **An installation that comes back after the switch must be upgraded.** For example, a testnet installation that was switched off for more than 72 hours and is started again on 4.1.3 keeps indexing, ledger access, dashboards, and reports, but has no account features. Upgrade it to 4.1.4 with its own database and KEK; it enrolls as another installation of the account and gets its account features back automatically.
 
-After the switch, the account accepts only per-installation credentials for account functions. A new installation starts from its own empty database and enrolls on its own. A copy of an existing installation's database and KEK must never run as a second installation; see [Security model](security.md#installation-credential-secrets).
+### While the account waits for the switch
 
-If you have upgraded every installation of the account and do not want to wait for the 72 hours to pass, contact [support@noves.fi](mailto:support@noves.fi). Support confirms with you that every installation of the account runs 4.1.4 and can then activate the account before the window ends. Any installation that still runs an earlier release loses its account functions at that moment.
+Account admins see a notice in the app while the account waits. The detail is on the **Backend Status** page, in the **Installation Identity** section: the time of the last request from an older Data App, when the account switches on its own, and the button **All my installations run 4.1.4**.
+
+Once every installation on the account runs 4.1.4, an account admin can select **All my installations run 4.1.4** to complete the switch right away instead of waiting for the 72 hours. A dialog asks for confirmation first, because any installation that still runs 4.1.3 or earlier stops working for account features at that moment. The confirmation applies to the account permanently: a 4.1.3 installation started later does not hold the account in waiting again, and has no account features until it is upgraded. [support@noves.fi](mailto:support@noves.fi) can also complete the switch for the account.
+
+After the switch, the account accepts only per-installation credentials for account features. A new installation starts from its own empty database and enrolls on its own. A copy of an existing installation's database and KEK must never run as a second installation; see [Security model](security.md#installation-credential-secrets).
 
 ## Rolling back
 
-After the account switches to per-installation credentials, it no longer accepts the shared credential that 4.1.3 and earlier releases use. An installation rolled back to one of those releases keeps indexing, ledger access, dashboards, and reports working, but loses its account functions. Before the switch, a rollback keeps everything working and starts the 72 hour wait again, because the rolled back installation uses the shared credential. To roll back, move to another 4.1.4 or later build and keep the same database and KEK.
+After the account switches to per-installation credentials, it no longer accepts the previous credential that 4.1.3 and earlier releases use. An installation rolled back to one of those releases keeps indexing, ledger access, dashboards, and reports working, but loses its account features. Before the switch, a rollback keeps everything working and starts the 72 hour wait again, because the rolled back installation uses the previous credential. To roll back, move to another 4.1.4 or later build and keep the same database and KEK.
 
 ## Recommended: a Ledger API audience on the participant
 
