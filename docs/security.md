@@ -56,18 +56,33 @@ If you're choosing an accounting provider integration (Quickbooks or Xero), Helm
 
 The Compose installer applies the same rule in `.state/accounting.env`: it generates one 32-byte base64 key on first use, sets mode `0600`, and reuses the file on later runs. A manual Compose installation must create that file before starting the backend. Back it up with the database and never regenerate it during an upgrade.
 
+### Installation credential secrets
+
+Each installation proves which Noves account it belongs to with its own signing key. The backend generates that key, stores it encrypted in the database, and never sends it anywhere. Two local secrets support it:
+
+| Secret | Purpose | Mounted into | Lifetime |
+|---|---|---|---|
+| Installation key-encryption key (KEK) | Encrypts the installation's private signing key in the database | backend only | Generated once, kept on uninstall, never regenerated |
+| Canary capability | Lets the frontend run its server-side health check against the backend during enrollment | frontend and backend, never sent to browsers | Reused on upgrade, replaced on every reinstall |
+
+Helm and the Compose installer generate both; no configuration is required. Each value is the base64 encoding of 32 random bytes (44 characters, no newline). Each container receives its own copy as a `0600` file owned by its runtime user: `1654` for the backend and `1000` for the frontend.
+
+**Back up the KEK together with the database, and restore them together.** The database without its KEK cannot use its installation credential: the backend refuses to start while the database holds a credential it cannot decrypt. A new KEK does not repair that. Helm refuses to replace the KEK Secret while the release's backend still depends on it, and the Compose installer refuses to replace `.state/installation-kek` once it has provisioned one. Restore the backed-up value instead.
+
+Do not start a copy of a database and its KEK as a second, simultaneously running installation. Both copies would hold the same installation credential. A new installation starts from its own empty database and enrolls on its own.
+
 Never:
 
 - reuse a validator, wallet, or administrative credential;
 - put M2M credentials in the browser OIDC client;
 - publish the database or participant Ledger API;
-- commit `.env`, `m2m-indexing.env`, tokens, or client secrets.
+- commit `.env`, `m2m-indexing.env`, `installation-kek`, tokens, or client secrets.
 
 Canton-user provisioning requires an administrator credential, used only as administrator authority and never as the app's M2M indexing credential. Use your normal Canton administrator procedure for Helm and Compose installations.
 
 ## Data
 
-The database and export volumes contain private transaction data. Encrypt storage, back it up, limit administrative access, and preserve it during ordinary upgrades. The shipped database container is the only supported database runtime.
+The database and export volumes contain private transaction data. Encrypt storage, back it up together with the installation KEK, limit administrative access, and preserve it during ordinary upgrades. The shipped database container is the only supported database runtime.
 
 The backend container is non-root (`1654:1654`). Its pod uses `fsGroup: 1654` with `fsGroupChangePolicy: OnRootMismatch` to make the exports PVC group-writable. Keep this setting when copying or wrapping the chart. Do not solve export-volume permissions by running the backend as root or adding a privileged volume-permissions container.
 

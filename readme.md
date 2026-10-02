@@ -146,8 +146,9 @@ party currently open. The backend also provides `/health`, `/ready`, and
 `/startupStatus` for deployment checks. The Helm and Compose guides include
 commands for each endpoint.
 
-Preserve the database, export storage, and accounting encryption key during an
-upgrade or restore. Do not delete Compose volumes or Kubernetes PVCs during a
+Preserve the database, export storage, accounting encryption key, and installation
+key-encryption key during an upgrade or restore. Back up the installation key with
+the database: one is not usable without the other. Do not delete Compose volumes or Kubernetes PVCs during a
 routine application upgrade.
 
 ## Documentation

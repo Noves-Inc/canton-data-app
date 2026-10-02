@@ -232,6 +232,40 @@ accounting:
     key: accounting-token-encryption-key
 ```
 
+The chart also generates the two secrets behind the installation credential (see [Security model](security.md#installation-credential-secrets)); no values are required:
+
+| Secret | Mounted into | Lifecycle |
+|---|---|---|
+| `<release>-installation-kek` | backend only | Retained during uninstall, reused on every upgrade and reinstall, never regenerated |
+| `<release>-installation-canary` | backend and frontend | Reused on upgrade, deleted on uninstall, new on every reinstall |
+
+Each pod copies its Secrets through an `installation-secrets` init container that runs as the pod's own user and writes `0600` files into an in-memory volume at `/installation-secrets`, so the backend reads files owned by `1654` and the frontend reads a file owned by `1000`. The init container stops the pod when a value is not the base64 encoding of 32 bytes. The backend is limited to one replica; every frontend replica reads the same canary Secret.
+
+Back up `<release>-installation-kek` with the database and restore them together. The database without its KEK cannot use its installation credential, and a new KEK does not repair that. If the Secret disappears while the release is installed, `helm upgrade` stops with an error instead of generating a replacement: re-apply the backed-up Secret under the same name and run the upgrade again. After an uninstall the chart cannot see that a KEK ever existed, so keep the retained Secret; if it is deleted and the database is reused, the backend refuses to start until the backed-up KEK is restored.
+
+Tools that render the chart client-side (`helm template`, Argo CD) cannot look up existing Secrets, so they would produce new values on every render. Create both values yourself with `openssl rand -base64 32 | tr -d '\n'` and set:
+
+```yaml
+installation:
+  kek:
+    existingSecret: noves-canton-data-app-installation-kek
+    key: installation-kek
+  canary:
+    existingSecret: noves-canton-data-app-installation-canary
+    key: installation-canary-capability
+```
+
+```bash
+kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
+  create secret generic noves-canton-data-app-installation-kek \
+  --from-literal=installation-kek="$(openssl rand -base64 32 | tr -d '\n')"
+kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
+  create secret generic noves-canton-data-app-installation-canary \
+  --from-literal=installation-canary-capability="$(openssl rand -base64 32 | tr -d '\n')"
+```
+
+Restart both deployments after replacing either operator-managed Secret, because each pod copies its values when it starts. Never replace the KEK of an installation whose database you keep.
+
 ## 5. Write the values file
 
 Start with:
@@ -450,6 +484,8 @@ Open `https://api.data.example.com/docs` for Swagger UI. Requests to `/docs` on 
 | Backend stays unready | Read `/startupStatus`, then backend logs |
 | Ledger API TLS handshake fails | Check the node's client certificate/key pair, server CA or system trust, server-auth EKU, and that `canton.nodes[].tls.serverName` or `canton.nodes[].addr` matches a certificate SAN |
 | Ledger API rejects the client | Confirm the participant trusts the client issuer and that `client.crt` includes any required intermediate certificates |
+| Init container `installation-secrets` fails | Read its log; the named Secret key must hold the base64 encoding of 32 bytes (44 characters, no newline). A backend that runs without `fsGroup: 1654` cannot read the projected Secret |
+| `helm upgrade` reports a missing installation KEK | Re-apply the backed-up `<release>-installation-kek` Secret; never let the chart generate a replacement for a database you keep |
 | M2M indexing disabled or stale | Read `/api/v2/capture/status`; verify the M2M indexing Secret, token subject, Canton user, and its exact rights |
 | Browser login loops | Compare the Auth0 callback, logout, origin, audience, and `oidc.appUrl` values |
 | Browser sign-in succeeds but Ledger API calls return `401` | Inspect a newly issued browser token; confirm its issuer, Ledger API audience, provider-required scope, and exact `sub`, then confirm the matching Canton user exists on the selected participant |
@@ -463,4 +499,4 @@ helm uninstall noves-canton-data-app \
   --namespace "$NAMESPACE"
 ```
 
-Helm retains the database PVC, exports PVC, and generated accounting-key Secret. Remove them only after satisfying backup and retention requirements.
+Helm retains the database PVC, exports PVC, generated accounting-key Secret, and generated installation KEK Secret. Remove them only after satisfying backup and retention requirements; the database and the KEK are only usable together. Helm deletes the canary capability Secret, and the next installation gets a new one.

@@ -277,6 +277,38 @@ printf 'ACCOUNTING_TOKEN_ENCRYPTION_KEY=%s\n' \
   > "$APP_INSTALL_DIR/docker-compose/.state/accounting.env"
 ```
 
+### Installation credential secrets
+
+The installer also creates the two files behind the installation credential (see [Security model](security.md#installation-credential-secrets)):
+
+| File | Mounted into | Owner and mode | Installer behaviour |
+|---|---|---|---|
+| `.state/installation-kek` | backend only, at `/installation-secrets/kek` | `1654:1654`, `0600` | Generated on the first run, never regenerated |
+| `.state/installation-canary-backend` | backend only, at `/installation-secrets/canary-capability` | `1654:1654`, `0600` | Replaced on every run |
+| `.state/installation-canary-frontend` | frontend only, at `/installation-secrets/canary-capability` | `1000:1000`, `0600` | Replaced on every run with the same value as the backend copy |
+
+After pulling the images, a root one-shot container from the pinned backend image checks each file, assigns it to the user of the only container that mounts it, and verifies the owner and mode. Each runtime container then proves it can read its own files, and the installer recreates the backend and frontend together so that both hold the same canary value.
+
+**Back up `.state/installation-kek` with the database and restore them together.** The database without its KEK cannot use its installation credential, and a new KEK does not repair that. On its first run the installer also writes `.state/installation-kek.created`. If the KEK later disappears while that record remains, the installer stops instead of generating a replacement: restore the KEK from the backup taken with the database. Delete the record only when the database was discarded as well and the installation should enroll again from scratch.
+
+For a manual installation that does not use the installer, create the files as root before starting the app. Create the KEK only if it does not exist yet:
+
+```bash
+cd "$APP_INSTALL_DIR/docker-compose"
+umask 077
+[ -e .state/installation-kek ] ||
+  openssl rand -base64 32 | tr -d '\n' > .state/installation-kek
+canary="$(openssl rand -base64 32 | tr -d '\n')"
+printf '%s' "$canary" > .state/installation-canary-backend
+printf '%s' "$canary" > .state/installation-canary-frontend
+unset canary
+chown 1654:1654 .state/installation-kek .state/installation-canary-backend
+chown 1000:1000 .state/installation-canary-frontend
+chmod 600 .state/installation-kek .state/installation-canary-backend .state/installation-canary-frontend
+```
+
+Then recreate both containers so they read the same canary value: `docker compose --env-file .env -f compose.yaml up -d --force-recreate backend frontend`.
+
 Protect all local configuration:
 
 ```bash
@@ -312,7 +344,7 @@ Run:
 ./scripts/install-compose.sh --directory "$APP_INSTALL_DIR"
 ```
 
-The installer validates required files and placeholders, confirms the external network, pulls the three images, starts the project, and waits for `http://127.0.0.1:8090/ready`.
+The installer validates required files and placeholders, confirms the external network, pulls the three images, prepares the installation secrets, starts the project, and waits for `http://127.0.0.1:8090/ready`. Each run recreates the backend and frontend containers.
 
 Useful local endpoints:
 
@@ -406,7 +438,7 @@ docker compose --env-file .env -f compose.yaml logs -f backend
 docker compose --env-file .env -f compose.yaml down
 ```
 
-`down` preserves the named database and export volumes. Never use `down --volumes` during an upgrade. Preserve `.state/accounting.env` along with the database.
+`down` preserves the named database and export volumes. Never use `down --volumes` during an upgrade. Preserve `.state/accounting.env`, `.state/installation-kek`, and `.state/installation-kek.created` along with the database.
 
 For encrypted local storage, set `DATABASE_DATA_PATH` to an absolute path on an encrypted filesystem. See [Encryption at rest](../encryption_at_rest.md).
 
