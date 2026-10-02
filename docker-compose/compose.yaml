@@ -48,6 +48,8 @@ services:
       NODES_CONFIG_FILE_PATH: /config/nodes-config.json
       SCAN_PROXY_URL: ${CANTON_SCAN_API_URL:-http://validator:5003/api/validator}
       M2M_INDEXER_ENABLED: "true"
+      INSTALLATION_KEK_FILE: /installation-secrets/kek
+      INSTALLATION_CANARY_CAPABILITY_FILE: /installation-secrets/canary-capability
     env_file:
       - path: ./.state/m2m-indexing.env
         required: false
@@ -71,6 +73,19 @@ services:
       - type: bind
         source: ./.state/m2m-indexing-secrets
         target: /m2m-indexing-secrets
+        read_only: true
+        bind:
+          create_host_path: false
+      # Backend-only. install-compose.sh assigns both files to uid 1654 with mode 0600.
+      - type: bind
+        source: ./.state/installation-kek
+        target: /installation-secrets/kek
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./.state/installation-canary-backend
+        target: /installation-secrets/canary-capability
         read_only: true
         bind:
           create_host_path: false
@@ -101,6 +116,16 @@ services:
       VITE_KEYCLOAK_REDIRECT_URI: ${APP_URL}/callback
       VITE_KEYCLOAK_LOGOUT_URL: ${APP_URL}
       EMBED_ALLOWED_ORIGINS: ${EMBED_ALLOWED_ORIGINS:-}
+      INSTALLATION_CANARY_CAPABILITY_FILE: /installation-secrets/canary-capability
+    volumes:
+      # The frontend's own copy of the canary capability, owned by uid 1000 with mode 0600. The
+      # frontend never mounts the KEK.
+      - type: bind
+        source: ./.state/installation-canary-frontend
+        target: /installation-secrets/canary-capability
+        read_only: true
+        bind:
+          create_host_path: false
     ports:
       - "${FRONTEND_BIND_ADDRESS:-127.0.0.1}:${FRONTEND_PORT:-8091}:3000"
     depends_on:
