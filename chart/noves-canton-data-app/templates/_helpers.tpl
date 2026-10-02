@@ -123,6 +123,17 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- if not .Values.database.existingSecret -}}
 {{- fail "database.existingSecret is required" -}}
 {{- end -}}
+{{- /* Names and keys are rendered into YAML and into lookups, so each must be exactly a Kubernetes
+Secret name (DNS-1123 subdomain) or Secret key; anything else could parse as a different Secret. */ -}}
+{{- range $role := list "kek" "canary" -}}
+{{- $secret := index $.Values.installation $role -}}
+{{- if and $secret.existingSecret (or (gt (len $secret.existingSecret) 253) (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$" $secret.existingSecret))) -}}
+{{- fail (printf "installation.%s.existingSecret must be a Kubernetes Secret name: %q" $role $secret.existingSecret) -}}
+{{- end -}}
+{{- if or (gt (len $secret.key) 253) (not (regexMatch "^[-._a-zA-Z0-9]+$" $secret.key)) -}}
+{{- fail (printf "installation.%s.key must be a Kubernetes Secret key: %q" $role $secret.key) -}}
+{{- end -}}
+{{- end -}}
 {{- /* One Secret may hold both values only when the operator manages it and keeps them under distinct
 keys; a shared key would hand the KEK to the frontend, and a chart-generated Secret holds one key only. */ -}}
 {{- if eq (include "cda.installationKekSecretName" .) (include "cda.installationCanarySecretName" .) -}}
@@ -135,6 +146,14 @@ generates them now: a generated KEK Secret is retained after the KEK moves to an
 canary that named it would copy the KEK into the frontend. */ -}}
 {{- $generatedKek := printf "%s-installation-kek" (include "cda.fullname" .) -}}
 {{- $generatedCanary := printf "%s-installation-canary" (include "cda.fullname" .) -}}
+{{- /* A role's own generated name as existingSecret would drop that Secret from the release, and Helm
+would delete the Secret both pods mount. */ -}}
+{{- if eq .Values.installation.kek.existingSecret $generatedKek -}}
+{{- fail (printf "installation.kek.existingSecret must not name %s, its own generated Secret: leave existingSecret empty to keep using it" $generatedKek) -}}
+{{- end -}}
+{{- if eq .Values.installation.canary.existingSecret $generatedCanary -}}
+{{- fail (printf "installation.canary.existingSecret must not name %s, its own generated Secret: leave existingSecret empty to keep using it" $generatedCanary) -}}
+{{- end -}}
 {{- if eq .Values.installation.canary.existingSecret $generatedKek -}}
 {{- fail (printf "installation.canary.existingSecret must not name %s: the chart reserves that Secret for the installation KEK" $generatedKek) -}}
 {{- end -}}
@@ -203,8 +222,9 @@ Secret when existingSecret is set, otherwise the one the chart generates.
 
 {{/*
 The Secret data values (base64 of the 44-character text) of the installation Secrets, as YAML with
-keys "kek" and "canary". "kek" is also present for an operator-managed KEK Secret that lookup can read,
-so its checksum guards it the same way; "canary" is absent when that Secret is operator-managed.
+keys "kek" and "canary", plus "kekGenerated" when this render created a new KEK. An operator-managed
+Secret contributes its value whenever lookup can read it, so its KEK checksum guards it the same way and
+its canary checksum rolls both Deployments when it changes; the key is absent otherwise.
 
 The value is computed once per render and memoized in .Values, so the Secret templates and the pod
 checksum annotations all see the same random value; computing it per template would give each a
@@ -248,15 +268,19 @@ gets a new value.
 {{- fail (printf "Secret %s is missing, but backend %s already uses an installation KEK. Generating a new KEK or dropping its checksum would leave the database's installation credential unusable or unguarded: restore the backed-up Secret %s." $kekName $backendName $kekName) -}}
 {{- else if not .Values.installation.kek.existingSecret -}}
 {{- $_ := set $values "kek" (randBytes 32 | b64enc) -}}
+{{- $_ := set $values "kekGenerated" true -}}
 {{- end -}}
-{{- if not .Values.installation.canary.existingSecret -}}
 {{- $canaryName := include "cda.installationCanarySecretName" . -}}
 {{- $existing := lookup "v1" "Secret" .Release.Namespace $canaryName -}}
 {{- $value := "" -}}
 {{- if $existing -}}
 {{- $value = index ($existing.data | default dict) .Values.installation.canary.key | default "" -}}
 {{- end -}}
-{{- $_ := set $values "canary" ($value | default (randBytes 32 | b64enc)) -}}
+{{- if not .Values.installation.canary.existingSecret -}}
+{{- $value = $value | default (randBytes 32 | b64enc) -}}
+{{- end -}}
+{{- if $value -}}
+{{- $_ := set $values "canary" $value -}}
 {{- end -}}
 {{- $_ := set .Values "__installationSecretValues" $values -}}
 {{- end -}}
@@ -264,10 +288,25 @@ gets a new value.
 {{- end -}}
 
 {{/*
+Announced in NOTES.txt: a new KEK is correct for a new installation, but on a reused database it means
+the retained KEK was not found, typically after renaming the release or changing fullnameOverride. The
+backend then refuses to start until the original KEK is restored, so the operator is told at once.
+*/}}
+{{- define "cda.installationKekNotice" -}}
+{{- if (include "cda.installationSecretValues" . | fromYaml).kekGenerated -}}
+WARNING: this release generated a new installation KEK in Secret {{ include "cda.installationKekSecretName" . }}.
+Back it up with the database. If this release reuses an existing database (for example after renaming
+the release or changing fullnameOverride), the backend refuses to start with this KEK: set
+installation.kek.existingSecret to the retained KEK Secret and upgrade again.
+{{- end -}}
+{{- end -}}
+
+{{/*
 Init-container script that turns projected installation secrets into owner-only files.
 
 A projected Secret file is owned by root, so a non-root container can read it only through group or
-other permission bits; it cannot be both 0600 and readable by the runtime uid. The init container runs
+other permission bits; it cannot be both 0600 and readable by the runtime uid. The projection is 0444
+so it does not depend on the pod's fsGroup, and only this init container mounts it. The init container runs
 with the main container's security context, so the copy it writes into the in-memory emptyDir is owned
 by exactly the uid that reads it, and the script proves that before the pod starts. The format check
 makes every consumer see the same 44-character base64 text of 32 bytes, and a malformed operator

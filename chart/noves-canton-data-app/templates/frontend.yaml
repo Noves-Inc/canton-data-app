@@ -98,9 +98,9 @@ spec:
             defaultMode: 0444
             sources:
               - secret:
-                  name: {{ include "cda.installationCanarySecretName" . }}
+                  name: {{ include "cda.installationCanarySecretName" . | quote }}
                   items:
-                    - key: {{ .Values.installation.canary.key }}
+                    - key: {{ .Values.installation.canary.key | quote }}
                       path: canary-capability
         - name: installation-secrets
           emptyDir:

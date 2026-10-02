@@ -124,7 +124,7 @@ check(init["securityContext"] == main["securityContext"], "backend init containe
 check(init["securityContext"]["runAsUser"] == 1654, "backend runtime uid")
 volumes = {v["name"]: v for v in spec["volumes"]}
 sources = volumes["installation-secret-sources"]["projected"]
-check(sources["defaultMode"] == 0o440, "backend projected Secret mode")
+check(sources["defaultMode"] == 0o444, "backend projected Secret mode must not depend on fsGroup")
 projected = {s["secret"]["name"]: s["secret"]["items"] for s in sources["sources"]}
 check(projected == {
     "cda-installation-kek": [{"key": "installation-kek", "path": "kek"}],
@@ -238,8 +238,41 @@ PY
   expect_render_failure kek-references-generated-canary 'reserves' "$chart" \
     --set installation.canary.existingSecret=operator-canary \
     --set installation.kek.existingSecret=cda-installation-canary --set installation.kek.key=installation-canary-capability
-  render "$scratch/own-role.yaml" "$chart" \
-    --set installation.kek.existingSecret=cda-installation-kek --set installation.canary.existingSecret=cda-installation-canary
+  # Naming a role's own generated Secret would drop it from the release, and Helm would delete it.
+  expect_render_failure kek-own-generated-name 'own generated Secret' "$chart" \
+    --set installation.kek.existingSecret=cda-installation-kek
+  expect_render_failure canary-own-generated-name 'own generated Secret' "$chart" \
+    --set installation.canary.existingSecret=cda-installation-canary
+  # Secret names and keys must be Kubernetes names: a comment, whitespace or newline must not let a
+  # value parse as another Secret.
+  local field bad
+  for field in installation.kek.existingSecret installation.canary.existingSecret installation.kek.key installation.canary.key; do
+    local bad_values=('cda-installation-kek #' 'cda-installation-kek # x' ' operator' 'operator ' 'a b' 'a/b' 'a:b')
+    [[ "$field" == *existingSecret ]] && bad_values+=('Upper' 'a_b' '-a')
+    for bad in "${bad_values[@]}"; do
+      expect_render_failure "invalid-$field" "/${field//.//}" "$chart" --set-string "$field=$bad"
+    done
+  done
+  cat >"$scratch/newline-values.yaml" <<'YAML'
+installation:
+  canary:
+    existingSecret: "cda-installation-kek\nother"
+    key: installation-kek
+YAML
+  expect_render_failure invalid-newline-name '/installation/canary/existingSecret' "$chart" --values "$scratch/newline-values.yaml"
+  cat >"$scratch/newline-key.yaml" <<'YAML'
+installation:
+  kek:
+    key: "installation-kek\nother"
+YAML
+  expect_render_failure invalid-newline-key '/installation/kek/key' "$chart" --values "$scratch/newline-key.yaml"
+  # The template validation holds on its own, without the schema.
+  expect_render_failure invalid-name-without-schema 'must be a Kubernetes Secret name' "$chart" \
+    --skip-schema-validation --set-string 'installation.canary.existingSecret=cda-installation-kek #'
+  expect_render_failure invalid-key-without-schema 'must be a Kubernetes Secret key' "$chart" \
+    --skip-schema-validation --set-string 'installation.kek.key=a b'
+  # 4.1.3 values without a numeric fsGroup still render, because the source projection is 0444.
+  render "$scratch/no-fsgroup.yaml" "$chart" --set backend.podSecurityContext.fsGroup=null
   # The installation file variables are fixed: extraEnv cannot point the backend at another file.
   expect_render_failure extra-env-kek 'backend.extraEnv must not set INSTALLATION_KEK_FILE' "$chart" \
     --set 'backend.extraEnv[0].name=INSTALLATION_KEK_FILE' \
@@ -269,6 +302,15 @@ lookup_harness() {
   rm -rf "$scratch/harness"
   mkdir -p "$scratch/harness"
   cp -R "$chart" "$harness"
+  # helm template never renders NOTES.txt, so the KEK notice it includes is rendered through this file.
+  cat >"$harness/templates/notice-under-test.yaml" <<'YAML'
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: notice-under-test
+data:
+  notice: {{ include "cda.installationKekNotice" . | quote }}
+YAML
   python3 - "$harness" <<'PY'
 import pathlib, sys
 harness = pathlib.Path(sys.argv[1])
@@ -310,6 +352,8 @@ lookup_contracts() {
   write_lookup_state "$harness" '{}'
   render "$manifest" "$harness"
   assert_render "$manifest" lookup-first-install <<'PY'
+check("generated a new installation KEK" in find("ConfigMap", "notice-under-test")["data"]["notice"],
+      "a newly generated KEK must be announced")
 check(find("Secret", "cda-installation-kek") is not None, "first install generates the KEK")
 check(find("Secret", "cda-installation-canary") is not None, "first install generates the canary")
 PY
@@ -321,6 +365,7 @@ Secret/cda-installation-canary: {data: {installation-canary-capability: $canary_
 Deployment/cda-backend: {spec: {template: {metadata: {annotations: {noves.fi/installation-kek-secret: cda-installation-kek}}}}}"
   render "$manifest" "$harness"
   KEK_B64="$kek_b64" CANARY_B64="$canary_b64" assert_render "$manifest" lookup-upgrade <<'PY'
+check(find("ConfigMap", "notice-under-test")["data"]["notice"] == "", "a reused KEK must not be announced")
 check(find("Secret", "cda-installation-kek")["data"]["installation-kek"] == os.environ["KEK_B64"], "KEK not reused")
 check(find("Secret", "cda-installation-canary")["data"]["installation-canary-capability"] == os.environ["CANARY_B64"],
       "canary not reused on upgrade")
@@ -420,6 +465,19 @@ Secret/operator-kek: {data: {installation-kek: $canary_b64}}
 $live_backend"
   expect_render_failure lookup-missing-then-wrong-operator-restore 'does not match' "$harness" \
     --set installation.kek.existingSecret=operator-kek
+  # An operator-managed canary is checksummed into both Deployments, so changing it rolls both.
+  write_lookup_state "$harness" "Secret/operator-canary: {data: {installation-canary-capability: $canary_b64}}"
+  render "$manifest" "$harness" --set installation.canary.existingSecret=operator-canary
+  CANARY_B64="$canary_b64" assert_render "$manifest" lookup-operator-canary-checksum <<'PY'
+import hashlib
+expected = hashlib.sha256(base64.b64decode(os.environ["CANARY_B64"])).hexdigest()
+for component in ("backend", "frontend"):
+    check(pod(component)["metadata"]["annotations"].get("checksum/installation-canary") == expected,
+          f"{component} must carry the operator canary checksum")
+check(find("Secret", "operator-canary") is None and find("Secret", "cda-installation-canary") is None,
+      "an operator-managed canary is never rendered")
+PY
+
   # No live backend (first install with an operator-managed KEK): kubelet enforces the Secret's presence.
   write_lookup_state "$harness" '{}'
   render "$manifest" "$harness" --set installation.kek.existingSecret=operator-kek
@@ -478,7 +536,7 @@ PY
       ' sh "$@"
   }
 
-  run_init 1654 1654 1654 0440 backend-init.sh "kek=$valid" "canary-capability=$other" >"$scratch/backend-init.out" ||
+  run_init 1654 none 0 0444 backend-init.sh "kek=$valid" "canary-capability=$other" >"$scratch/backend-init.out" ||
     { cat "$scratch/backend-init.out" >&2; fail "[init-permissions] backend copy failed"; }
   grep -Fxq "/installation-secrets/kek 1654 600 $valid" "$scratch/backend-init.out" ||
     fail "[init-permissions] backend KEK copy: $(cat "$scratch/backend-init.out")"
@@ -490,21 +548,21 @@ PY
   [[ "$(cat "$scratch/frontend-init.out")" == "/installation-secrets/canary-capability 1000 600 $other" ]] ||
     fail "[init-permissions] frontend copy: $(cat "$scratch/frontend-init.out")"
 
-  if run_init 1654 1654 1654 0440 backend-init.sh "kek=${valid%?}" "canary-capability=$other" >"$scratch/short.out" 2>&1; then
+  if run_init 1654 none 0 0444 backend-init.sh "kek=${valid%?}" "canary-capability=$other" >"$scratch/short.out" 2>&1; then
     fail "[init-permissions] a 43-byte KEK was accepted"
   fi
   grep -Fq 'must be the base64 encoding of 32 bytes' "$scratch/short.out" || fail "[init-permissions] short KEK message"
-  if run_init 1654 1654 1654 0440 backend-init.sh "kek=$valid"$'\n' "canary-capability=$other" >"$scratch/newline.out" 2>&1; then
+  if run_init 1654 none 0 0444 backend-init.sh "kek=$valid"$'\n' "canary-capability=$other" >"$scratch/newline.out" 2>&1; then
     fail "[init-permissions] a KEK with a trailing newline was accepted"
   fi
-  if run_init 1654 1654 1654 0440 backend-init.sh "canary-capability=$other" >"$scratch/missing.out" 2>&1; then
+  if run_init 1654 none 0 0444 backend-init.sh "canary-capability=$other" >"$scratch/missing.out" 2>&1; then
     fail "[init-permissions] a missing KEK was accepted"
   fi
   grep -Fq 'Installation secret kek is missing' "$scratch/missing.out" || fail "[init-permissions] missing KEK message"
-  # Without the fsGroup the backend uid cannot read the 0440 projection: the pod stops instead of starting without a KEK.
-  if run_init 1654 none 0 0440 backend-init.sh "kek=$valid" "canary-capability=$other" >"$scratch/nofsgroup.out" 2>&1; then
-    fail "[init-permissions] the backend copied a Secret it should not be able to read"
-  fi
+  # The 0444 projection does not depend on fsGroup; the copies stay owner-only either way.
+  run_init 1654 1654 0 0444 backend-init.sh "kek=$valid" "canary-capability=$other" >"$scratch/fsgroup.out" ||
+    { cat "$scratch/fsgroup.out" >&2; fail "[init-permissions] backend copy with fsGroup failed"; }
+  grep -Fxq "/installation-secrets/kek 1654 600 $valid" "$scratch/fsgroup.out" || fail "[init-permissions] backend copy with fsGroup"
 }
 
 case "${1:-all}" in

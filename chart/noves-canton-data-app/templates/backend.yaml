@@ -300,21 +300,21 @@ spec:
         - name: nodes
           configMap:
             name: {{ include "cda.fullname" . }}-nodes
-        # Read only by the installation-secrets init container. Group read is enough because the pod's
-        # fsGroup is the backend group.
+        # Read only by the installation-secrets init container. Mode 0444 keeps the copy independent of
+        # the pod's fsGroup; the files the backend reads are the init container's 0600 copies.
         - name: installation-secret-sources
           projected:
-            defaultMode: 0440
+            defaultMode: 0444
             sources:
               - secret:
-                  name: {{ include "cda.installationKekSecretName" . }}
+                  name: {{ include "cda.installationKekSecretName" . | quote }}
                   items:
-                    - key: {{ .Values.installation.kek.key }}
+                    - key: {{ .Values.installation.kek.key | quote }}
                       path: kek
               - secret:
-                  name: {{ include "cda.installationCanarySecretName" . }}
+                  name: {{ include "cda.installationCanarySecretName" . | quote }}
                   items:
-                    - key: {{ .Values.installation.canary.key }}
+                    - key: {{ .Values.installation.canary.key | quote }}
                       path: canary-capability
         - name: installation-secrets
           emptyDir:
