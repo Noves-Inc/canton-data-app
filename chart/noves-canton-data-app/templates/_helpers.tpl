@@ -130,6 +130,24 @@ keys; a shared key would hand the KEK to the frontend, and a chart-generated Sec
 {{- fail "installation.kek and installation.canary must not share a Secret key, or a Secret the chart generates: the frontend would receive the KEK" -}}
 {{- end -}}
 {{- end -}}
+{{- /* The canonical generated Secret names stay reserved to their role whether or not the chart
+generates them now: a generated KEK Secret is retained after the KEK moves to an operator Secret, so a
+canary that named it would copy the KEK into the frontend. */ -}}
+{{- $generatedKek := printf "%s-installation-kek" (include "cda.fullname" .) -}}
+{{- $generatedCanary := printf "%s-installation-canary" (include "cda.fullname" .) -}}
+{{- if eq .Values.installation.canary.existingSecret $generatedKek -}}
+{{- fail (printf "installation.canary.existingSecret must not name %s: the chart reserves that Secret for the installation KEK" $generatedKek) -}}
+{{- end -}}
+{{- if eq .Values.installation.kek.existingSecret $generatedCanary -}}
+{{- fail (printf "installation.kek.existingSecret must not name %s: the chart reserves that Secret for the canary capability" $generatedCanary) -}}
+{{- end -}}
+{{- /* The installation file variables are fixed: pointing the backend at another file would encrypt the
+signing key with a value that is not the retained KEK. */ -}}
+{{- range $entry := .Values.backend.extraEnv -}}
+{{- if has $entry.name (list "INSTALLATION_KEK_FILE" "INSTALLATION_CANARY_CAPABILITY_FILE") -}}
+{{- fail (printf "backend.extraEnv must not set %s: the chart fixes it to the copied installation secret" $entry.name) -}}
+{{- end -}}
+{{- end -}}
 {{- /* The installation annotations carry the lost-KEK check and the restart checksums. */ -}}
 {{- range $annotation := list "noves.fi/installation-kek-secret" "checksum/installation-kek" "checksum/installation-canary" -}}
 {{- if hasKey $.Values.podAnnotations $annotation -}}
@@ -200,8 +218,9 @@ on a database that already holds installation material leaves the backend unable
 credential. Two states are render failures instead of regeneration:
 - the Secret exists without its key, or holds a value other than the one the live backend copied (its
   pod template carries the value's checksum);
-- the Secret is gone while the release's live backend depends on a KEK (its pod template names the
-  Secret), which is a lost Secret next to a retained database.
+- the selected Secret, generated or operator-managed, is gone while the release's live backend depends
+  on a KEK (its pod template names a KEK Secret or carries a KEK checksum), which is a lost Secret next
+  to a retained database; rendering on would also drop the checksum that detects a wrong restore.
 A live backend that names no KEK Secret has never had one, so the value is generated.
 
 Canary rules. The capability carries no stored state: lookup reuses it, and a missing Secret or key
@@ -225,10 +244,9 @@ gets a new value.
 {{- fail (printf "Secret %s key %s does not match the KEK that backend %s copied. The database's installation credential is encrypted with that KEK: restore the backed-up value." $kekName $key $backendName) -}}
 {{- end -}}
 {{- $_ := set $values "kek" $value -}}
+{{- else if or (dig "spec" "template" "metadata" "annotations" "noves.fi/installation-kek-secret" "" $backend) (dig "spec" "template" "metadata" "annotations" "checksum/installation-kek" "" $backend) -}}
+{{- fail (printf "Secret %s is missing, but backend %s already uses an installation KEK. Generating a new KEK or dropping its checksum would leave the database's installation credential unusable or unguarded: restore the backed-up Secret %s." $kekName $backendName $kekName) -}}
 {{- else if not .Values.installation.kek.existingSecret -}}
-{{- if dig "spec" "template" "metadata" "annotations" "noves.fi/installation-kek-secret" "" $backend -}}
-{{- fail (printf "Secret %s is missing, but backend %s already uses an installation KEK. Generating a new KEK would leave the database's installation credential unusable: restore the backed-up Secret %s, or name an operator-managed Secret in installation.kek.existingSecret." $kekName $backendName $kekName) -}}
-{{- end -}}
 {{- $_ := set $values "kek" (randBytes 32 | b64enc) -}}
 {{- end -}}
 {{- if not .Values.installation.canary.existingSecret -}}

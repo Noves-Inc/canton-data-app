@@ -227,6 +227,28 @@ PY
     --set installation.canary.existingSecret=cda-installation-kek
   render "$scratch/distinct-keys.yaml" "$chart" \
     --set installation.kek.existingSecret=shared --set installation.canary.existingSecret=shared
+  # Canonical generated names stay reserved to their role across transitions: once the KEK moves to an
+  # operator Secret, the retained generated KEK Secret must not become the canary source.
+  expect_render_failure canary-references-retained-kek 'reserves' "$chart" \
+    --set installation.kek.existingSecret=operator-kek \
+    --set installation.canary.existingSecret=cda-installation-kek --set installation.canary.key=installation-kek
+  expect_render_failure canary-references-retained-kek-other-key 'reserves' "$chart" \
+    --set installation.kek.existingSecret=operator-kek \
+    --set installation.canary.existingSecret=cda-installation-kek --set installation.canary.key=other
+  expect_render_failure kek-references-generated-canary 'reserves' "$chart" \
+    --set installation.canary.existingSecret=operator-canary \
+    --set installation.kek.existingSecret=cda-installation-canary --set installation.kek.key=installation-canary-capability
+  render "$scratch/own-role.yaml" "$chart" \
+    --set installation.kek.existingSecret=cda-installation-kek --set installation.canary.existingSecret=cda-installation-canary
+  # The installation file variables are fixed: extraEnv cannot point the backend at another file.
+  expect_render_failure extra-env-kek 'backend.extraEnv must not set INSTALLATION_KEK_FILE' "$chart" \
+    --set 'backend.extraEnv[0].name=INSTALLATION_KEK_FILE' \
+    --set 'backend.extraEnv[0].value=/installation-secrets/canary-capability'
+  expect_render_failure extra-env-canary 'backend.extraEnv must not set INSTALLATION_CANARY_CAPABILITY_FILE' "$chart" \
+    --set 'backend.extraEnv[0].name=OTHER' --set 'backend.extraEnv[0].value=x' \
+    --set 'backend.extraEnv[1].name=INSTALLATION_CANARY_CAPABILITY_FILE' \
+    --set 'backend.extraEnv[1].value=/installation-secrets/kek'
+  render "$scratch/extra-env.yaml" "$chart" --set 'backend.extraEnv[0].name=OTHER' --set 'backend.extraEnv[0].value=x'
   local reserved
   for reserved in noves.fi/installation-kek-secret checksum/installation-kek checksum/installation-canary; do
     expect_render_failure "reserved-$reserved" 'the chart reserves it' "$chart" \
@@ -383,8 +405,23 @@ PY
   expect_render_failure lookup-existing-missing-key 'exists without key' "$harness" \
     --set installation.kek.existingSecret=operator-kek --set installation.kek.key=absent
 
-  # An operator-managed KEK skips the lost-Secret check: kubelet enforces its presence.
-  write_lookup_state "$harness" "Deployment/cda-backend: {spec: {template: {metadata: {annotations: {noves.fi/installation-kek-secret: cda-installation-kek}}}}}"
+  # A selected operator-managed KEK Secret that is absent while the live backend depends on a KEK fails
+  # rendering, so the checksum survives and a later wrong restore is still detected.
+  write_lookup_state "$harness" "$live_backend"
+  expect_render_failure lookup-missing-operator-kek 'operator-kek is missing' "$harness" --set installation.kek.existingSecret=operator-kek
+  write_lookup_state "$harness" "Deployment/cda-backend: {spec: {template: {metadata: {annotations: {checksum/installation-kek: $kek_digest}}}}}"
+  expect_render_failure lookup-missing-operator-kek-checksum-only 'operator-kek is missing' "$harness" \
+    --set installation.kek.existingSecret=operator-kek
+  write_lookup_state "$harness" "Deployment/cda-backend: {spec: {template: {metadata: {annotations: {noves.fi/installation-kek-secret: operator-kek}}}}}"
+  expect_render_failure lookup-missing-operator-kek-marker-only 'operator-kek is missing' "$harness" \
+    --set installation.kek.existingSecret=operator-kek
+  write_lookup_state "$harness" "
+Secret/operator-kek: {data: {installation-kek: $canary_b64}}
+$live_backend"
+  expect_render_failure lookup-missing-then-wrong-operator-restore 'does not match' "$harness" \
+    --set installation.kek.existingSecret=operator-kek
+  # No live backend (first install with an operator-managed KEK): kubelet enforces the Secret's presence.
+  write_lookup_state "$harness" '{}'
   render "$manifest" "$harness" --set installation.kek.existingSecret=operator-kek
 }
 
