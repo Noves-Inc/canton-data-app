@@ -24,6 +24,13 @@ spec:
         # The KEK Secret this backend depends on. installation-kek-secret.yaml reads it from the live
         # Deployment to tell a lost Secret from an installation that never had one.
         noves.fi/installation-kek-secret: {{ include "cda.installationKekSecretName" . | quote }}
+        {{- $installationSecrets := include "cda.installationSecretValues" . | fromYaml }}
+        {{- with $installationSecrets.kek }}
+        checksum/installation-kek: {{ b64dec . | sha256sum }}
+        {{- end }}
+        {{- with $installationSecrets.canary }}
+        checksum/installation-canary: {{ b64dec . | sha256sum }}
+        {{- end }}
         {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}

@@ -79,8 +79,8 @@ accounting_key="$(sed -n 's/^ACCOUNTING_TOKEN_ENCRYPTION_KEY=//p' "$accounting_e
 [[ "$accounting_key" =~ ^[A-Za-z0-9+/]{43}=$ ]] ||
   die "$accounting_env_file must contain a 32-byte base64 ACCOUNTING_TOKEN_ENCRYPTION_KEY."
 chmod 600 "$accounting_env_file"
-generate_installation_secret_files .state ||
-  die "The installation secret files could not be prepared."
+generate_installation_kek .state ||
+  die "The installation KEK could not be prepared."
 
 ensure_env_secret() {
   local key="$1"
@@ -144,6 +144,10 @@ docker compose --env-file .env -f compose.yaml pull ||
   die "Could not pull the Noves Data App images. Log in to the configured registries and retry."
 prepare_export_volume .env compose.yaml ||
   die "Could not prepare the export volume for backend user 1654."
+docker compose --env-file .env -f compose.yaml stop backend frontend ||
+  die "Could not stop the backend and frontend before replacing the canary capability."
+publish_installation_canary .state ||
+  die "The installation canary capability could not be written."
 secure_installation_secret_files .env compose.yaml "$PWD/.state" ||
   die "Could not assign the installation secret files to backend user 1654 and frontend user 1000."
 verify_installation_secret_access .env -f compose.yaml ||
@@ -170,8 +174,8 @@ if ((${#canton_certificate_container_paths[@]})); then
       die "The backend container user cannot read certificate file: $certificate_path"
   done
 fi
-# Every run writes a new canary capability, and a running container keeps the file it mounted, so
-# both of its readers are recreated together and always hold the same value.
+# Both readers of the canary capability were stopped before it was replaced and start together here,
+# so they always hold the same value.
 docker compose --env-file .env -f compose.yaml up -d --force-recreate backend frontend
 backend_port="$(env_value BACKEND_PORT)"
 backend_port="${backend_port:-8090}"

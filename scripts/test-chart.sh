@@ -94,12 +94,25 @@ check(kek["metadata"].get("annotations", {}).get("helm.sh/resource-policy") == "
 check("helm.sh/resource-policy" not in (canary["metadata"].get("annotations") or {}),
       "canary Secret must be deleted on uninstall so a reinstall rotates it")
 check(list(kek["data"]) == ["installation-kek"], "KEK Secret keys")
+check(kek.get("immutable") is True, "the generated KEK Secret must be immutable so no apply can replace its value")
+check("immutable" not in canary, "the canary Secret must stay replaceable")
 check(list(canary["data"]) == ["installation-canary-capability"], "canary Secret keys")
 check(secret_value(kek, "installation-kek") != secret_value(canary, "installation-canary-capability"),
       "KEK and canary must be independent values")
 
 backend = pod("backend")
 spec = backend["spec"]
+import hashlib
+def digest(secret, key):
+    return hashlib.sha256(base64.b64decode(secret["data"][key])).hexdigest()
+annotations = backend["metadata"]["annotations"]
+check(annotations.get("checksum/installation-kek") == digest(kek, "installation-kek"),
+      "backend pod template must change when the KEK value changes")
+check(annotations.get("checksum/installation-canary") == digest(canary, "installation-canary-capability"),
+      "backend pod template must change when the canary value changes")
+check(pod("frontend")["metadata"]["annotations"].get("checksum/installation-canary") ==
+      digest(canary, "installation-canary-capability"), "frontend pod template must change with the canary value")
+check("checksum/installation-kek" not in pod("frontend")["metadata"]["annotations"], "frontend must not depend on the KEK")
 check(backend["metadata"]["annotations"].get("noves.fi/installation-kek-secret") == "cda-installation-kek",
       "backend pod template does not record the KEK Secret it depends on")
 inits = {c["name"]: c for c in spec["initContainers"]}
@@ -172,6 +185,8 @@ existing_secret_contracts() {
 check(find("Secret", "cda-installation-kek") is None, "KEK Secret rendered despite existingSecret")
 check(find("Secret", "cda-installation-canary") is None, "canary Secret rendered despite existingSecret")
 backend = pod("backend")
+check(not any(k.startswith("checksum/installation-") for k in backend["metadata"]["annotations"]),
+      "operator-managed values cannot be checksummed by the chart")
 check(backend["metadata"]["annotations"]["noves.fi/installation-kek-secret"] == "operator-kek", "KEK marker")
 sources = {v["name"]: v for v in backend["spec"]["volumes"]}["installation-secret-sources"]["projected"]["sources"]
 check({s["secret"]["name"]: s["secret"]["items"] for s in sources} == {
@@ -199,6 +214,15 @@ check(pod("frontend") and find("Deployment", "cda-frontend")["spec"]["replicas"]
 check(len([d for d in docs if d.get("kind") == "Secret" and "installation-canary" in d["metadata"]["name"]]) == 1,
       "every frontend replica must share one canary Secret")
 PY
+  expect_render_failure shared-secret-key 'must not share' "$chart" \
+    --set installation.kek.existingSecret=shared --set installation.kek.key=value \
+    --set installation.canary.existingSecret=shared --set installation.canary.key=value
+  expect_render_failure kek-names-canary-secret 'must not share' "$chart" \
+    --set installation.kek.existingSecret=cda-installation-canary --set installation.kek.key=installation-canary-capability
+  expect_render_failure canary-names-kek-secret 'must not share' "$chart" \
+    --set installation.canary.existingSecret=cda-installation-kek --set installation.canary.key=installation-kek
+  render "$scratch/distinct-keys.yaml" "$chart" \
+    --set installation.kek.existingSecret=shared --set installation.canary.existingSecret=shared
   expect_render_failure backend-replicas '/backend/replicaCount' "$chart" --set backend.replicaCount=2
   expect_render_failure schema-unknown 'installation' "$chart" --set installation.kek.extra=1
   expect_render_failure schema-empty-key 'installation' "$chart" --set installation.kek.key=
@@ -218,22 +242,25 @@ lookup_harness() {
 import pathlib, sys
 harness = pathlib.Path(sys.argv[1])
 replacements = {
-    'lookup "v1" "Secret" .Release.Namespace $name':
-        '(index (.Files.Get "lookup-state.yaml" | fromYaml) (printf "Secret/%s" $name) | default dict)',
+    'lookup "v1" "Secret" .Release.Namespace $kekName':
+        '(index (.Files.Get "lookup-state.yaml" | fromYaml) (printf "Secret/%s" $kekName) | default dict)',
+    'lookup "v1" "Secret" .Release.Namespace $canaryName':
+        '(index (.Files.Get "lookup-state.yaml" | fromYaml) (printf "Secret/%s" $canaryName) | default dict)',
     'lookup "apps/v1" "Deployment" .Release.Namespace $backendName':
         '(index (.Files.Get "lookup-state.yaml" | fromYaml) (printf "Deployment/%s" $backendName) | default dict)',
 }
 counts = {key: 0 for key in replacements}
-for path in (harness / "templates").glob("installation-*.yaml"):
-    text = path.read_text()
-    for old, new in replacements.items():
-        counts[old] += text.count(old)
-        text = text.replace(old, new)
-    path.write_text(text)
-expected = {list(replacements)[0]: 2, list(replacements)[1]: 1}
-if counts != expected:
+path = harness / "templates" / "_helpers.tpl"
+text = path.read_text()
+for old, new in replacements.items():
+    counts[old] += text.count(old)
+    text = text.replace(old, new)
+path.write_text(text)
+expected = {key: 1 for key in replacements}
+if counts != expected or 'lookup "' in text:
     raise SystemExit(f"FAIL [lookup-harness]: substitutions {counts}, expected {expected}")
 PY
+  [[ $? -eq 0 ]] || exit 1
   printf '%s\n' "$harness"
 }
 
@@ -244,7 +271,7 @@ write_lookup_state() {
 lookup_contracts() {
   local harness manifest="$scratch/lookup.yaml"
   local kek_b64 canary_b64
-  harness="$(lookup_harness)"
+  harness="$(lookup_harness)" || fail "lookup harness could not be built"
   # Base64 of the 44-byte text values the Secret data would hold.
   kek_b64="$(printf '%s' 'S0VLS0VLS0VLS0VLS0VLS0VLS0VLS0VLS0VLS0VLS0U=' | base64 | tr -d '\n')"
   canary_b64="$(printf '%s' 'Q0FOQVJZQ0FOQVJZQ0FOQVJZQ0FOQVJZQ0FOQVJZQ0E=' | base64 | tr -d '\n')"
@@ -266,6 +293,12 @@ Deployment/cda-backend: {spec: {template: {metadata: {annotations: {noves.fi/ins
 check(find("Secret", "cda-installation-kek")["data"]["installation-kek"] == os.environ["KEK_B64"], "KEK not reused")
 check(find("Secret", "cda-installation-canary")["data"]["installation-canary-capability"] == os.environ["CANARY_B64"],
       "canary not reused on upgrade")
+import hashlib
+for component in ("backend", "frontend"):
+    check(pod(component)["metadata"]["annotations"]["checksum/installation-canary"] ==
+          hashlib.sha256(base64.b64decode(os.environ["CANARY_B64"])).hexdigest(), f"{component} canary checksum on upgrade")
+check(pod("backend")["metadata"]["annotations"]["checksum/installation-kek"] ==
+      hashlib.sha256(base64.b64decode(os.environ["KEK_B64"])).hexdigest(), "backend KEK checksum on upgrade")
 PY
 
   # Reinstall after uninstall: the kept KEK is adopted, the deleted canary is regenerated.

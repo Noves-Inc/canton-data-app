@@ -14,7 +14,7 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
 assert_file_equals() { cmp -s "$1" "$2" || fail "$1 differs from $2"; }
 assert_contains() { grep -Fq -- "$2" "$1" || fail "$1 does not contain $2"; }
 assert_not_contains() { ! grep -Fq -- "$2" "$1" || fail "$1 unexpectedly contains $2"; }
-first_line_number() { grep -Fn -- "$2" "$1" | head -1 | cut -d: -f1; }
+first_line_number() { { grep -Fn -- "$2" "$1" || true; } | head -1 | cut -d: -f1; }
 assert_before() {
   local first second
   first="$(first_line_number "$1" "$2")"
@@ -178,7 +178,8 @@ installation_secret_contracts() {
   assert_not_contains "$log" '/.state:/state'
   assert_contains "$log" 'run --rm --no-deps --entrypoint /bin/sh backend'
   assert_contains "$log" 'run --rm --no-deps --entrypoint /bin/sh frontend'
-  assert_before "$log" ' compose --env-file .env -f compose.yaml pull' '/state/installation-kek'
+  assert_before "$log" ' compose --env-file .env -f compose.yaml pull' 'compose.yaml stop backend frontend'
+  assert_before "$log" 'compose.yaml stop backend frontend' '/state/installation-kek'
   assert_before "$log" '/state/installation-kek' 'entrypoint /bin/sh frontend'
   assert_before "$log" 'entrypoint /bin/sh frontend' 'compose.yaml up -d'
   assert_contains "$log" 'docker compose --env-file .env -f compose.yaml up -d --force-recreate backend frontend'
@@ -191,6 +192,24 @@ installation_secret_contracts() {
   [[ "$(cat "$backend")" != "$canary_before" ]] || fail "a rerun kept the canary capability"
   cmp -s "$backend" "$frontend" || fail "the rerun canary copies differ"
   assert_installation_secret "$backend"
+
+  # A run that fails before the readers are stopped leaves the published canary untouched.
+  canary_before="$(cat "$backend")"
+  : >"$log"
+  if FAKE_DOCKER_FAIL='compose.yaml pull' INSTALLER_LOG="$log" PATH="$bin:$PATH" \
+    "$root/scripts/install-compose.sh" --directory "$install_dir" >"$scratch/pull-fail.out" 2>&1; then
+    fail "the installer succeeded although the pull failed"
+  fi
+  [[ "$(cat "$backend")" == "$canary_before" && "$(cat "$frontend")" == "$canary_before" ]] ||
+    fail "a failed run replaced the canary while the containers kept the previous one"
+
+  # The KEK is created only if absent: an existing file is never replaced, even by a racing installer.
+  printf '%s' "$kek_before" >"$scratch/existing-kek"
+  if create_installation_secret_file_exclusive "$scratch/existing-kek" 'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB='; then
+    fail "exclusive creation replaced an existing KEK"
+  fi
+  [[ "$(cat "$scratch/existing-kek")" == "$kek_before" ]] || fail "exclusive creation changed an existing KEK"
+  [[ -z "$(find "$scratch" -maxdepth 1 -name '.installation-secret.*' -print -quit)" ]] || fail "exclusive creation left a temporary file"
 
   # A retained KEK is never rewritten, even when malformed; the root step rejects it on a real host.
   printf 'short' >"$kek"
@@ -319,6 +338,7 @@ compose_contracts() {
 cat >"$bin/docker" <<'EOF'
 #!/usr/bin/env bash
 printf 'docker %s\n' "$*" >>"$INSTALLER_LOG"
+if [[ -n "${FAKE_DOCKER_FAIL:-}" && "docker $*" == *"$FAKE_DOCKER_FAIL"* ]]; then exit 1; fi
 case "$1 $2" in
   'compose version') exit 0 ;;
   'network inspect') exit 0 ;;
@@ -490,6 +510,8 @@ EOF
   assert_contains "$log" 'docker run --rm --network none --user 0:0'
   assert_before "$log" '/state/installation-kek' 'compose.migrate-v3.yaml run --rm --no-deps --entrypoint /bin/sh frontend'
   assert_before "$log" 'entrypoint /bin/sh frontend' 'compose.migrate-v3.yaml up -d'
+  assert_before "$log" 'compose.migrate-v3.yaml stop backend frontend' '/state/installation-kek'
+  assert_contains "$log" 'compose.migrate-v3.yaml up -d --force-recreate backend frontend'
 
   write_migration_fixture
   printf '%s\n' '{"nodes":{"fallback":{"addr":"participant:5001"}}}' >"$compose_dir/.state/nodes-config.json"

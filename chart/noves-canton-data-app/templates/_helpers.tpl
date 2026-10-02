@@ -123,6 +123,9 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- if not .Values.database.existingSecret -}}
 {{- fail "database.existingSecret is required" -}}
 {{- end -}}
+{{- if and (eq (include "cda.installationKekSecretName" .) (include "cda.installationCanarySecretName" .)) (eq .Values.installation.kek.key .Values.installation.canary.key) -}}
+{{- fail "installation.kek and installation.canary must not share a Secret key: the frontend would receive the KEK" -}}
+{{- end -}}
 {{- range $field, $value := dict
   "m2mIndexing.ledgerApiUserKey" .Values.m2mIndexing.ledgerApiUserKey
   "m2mIndexing.tokenEndpointKey" .Values.m2mIndexing.tokenEndpointKey
@@ -168,6 +171,61 @@ Secret when existingSecret is set, otherwise the one the chart generates.
 
 {{- define "cda.installationCanarySecretName" -}}
 {{- default (printf "%s-installation-canary" (include "cda.fullname" .)) .Values.installation.canary.existingSecret -}}
+{{- end -}}
+
+{{/*
+The Secret data values (base64 of the 44-character text) of the chart-generated installation Secrets,
+as YAML with keys "kek" and "canary"; a key is absent when that Secret is operator-managed.
+
+The value is computed once per render and memoized in .Values, so the Secret templates and the pod
+checksum annotations all see the same random value; computing it per template would give each a
+different one. The pod templates carry a checksum of each value, so a regenerated canary or a restored
+KEK recreates the pods that copied the previous value.
+
+KEK rules. The Secret is reused through lookup and is never replaced on its own initiative: a new value
+on a database that already holds installation material leaves the backend unable to use its
+credential. Two states are render failures instead of regeneration:
+- the Secret exists without its key;
+- the Secret is gone while the release's live backend depends on a KEK (its pod template names the
+  Secret), which is a lost Secret next to a retained database.
+A live backend that names no KEK Secret has never had one, so the value is generated.
+
+Canary rules. The capability carries no stored state: lookup reuses it, and a missing Secret or key
+gets a new value.
+*/}}
+{{- define "cda.installationSecretValues" -}}
+{{- if not (hasKey .Values "__installationSecretValues") -}}
+{{- $values := dict -}}
+{{- if not .Values.installation.kek.existingSecret -}}
+{{- $kekName := include "cda.installationKekSecretName" . -}}
+{{- $key := .Values.installation.kek.key -}}
+{{- $backendName := printf "%s-backend" (include "cda.fullname" .) -}}
+{{- $existing := lookup "v1" "Secret" .Release.Namespace $kekName -}}
+{{- $backend := lookup "apps/v1" "Deployment" .Release.Namespace $backendName -}}
+{{- if $existing -}}
+{{- $value := index ($existing.data | default dict) $key | default "" -}}
+{{- if not $value -}}
+{{- fail (printf "Secret %s exists without key %s. The installation KEK is never regenerated: restore the backed-up value into that key, or name an operator-managed Secret in installation.kek.existingSecret." $kekName $key) -}}
+{{- end -}}
+{{- $_ := set $values "kek" $value -}}
+{{- else if dig "spec" "template" "metadata" "annotations" "noves.fi/installation-kek-secret" "" $backend -}}
+{{- fail (printf "Secret %s is missing, but backend %s already uses an installation KEK. Generating a new KEK would leave the database's installation credential unusable: restore the backed-up Secret %s, or name an operator-managed Secret in installation.kek.existingSecret." $kekName $backendName $kekName) -}}
+{{- else -}}
+{{- $_ := set $values "kek" (randBytes 32 | b64enc) -}}
+{{- end -}}
+{{- end -}}
+{{- if not .Values.installation.canary.existingSecret -}}
+{{- $canaryName := include "cda.installationCanarySecretName" . -}}
+{{- $existing := lookup "v1" "Secret" .Release.Namespace $canaryName -}}
+{{- $value := "" -}}
+{{- if $existing -}}
+{{- $value = index ($existing.data | default dict) .Values.installation.canary.key | default "" -}}
+{{- end -}}
+{{- $_ := set $values "canary" ($value | default (randBytes 32 | b64enc)) -}}
+{{- end -}}
+{{- $_ := set .Values "__installationSecretValues" $values -}}
+{{- end -}}
+{{- toYaml (get .Values "__installationSecretValues") -}}
 {{- end -}}
 
 {{/*

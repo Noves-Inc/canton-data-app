@@ -12,7 +12,9 @@
 # The canary capability authorizes the frontend's server-side canary call to the backend. It carries no
 # stored state, so every installer run writes a new value. The backend and the frontend run as
 # different uids and each file must be owner-only, so the same value is written as two copies, one per
-# container.
+# container. A running container keeps the file it mounted, so the copies are replaced only while both
+# readers are stopped, right before both are recreated: a run that fails earlier leaves the files the
+# running containers hold.
 #
 # Every file holds exactly 44 bytes: the base64 encoding of 32 random bytes, with no newline.
 
@@ -42,7 +44,17 @@ write_installation_secret_file() {
   fi
 }
 
-generate_installation_secret_files() {
+# Publishes the value only if the path does not exist yet. A hard link fails atomically on an existing
+# name, so two installers racing on a first install cannot replace a KEK the other already published.
+create_installation_secret_file_exclusive() {
+  local path="$1" value="$2" temporary status=0
+  temporary="$(umask 077 && mktemp "$(dirname "$path")/.installation-secret.XXXXXX")" || return 1
+  { chmod 600 "$temporary" && printf '%s' "$value" >"$temporary" && ln "$temporary" "$path"; } 2>/dev/null || status=1
+  rm -f "$temporary"
+  return "$status"
+}
+
+generate_installation_kek() {
   local state_dir="$1" name path value
   local kek="$state_dir/installation-kek" record="$state_dir/installation-kek.created"
 
@@ -68,13 +80,19 @@ generate_installation_secret_files() {
       return 1
     fi
     value="$(new_installation_secret_value)" || return 1
-    write_installation_secret_file "$kek" "$value" || return 1
+    if ! create_installation_secret_file_exclusive "$kek" "$value"; then
+      [[ -f "$kek" && ! -L "$kek" ]] || return 1
+    fi
   fi
   if [[ ! -e "$record" ]]; then
     printf 'The installation KEK in installation-kek was provisioned for this installation. Back it up with the database.\n' \
       >"$record" || return 1
   fi
+}
 
+# Call only after both readers are stopped. Arguments: the .state directory.
+publish_installation_canary() {
+  local state_dir="$1" value
   value="$(new_installation_secret_value)" || return 1
   write_installation_secret_file "$state_dir/installation-canary-backend" "$value" || return 1
   write_installation_secret_file "$state_dir/installation-canary-frontend" "$value" || return 1
