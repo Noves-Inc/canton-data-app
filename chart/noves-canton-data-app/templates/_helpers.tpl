@@ -157,3 +157,49 @@ render "0" (unevaluated) until the operator states the size in the tuning block.
 {{- .Values.database.persistence.size | toString -}}
 {{- end -}}
 {{- end -}}
+
+{{/*
+Secrets the pods read the installation KEK and the canary capability from: the operator-managed
+Secret when existingSecret is set, otherwise the one the chart generates.
+*/}}
+{{- define "cda.installationKekSecretName" -}}
+{{- default (printf "%s-installation-kek" (include "cda.fullname" .)) .Values.installation.kek.existingSecret -}}
+{{- end -}}
+
+{{- define "cda.installationCanarySecretName" -}}
+{{- default (printf "%s-installation-canary" (include "cda.fullname" .)) .Values.installation.canary.existingSecret -}}
+{{- end -}}
+
+{{/*
+Init-container script that turns projected installation secrets into owner-only files.
+
+A projected Secret file is owned by root, so a non-root container can read it only through group or
+other permission bits; it cannot be both 0600 and readable by the runtime uid. The init container runs
+with the main container's security context, so the copy it writes into the in-memory emptyDir is owned
+by exactly the uid that reads it, and the script proves that before the pod starts. The format check
+makes every consumer see the same 44-character base64 text of 32 bytes, and a malformed operator
+Secret stops the pod instead of reaching the backend. Argument: the list of file names to copy.
+*/}}
+{{- define "cda.installationSecretCopyScript" -}}
+set -eu
+umask 077
+for name in {{ join " " . }}; do
+  source="/installation-secret-sources/$name"
+  target="/installation-secrets/$name"
+  if [ ! -f "$source" ]; then
+    echo "Installation secret $name is missing from its Secret." >&2
+    exit 1
+  fi
+  if [ "$(wc -c <"$source" | tr -d ' ')" != 44 ] || ! grep -Eqx '[A-Za-z0-9+/]{43}=' "$source"; then
+    echo "Installation secret $name must be the base64 encoding of 32 bytes: 44 characters and no newline." >&2
+    exit 1
+  fi
+  cp "$source" "$target.tmp"
+  chmod 0600 "$target.tmp"
+  mv -f "$target.tmp" "$target"
+  if [ "$(stat -c '%u %a' "$target")" != "$(id -u) 600" ]; then
+    echo "Installation secret $name is not owner-only for uid $(id -u)." >&2
+    exit 1
+  fi
+done
+{{- end -}}

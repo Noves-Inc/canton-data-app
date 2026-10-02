@@ -90,6 +90,15 @@
         }
       }
     },
+    "installation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kek", "canary"],
+      "properties": {
+        "kek": { "$ref": "#/$defs/installationSecret" },
+        "canary": { "$ref": "#/$defs/installationSecret" }
+      }
+    },
     "canton": {
       "type": "object",
       "additionalProperties": false,
@@ -233,6 +242,7 @@
     "exports",
     "backup",
     "accounting",
+    "installation",
     "canton",
     "m2mIndexing",
     "oidc",
@@ -241,6 +251,15 @@
     "networkPolicy"
   ],
   "$defs": {
+    "installationSecret": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["existingSecret", "key"],
+      "properties": {
+        "existingSecret": { "type": "string" },
+        "key": { "type": "string", "minLength": 1 }
+      }
+    },
     "cantonNode": {
       "type": "object",
       "additionalProperties": false,

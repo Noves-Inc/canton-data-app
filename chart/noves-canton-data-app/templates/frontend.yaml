@@ -32,6 +32,23 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      initContainers:
+        - name: installation-secrets
+          image: {{ include "cda.image" .Values.frontend.image | quote }}
+          imagePullPolicy: {{ .Values.frontend.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.frontend.containerSecurityContext | nindent 12 }}
+          command:
+            - sh
+            - -ec
+            - |
+              {{- include "cda.installationSecretCopyScript" (list "canary-capability") | nindent 14 }}
+          volumeMounts:
+            - name: installation-secret-sources
+              mountPath: /installation-secret-sources
+              readOnly: true
+            - name: installation-secrets
+              mountPath: /installation-secrets
       containers:
         - name: frontend
           image: {{ include "cda.image" .Values.frontend.image | quote }}
@@ -44,6 +61,13 @@ spec:
           envFrom:
             - configMapRef:
                 name: {{ include "cda.fullname" . }}-frontend
+          env:
+            - name: INSTALLATION_CANARY_CAPABILITY_FILE
+              value: /installation-secrets/canary-capability
+          volumeMounts:
+            - name: installation-secrets
+              mountPath: /installation-secrets
+              readOnly: true
           # Readiness answers whether this process can serve, not whether the backend
           # is reachable. The app renders its own backend-unavailable state; a pod
           # removed from the Service renders nothing at all, so gating readiness on a
@@ -62,6 +86,23 @@ spec:
             periodSeconds: 20
           resources:
             {{- toYaml .Values.frontend.resources | nindent 12 }}
+      volumes:
+        # Read only by the installation-secrets init container. The frontend pod sets no fsGroup, so the
+        # projected file is root-owned and needs the read bit for others to reach the frontend uid; no
+        # other container mounts it, and the copy the frontend reads is 0600.
+        - name: installation-secret-sources
+          projected:
+            defaultMode: 0444
+            sources:
+              - secret:
+                  name: {{ include "cda.installationCanarySecretName" . }}
+                  items:
+                    - key: {{ .Values.installation.canary.key }}
+                      path: canary-capability
+        - name: installation-secrets
+          emptyDir:
+            medium: Memory
+            sizeLimit: 1Mi
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

@@ -21,6 +21,9 @@ spec:
     metadata:
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/config.yaml") . | sha256sum }}
+        # The KEK Secret this backend depends on. installation-kek-secret.yaml reads it from the live
+        # Deployment to tell a lost Secret from an installation that never had one.
+        noves.fi/installation-kek-secret: {{ include "cda.installationKekSecretName" . | quote }}
         {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -39,6 +42,22 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       initContainers:
+        - name: installation-secrets
+          image: {{ include "cda.image" .Values.backend.image | quote }}
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.backend.containerSecurityContext | nindent 12 }}
+          command:
+            - sh
+            - -ec
+            - |
+              {{- include "cda.installationSecretCopyScript" (list "kek" "canary-capability") | nindent 14 }}
+          volumeMounts:
+            - name: installation-secret-sources
+              mountPath: /installation-secret-sources
+              readOnly: true
+            - name: installation-secrets
+              mountPath: /installation-secrets
         - name: wait-for-database
           image: {{ include "cda.image" .Values.database.image | quote }}
           imagePullPolicy: {{ .Values.database.image.pullPolicy }}
@@ -186,6 +205,10 @@ spec:
                   optional: true
             {{- end }}
             {{- end }}
+            - name: INSTALLATION_KEK_FILE
+              value: /installation-secrets/kek
+            - name: INSTALLATION_CANARY_CAPABILITY_FILE
+              value: /installation-secrets/canary-capability
             - name: M2M_INDEXER_ENABLED
               value: "true"
             {{- if $hasGlobalM2mIndexing }}
@@ -227,6 +250,9 @@ spec:
             - name: nodes
               mountPath: /config
               readOnly: true
+            - name: installation-secrets
+              mountPath: /installation-secrets
+              readOnly: true
             {{- if eq .Values.exports.storage "pvc" }}
             - name: exports
               mountPath: /exports
@@ -267,6 +293,26 @@ spec:
         - name: nodes
           configMap:
             name: {{ include "cda.fullname" . }}-nodes
+        # Read only by the installation-secrets init container. Group read is enough because the pod's
+        # fsGroup is the backend group.
+        - name: installation-secret-sources
+          projected:
+            defaultMode: 0440
+            sources:
+              - secret:
+                  name: {{ include "cda.installationKekSecretName" . }}
+                  items:
+                    - key: {{ .Values.installation.kek.key }}
+                      path: kek
+              - secret:
+                  name: {{ include "cda.installationCanarySecretName" . }}
+                  items:
+                    - key: {{ .Values.installation.canary.key }}
+                      path: canary-capability
+        - name: installation-secrets
+          emptyDir:
+            medium: Memory
+            sizeLimit: 1Mi
         {{- if eq .Values.exports.storage "pvc" }}
         - name: exports
           persistentVolumeClaim:
