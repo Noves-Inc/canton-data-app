@@ -123,8 +123,18 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- if not .Values.database.existingSecret -}}
 {{- fail "database.existingSecret is required" -}}
 {{- end -}}
-{{- if and (eq (include "cda.installationKekSecretName" .) (include "cda.installationCanarySecretName" .)) (eq .Values.installation.kek.key .Values.installation.canary.key) -}}
-{{- fail "installation.kek and installation.canary must not share a Secret key: the frontend would receive the KEK" -}}
+{{- /* One Secret may hold both values only when the operator manages it and keeps them under distinct
+keys; a shared key would hand the KEK to the frontend, and a chart-generated Secret holds one key only. */ -}}
+{{- if eq (include "cda.installationKekSecretName" .) (include "cda.installationCanarySecretName" .) -}}
+{{- if or (eq .Values.installation.kek.key .Values.installation.canary.key) (not .Values.installation.kek.existingSecret) (not .Values.installation.canary.existingSecret) -}}
+{{- fail "installation.kek and installation.canary must not share a Secret key, or a Secret the chart generates: the frontend would receive the KEK" -}}
+{{- end -}}
+{{- end -}}
+{{- /* The installation annotations carry the lost-KEK check and the restart checksums. */ -}}
+{{- range $annotation := list "noves.fi/installation-kek-secret" "checksum/installation-kek" "checksum/installation-canary" -}}
+{{- if hasKey $.Values.podAnnotations $annotation -}}
+{{- fail (printf "podAnnotations must not set %s: the chart reserves it" $annotation) -}}
+{{- end -}}
 {{- end -}}
 {{- range $field, $value := dict
   "m2mIndexing.ledgerApiUserKey" .Values.m2mIndexing.ledgerApiUserKey
@@ -185,7 +195,8 @@ KEK recreates the pods that copied the previous value.
 KEK rules. The Secret is reused through lookup and is never replaced on its own initiative: a new value
 on a database that already holds installation material leaves the backend unable to use its
 credential. Two states are render failures instead of regeneration:
-- the Secret exists without its key;
+- the Secret exists without its key, or holds a value other than the one the live backend copied (its
+  pod template carries the value's checksum);
 - the Secret is gone while the release's live backend depends on a KEK (its pod template names the
   Secret), which is a lost Secret next to a retained database.
 A live backend that names no KEK Secret has never had one, so the value is generated.
@@ -206,6 +217,10 @@ gets a new value.
 {{- $value := index ($existing.data | default dict) $key | default "" -}}
 {{- if not $value -}}
 {{- fail (printf "Secret %s exists without key %s. The installation KEK is never regenerated: restore the backed-up value into that key, or name an operator-managed Secret in installation.kek.existingSecret." $kekName $key) -}}
+{{- end -}}
+{{- $liveDigest := dig "spec" "template" "metadata" "annotations" "checksum/installation-kek" "" $backend -}}
+{{- if and $liveDigest (ne (b64dec $value | sha256sum) $liveDigest) -}}
+{{- fail (printf "Secret %s does not match the KEK that backend %s copied. The database's installation credential is encrypted with that KEK: restore the backed-up value into Secret %s." $kekName $backendName $kekName) -}}
 {{- end -}}
 {{- $_ := set $values "kek" $value -}}
 {{- else if dig "spec" "template" "metadata" "annotations" "noves.fi/installation-kek-secret" "" $backend -}}

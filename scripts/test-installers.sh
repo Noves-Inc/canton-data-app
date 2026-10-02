@@ -232,6 +232,31 @@ installation_secret_contracts() {
   run_compose_installer "$install_dir" "$log" "$bin" "$scratch/restored.out" || { cat "$scratch/restored.out" >&2; fail "restored KEK run failed"; }
   [[ "$(cat "$kek")" == "$kek_before" ]] || fail "the installer replaced a restored KEK"
 
+  # A symlinked provisioning record is refused before anything is generated.
+  ln -s "$scratch/no-such-record" "$state/installation-kek.created.link"
+  mv "$state/installation-kek.created" "$scratch/record.saved"
+  mv "$state/installation-kek.created.link" "$state/installation-kek.created"
+  if run_compose_installer "$install_dir" "$log" "$bin" "$scratch/record-link.out"; then
+    fail "the installer accepted a symlinked provisioning record"
+  fi
+  assert_contains "$scratch/record-link.out" 'symbolic link'
+  [[ ! -e "$scratch/no-such-record" ]] || fail "the installer wrote through the record symlink"
+  rm -f "$state/installation-kek.created"
+  mv "$scratch/record.saved" "$state/installation-kek.created"
+
+  # A concurrent installer holds the installation lock: the second run stops before touching secrets.
+  mkdir "$state/.install.lock"
+  canary_before="$(cat "$backend")"
+  if run_compose_installer "$install_dir" "$log" "$bin" "$scratch/locked.out"; then
+    fail "the installer ran while another held the installation lock"
+  fi
+  assert_contains "$scratch/locked.out" '.install.lock'
+  [[ "$(cat "$backend")" == "$canary_before" ]] || fail "a locked-out run replaced the canary"
+  assert_not_contains "$log" 'compose.yaml pull'
+  rmdir "$state/.install.lock"
+  run_compose_installer "$install_dir" "$log" "$bin" "$scratch/unlocked.out" || { cat "$scratch/unlocked.out" >&2; fail "run after unlock failed"; }
+  [[ ! -e "$state/.install.lock" ]] || fail "the installer left its lock behind"
+
   # Deliberate reset after discarding the database: removing the record allows a new KEK.
   rm -f "$kek" "$state/installation-kek.created"
   run_compose_installer "$install_dir" "$log" "$bin" "$scratch/reset.out" || { cat "$scratch/reset.out" >&2; fail "reset run failed"; }

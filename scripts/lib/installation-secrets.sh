@@ -22,6 +22,21 @@ installation_secret_backend_uid=1654
 installation_secret_frontend_uid=1000
 
 installation_secret_names=(installation-kek installation-canary-backend installation-canary-frontend)
+installation_lock_path=""
+
+# One installer run at a time per installation, from before any secret is written until the containers
+# are recreated: two interleaved runs could otherwise each publish one canary copy and start containers
+# holding different values. mkdir is atomic; the lock is released when the run exits for any reason.
+acquire_installation_lock() {
+  local lock="$1/.install.lock"
+  if ! mkdir "$lock" 2>/dev/null; then
+    printf 'Another installer run holds %s. Wait for it to finish; if no installer is running, remove that directory and retry.\n' \
+      "$lock" >&2
+    return 1
+  fi
+  installation_lock_path="$lock"
+  trap 'rmdir "$installation_lock_path" 2>/dev/null || true' EXIT
+}
 
 new_installation_secret_value() {
   local value
@@ -58,7 +73,7 @@ generate_installation_kek() {
   local state_dir="$1" name path value
   local kek="$state_dir/installation-kek" record="$state_dir/installation-kek.created"
 
-  for name in "${installation_secret_names[@]}"; do
+  for name in "${installation_secret_names[@]}" installation-kek.created; do
     path="$state_dir/$name"
     if [[ -L "$path" ]]; then
       printf 'Installation secret must be a regular file, not a symbolic link: %s\n' "$path" >&2

@@ -54,6 +54,8 @@ done
 cp "$repo_root/docker-compose/config/storage.env.example" \
   "$install_dir/docker-compose/config/storage.env.example"
 mkdir -p "$install_dir/docker-compose/.state"
+acquire_installation_lock "$install_dir/docker-compose/.state" ||
+  die "The installation is locked by another installer run."
 mkdir -p -m 0750 "$install_dir/docker-compose/.state/certificates"
 chmod 0750 "$install_dir/docker-compose/.state/certificates"
 mkdir -p -m 0700 "$m2m_indexing_secret_root"

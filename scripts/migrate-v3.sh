@@ -69,6 +69,8 @@ validate_m2m_indexing_secret_files .state/nodes-config.json .state/m2m-indexing-
 chmod 600 .env
 [[ ! -f .state/m2m-indexing.env ]] || chmod 600 .state/m2m-indexing.env
 chmod 644 .state/nodes-config.json
+acquire_installation_lock "$PWD/.state" ||
+  die "The installation is locked by another installer run."
 generate_installation_kek .state ||
   die "The installation KEK could not be prepared."
 export DATABASE_VOLUME="$database_volume"
@@ -80,6 +82,6 @@ secure_installation_secret_files .env compose.yaml "$PWD/.state" ||
   die "Could not assign the installation secret files to backend user 1654 and frontend user 1000."
 verify_installation_secret_access .env -f compose.yaml -f compose.migrate-v3.yaml ||
   die "A container user cannot read its installation secret file."
-exec docker compose --env-file .env \
+docker compose --env-file .env \
   -f compose.yaml \
   -f compose.migrate-v3.yaml up -d --force-recreate backend frontend

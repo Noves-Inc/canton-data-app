@@ -75,7 +75,7 @@ expect_render_failure() {
   if helm template cda "$chart_dir" --namespace cda-test --values "$values" "$@" >"$scratch/failure.out" 2>&1; then
     fail "[$label] render succeeded"
   fi
-  grep -Fq -- "$expected" "$scratch/failure.out" || {
+  grep -Fq -- "$expected" "$scratch/failure.out" || { echo "args: $*" >&2;
     cat "$scratch/failure.out" >&2
     fail "[$label] failure does not mention: $expected"
   }
@@ -221,8 +221,17 @@ PY
     --set installation.kek.existingSecret=cda-installation-canary --set installation.kek.key=installation-canary-capability
   expect_render_failure canary-names-kek-secret 'must not share' "$chart" \
     --set installation.canary.existingSecret=cda-installation-kek --set installation.canary.key=installation-kek
+  expect_render_failure kek-aliases-generated-canary 'must not share' "$chart" \
+    --set installation.kek.existingSecret=cda-installation-canary
+  expect_render_failure canary-aliases-generated-kek 'must not share' "$chart" \
+    --set installation.canary.existingSecret=cda-installation-kek
   render "$scratch/distinct-keys.yaml" "$chart" \
     --set installation.kek.existingSecret=shared --set installation.canary.existingSecret=shared
+  local reserved
+  for reserved in noves.fi/installation-kek-secret checksum/installation-kek checksum/installation-canary; do
+    expect_render_failure "reserved-$reserved" 'the chart reserves it' "$chart" \
+      --set-string "podAnnotations.$(printf '%s' "$reserved" | sed 's/[.]/\\./g')=x"
+  done
   expect_render_failure backend-replicas '/backend/replicaCount' "$chart" --set backend.replicaCount=2
   expect_render_failure schema-unknown 'installation' "$chart" --set installation.kek.extra=1
   expect_render_failure schema-empty-key 'installation' "$chart" --set installation.kek.key=
@@ -342,6 +351,18 @@ Deployment/cda-backend: {spec: {template: {metadata: {annotations: {noves.fi/ins
   KEK_B64="$kek_b64" assert_render "$manifest" lookup-restored <<'PY'
 check(find("Secret", "cda-installation-kek")["data"]["installation-kek"] == os.environ["KEK_B64"], "restored KEK reused")
 PY
+
+  # A KEK Secret recreated with a different value than the live backend copied is refused.
+  local kek_digest
+  kek_digest="$(printf '%s' 'S0VLS0VLS0VLS0VLS0VLS0VLS0VLS0VLS0VLS0VLS0U=' | shasum -a 256 | cut -d' ' -f1)"
+  write_lookup_state "$harness" "
+Secret/cda-installation-kek: {data: {installation-kek: $canary_b64}}
+Deployment/cda-backend: {spec: {template: {metadata: {annotations: {noves.fi/installation-kek-secret: cda-installation-kek, checksum/installation-kek: $kek_digest}}}}}"
+  expect_render_failure lookup-wrong-restore 'does not match' "$harness"
+  write_lookup_state "$harness" "
+Secret/cda-installation-kek: {data: {installation-kek: $kek_b64}}
+Deployment/cda-backend: {spec: {template: {metadata: {annotations: {noves.fi/installation-kek-secret: cda-installation-kek, checksum/installation-kek: $kek_digest}}}}}"
+  render "$manifest" "$harness"
 
   # An operator-managed KEK skips the lost-Secret check: kubelet enforces its presence.
   write_lookup_state "$harness" "Deployment/cda-backend: {spec: {template: {metadata: {annotations: {noves.fi/installation-kek-secret: cda-installation-kek}}}}}"
