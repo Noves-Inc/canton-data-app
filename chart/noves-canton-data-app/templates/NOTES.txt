@@ -1,3 +1,4 @@
+{{- include "cda.installationDefaults" . }}
 {{- $backendHost := include "cda.backendHost" . }}
 {{- $backendTlsSecret := default .Values.routing.tlsSecret .Values.routing.backend.tlsSecret }}
 {{- $backendScheme := "http" }}

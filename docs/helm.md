@@ -239,6 +239,8 @@ The chart also generates the two secrets behind the installation credential (see
 | `<release>-installation-kek` | backend only | Immutable, retained during uninstall, reused on every upgrade and reinstall, never regenerated |
 | `<release>-installation-canary` | backend and frontend | Reused on upgrade, deleted on uninstall, new on every reinstall |
 
+An upgrade from 4.1.3 with `helm upgrade --reuse-values` needs no new values: a missing or partial `installation` block behaves exactly like the defaults.
+
 The names start from the chart's full name (`<release>` unless `fullnameOverride` is set). A name that would exceed 63 characters keeps the start of the full name, adds an 8-character hash of it, and ends with `-installation-kek` or `-installation-canary`; the install and upgrade notes print the KEK Secret name whenever the chart generates a new KEK, and `kubectl get secret -l app.kubernetes.io/instance=<release>` lists both.
 
 Each pod copies its Secrets through an `installation-secrets` init container that runs as the pod's own user and writes `0600` files into an in-memory volume at `/installation-secrets`, so the backend reads files owned by `1654` and the frontend reads a file owned by `1000`. The init container stops the pod when a value is not the base64 encoding of 32 bytes. The backend is limited to one replica; every frontend replica reads the same canary Secret. Both pod templates carry a checksum of the generated values, so a new canary value or a restored KEK recreates the pods that hold the previous one. While such a rollout is in progress, the frontend canary can be refused until both sides hold the new value; the installation stays in its previous state and the frontend retries.
@@ -253,7 +255,7 @@ Use this when the notes warned about a new KEK on a release whose database was r
 
 1. Identify the retained Secret that holds the original KEK, for example `<old-fullname>-installation-kek`, or recreate it from the backup taken with the database.
 2. Set `installation.kek.existingSecret` to that Secret name (and `installation.kek.key` if its key is not `installation-kek`) in the values file.
-3. Delete the failed backend Deployment so its checksum of the new KEK no longer conflicts. The backend is not serving while it refuses to start, so this adds no downtime:
+3. Delete the failed backend Deployment so its checksum of the new KEK no longer conflicts. Use the same kubectl context and namespace as the `helm` command (`KUBE_CONTEXT` and `NAMESPACE` here); the release namespace is also printed in the warning. The backend is not serving while it refuses to start, so this adds no downtime:
 
    ```bash
    kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \

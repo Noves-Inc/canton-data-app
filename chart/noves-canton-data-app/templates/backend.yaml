@@ -1,3 +1,4 @@
+{{- include "cda.installationDefaults" . }}
 {{- $hasGlobalM2mIndexing := false -}}
 {{- range $node := .Values.canton.nodes -}}
 {{- if eq $node.m2mIndexing.mode "global" -}}{{- $hasGlobalM2mIndexing = true -}}{{- end -}}
