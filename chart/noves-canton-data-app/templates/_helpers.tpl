@@ -124,10 +124,10 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- fail "database.existingSecret is required" -}}
 {{- end -}}
 {{- /* Names and keys are rendered into YAML and into lookups, so each must be exactly a Kubernetes
-Secret name (DNS-1123 subdomain) or Secret key; anything else could parse as a different Secret. */ -}}
+Secret name (DNS-1123 subdomain: at most 253 characters, labels of at most 63) or Secret key; anything else could parse as a different Secret. */ -}}
 {{- range $role := list "kek" "canary" -}}
 {{- $secret := index $.Values.installation $role -}}
-{{- if and $secret.existingSecret (or (gt (len $secret.existingSecret) 253) (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?([.][a-z0-9]([-a-z0-9]*[a-z0-9])?)*$" $secret.existingSecret))) -}}
+{{- if and $secret.existingSecret (or (gt (len $secret.existingSecret) 253) (not (regexMatch "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?([.][a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?)*$" $secret.existingSecret))) -}}
 {{- fail (printf "installation.%s.existingSecret must be a Kubernetes Secret name: %q" $role $secret.existingSecret) -}}
 {{- end -}}
 {{- if or (gt (len $secret.key) 253) (not (regexMatch "^[-._a-zA-Z0-9]+$" $secret.key)) -}}

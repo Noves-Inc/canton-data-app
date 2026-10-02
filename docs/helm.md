@@ -241,9 +241,39 @@ The chart also generates the two secrets behind the installation credential (see
 
 Each pod copies its Secrets through an `installation-secrets` init container that runs as the pod's own user and writes `0600` files into an in-memory volume at `/installation-secrets`, so the backend reads files owned by `1654` and the frontend reads a file owned by `1000`. The init container stops the pod when a value is not the base64 encoding of 32 bytes. The backend is limited to one replica; every frontend replica reads the same canary Secret. Both pod templates carry a checksum of the generated values, so a new canary value or a restored KEK recreates the pods that hold the previous one. While such a rollout is in progress, the frontend canary can be refused until both sides hold the new value; the installation stays in its previous state and the frontend retries.
 
-Back up `<release>-installation-kek` with the database and restore them together. The database without its KEK cannot use its installation credential, and a new KEK does not repair that. If the Secret disappears while the release is installed, `helm upgrade` stops with an error instead of generating a replacement: create the backed-up Secret again under the same name and run the upgrade again. The Secret is immutable, so restoring over a wrong value means deleting it and creating it from the backup; an apply that carries a different value is rejected instead of replacing the key. The backend pod template records a checksum of the KEK it copied, and `helm upgrade` also stops when a recreated Secret holds a different value. The same applies to an operator-managed KEK Secret: while the running backend depends on a KEK, `helm upgrade` stops if the selected Secret is missing. The chart reserves the pod annotations `noves.fi/installation-kek-secret`, `checksum/installation-kek`, and `checksum/installation-canary`, which `podAnnotations` cannot set, and the variables `INSTALLATION_KEK_FILE` and `INSTALLATION_CANARY_CAPABILITY_FILE`, which `backend.extraEnv` cannot set. `<release>-installation-kek` can only hold the KEK and `<release>-installation-canary` only the canary capability, even after either moves to an operator-managed Secret, and neither may be named as its own `existingSecret`. Secret names must be Kubernetes Secret names and keys must be Kubernetes Secret keys. One operator-managed Secret may hold both values only under distinct keys. After an uninstall the chart cannot see that a KEK ever existed, so keep the retained Secret; if it is deleted and the database is reused, the backend refuses to start until the backed-up KEK is restored.
+Back up `<release>-installation-kek` with the database and restore them together. The database without its KEK cannot use its installation credential, and a new KEK does not repair that. `helm upgrade` refuses to generate a replacement only when it can see that the running backend depends on a KEK: the release's live backend Deployment (`<fullname>-backend`) names a KEK Secret or carries a KEK checksum in its pod template, and the selected KEK Secret is missing. In that case create the backed-up Secret again under the same name and run the upgrade again. The Secret is immutable, so restoring over a wrong value means deleting it and creating it from the backup; an apply that carries a different value is rejected instead of replacing the key. The backend pod template records a checksum of the KEK it copied, and `helm upgrade` also stops when a recreated Secret holds a different value. The same applies to an operator-managed KEK Secret: while the running backend depends on a KEK, `helm upgrade` stops if the selected Secret is missing. The chart reserves the pod annotations `noves.fi/installation-kek-secret`, `checksum/installation-kek`, and `checksum/installation-canary`, which `podAnnotations` cannot set, and the variables `INSTALLATION_KEK_FILE` and `INSTALLATION_CANARY_CAPABILITY_FILE`, which `backend.extraEnv` cannot set. `<release>-installation-kek` can only hold the KEK and `<release>-installation-canary` only the canary capability, even after either moves to an operator-managed Secret, and neither may be named as its own `existingSecret`. Secret names must be Kubernetes Secret names and keys must be Kubernetes Secret keys. One operator-managed Secret may hold both values only under distinct keys. `helm upgrade` does **not** stop, and generates a new KEK, when that evidence is absent: after an uninstall, after renaming the release or changing `fullnameOverride` (the chart looks for a differently named Deployment and Secret), after the backend Deployment was deleted together with the KEK Secret, and whenever the chart is rendered client-side. Whenever the chart generates a new KEK, the install or upgrade notes print a warning naming the Secret. No data is lost: the backend refuses to start while the database holds installation material the new KEK cannot decrypt, and the recovery below restores the original KEK.
 
-The generated KEK Secret is named after the release, so **renaming the release or changing `fullnameOverride` requires `installation.kek.existingSecret` pointing at the retained KEK Secret** (for example `installation.kek.existingSecret: <old-release>-installation-kek`). Without it, the chart cannot find the retained Secret and generates a new KEK. No data is lost in that case: the backend refuses to start while the database holds installation material the new KEK cannot decrypt, and setting `existingSecret` to the retained Secret and upgrading again recovers it. Whenever the chart generates a new KEK, the install or upgrade notes print a warning naming the Secret.
+The generated KEK Secret is named after the release, so **renaming the release or changing `fullnameOverride` requires `installation.kek.existingSecret` pointing at the retained KEK Secret** (for example `installation.kek.existingSecret: <old-fullname>-installation-kek`).
+
+### Recover from a KEK generated by mistake
+
+Use this when the notes warned about a new KEK on a release whose database was reused, and the backend does not start. The backend Deployment that failed now carries the checksum of the new KEK, so the chart refuses to switch to the original KEK until that Deployment is deleted.
+
+1. Identify the retained Secret that holds the original KEK, for example `<old-fullname>-installation-kek`, or recreate it from the backup taken with the database.
+2. Set `installation.kek.existingSecret` to that Secret name (and `installation.kek.key` if its key is not `installation-kek`) in the values file.
+3. Delete the failed backend Deployment so its checksum of the new KEK no longer conflicts. The backend is not serving while it refuses to start, so this adds no downtime:
+
+   ```bash
+   kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
+     delete deployment <fullname>-backend
+   ```
+
+4. Run the same `helm upgrade` as before. The chart recreates the backend with the original KEK and records its checksum.
+5. Verify that the backend starts and decrypts its credential:
+
+   ```bash
+   kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
+     rollout status deployment/<fullname>-backend --timeout=20m
+   kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
+     port-forward service/<fullname>-backend 8090:8090
+   curl -fsS http://127.0.0.1:8090/ready
+   curl -fsS http://127.0.0.1:8090/startupStatus | jq
+   ```
+
+   The backend refuses to start when it cannot decrypt its stored installation credential, so a ready backend has opened it with the original KEK. The Admin page shows the installation status it had before.
+6. The mistakenly generated `<fullname>-installation-kek` Secret is kept by its retention policy but no longer used. Delete it once the backend is healthy, so that it is never mistaken for the original.
+
+### Manage the installation Secrets yourself
 
 Tools that render the chart client-side (`helm template`, Argo CD) cannot look up existing Secrets, so they produce new values on every render: the immutable KEK Secret makes such a sync fail instead of replacing the key, and the canary would change on every sync. Create both values yourself with `openssl rand -base64 32 | tr -d '\n'` and set:
 
