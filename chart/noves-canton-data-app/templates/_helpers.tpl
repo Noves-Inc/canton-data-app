@@ -184,15 +184,18 @@ Secret when existingSecret is set, otherwise the one the chart generates.
 {{- end -}}
 
 {{/*
-The Secret data values (base64 of the 44-character text) of the chart-generated installation Secrets,
-as YAML with keys "kek" and "canary"; a key is absent when that Secret is operator-managed.
+The Secret data values (base64 of the 44-character text) of the installation Secrets, as YAML with
+keys "kek" and "canary". "kek" is also present for an operator-managed KEK Secret that lookup can read,
+so its checksum guards it the same way; "canary" is absent when that Secret is operator-managed.
 
 The value is computed once per render and memoized in .Values, so the Secret templates and the pod
 checksum annotations all see the same random value; computing it per template would give each a
 different one. The pod templates carry a checksum of each value, so a regenerated canary or a restored
 KEK recreates the pods that copied the previous value.
 
-KEK rules. The Secret is reused through lookup and is never replaced on its own initiative: a new value
+KEK rules. They apply to the chart-generated Secret and to an operator-managed one alike, so moving
+between them, or between operator Secrets or keys, is accepted only when the value stays the same. The
+generated Secret is reused through lookup and is never replaced on its own initiative: a new value
 on a database that already holds installation material leaves the backend unable to use its
 credential. Two states are render failures instead of regeneration:
 - the Secret exists without its key, or holds a value other than the one the live backend copied (its
@@ -207,7 +210,6 @@ gets a new value.
 {{- define "cda.installationSecretValues" -}}
 {{- if not (hasKey .Values "__installationSecretValues") -}}
 {{- $values := dict -}}
-{{- if not .Values.installation.kek.existingSecret -}}
 {{- $kekName := include "cda.installationKekSecretName" . -}}
 {{- $key := .Values.installation.kek.key -}}
 {{- $backendName := printf "%s-backend" (include "cda.fullname" .) -}}
@@ -220,14 +222,14 @@ gets a new value.
 {{- end -}}
 {{- $liveDigest := dig "spec" "template" "metadata" "annotations" "checksum/installation-kek" "" $backend -}}
 {{- if and $liveDigest (ne (b64dec $value | sha256sum) $liveDigest) -}}
-{{- fail (printf "Secret %s does not match the KEK that backend %s copied. The database's installation credential is encrypted with that KEK: restore the backed-up value into Secret %s." $kekName $backendName $kekName) -}}
+{{- fail (printf "Secret %s key %s does not match the KEK that backend %s copied. The database's installation credential is encrypted with that KEK: restore the backed-up value." $kekName $key $backendName) -}}
 {{- end -}}
 {{- $_ := set $values "kek" $value -}}
-{{- else if dig "spec" "template" "metadata" "annotations" "noves.fi/installation-kek-secret" "" $backend -}}
+{{- else if not .Values.installation.kek.existingSecret -}}
+{{- if dig "spec" "template" "metadata" "annotations" "noves.fi/installation-kek-secret" "" $backend -}}
 {{- fail (printf "Secret %s is missing, but backend %s already uses an installation KEK. Generating a new KEK would leave the database's installation credential unusable: restore the backed-up Secret %s, or name an operator-managed Secret in installation.kek.existingSecret." $kekName $backendName $kekName) -}}
-{{- else -}}
-{{- $_ := set $values "kek" (randBytes 32 | b64enc) -}}
 {{- end -}}
+{{- $_ := set $values "kek" (randBytes 32 | b64enc) -}}
 {{- end -}}
 {{- if not .Values.installation.canary.existingSecret -}}
 {{- $canaryName := include "cda.installationCanarySecretName" . -}}

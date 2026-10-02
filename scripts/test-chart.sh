@@ -364,6 +364,25 @@ Secret/cda-installation-kek: {data: {installation-kek: $kek_b64}}
 Deployment/cda-backend: {spec: {template: {metadata: {annotations: {noves.fi/installation-kek-secret: cda-installation-kek, checksum/installation-kek: $kek_digest}}}}}"
   render "$manifest" "$harness"
 
+  # Moving to an operator-managed KEK, or between operator Secrets or keys, must keep the value.
+  local live_backend="Deployment/cda-backend: {spec: {template: {metadata: {annotations: {noves.fi/installation-kek-secret: cda-installation-kek, checksum/installation-kek: $kek_digest}}}}}"
+  write_lookup_state "$harness" "
+Secret/operator-kek: {data: {installation-kek: $canary_b64}}
+$live_backend"
+  expect_render_failure lookup-generated-to-wrong-existing 'does not match' "$harness" --set installation.kek.existingSecret=operator-kek
+  write_lookup_state "$harness" "
+Secret/operator-kek: {data: {installation-kek: $kek_b64, other: $canary_b64}}
+$live_backend"
+  render "$manifest" "$harness" --set installation.kek.existingSecret=operator-kek
+  KEK_DIGEST="$kek_digest" assert_render "$manifest" lookup-generated-to-matching-existing <<'PY'
+check(pod("backend")["metadata"]["annotations"].get("checksum/installation-kek") == os.environ["KEK_DIGEST"],
+      "an operator-managed KEK keeps the checksum so later changes are detected")
+PY
+  expect_render_failure lookup-existing-key-change 'does not match' "$harness" \
+    --set installation.kek.existingSecret=operator-kek --set installation.kek.key=other
+  expect_render_failure lookup-existing-missing-key 'exists without key' "$harness" \
+    --set installation.kek.existingSecret=operator-kek --set installation.kek.key=absent
+
   # An operator-managed KEK skips the lost-Secret check: kubelet enforces its presence.
   write_lookup_state "$harness" "Deployment/cda-backend: {spec: {template: {metadata: {annotations: {noves.fi/installation-kek-secret: cda-installation-kek}}}}}"
   render "$manifest" "$harness" --set installation.kek.existingSecret=operator-kek

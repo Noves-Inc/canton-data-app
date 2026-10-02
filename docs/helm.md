@@ -255,16 +255,23 @@ installation:
     key: installation-canary-capability
 ```
 
+Write each value to a private temporary file so it never appears in a command line:
+
 ```bash
+umask 077
+value_file="$(mktemp)"
+openssl rand -base64 32 | tr -d '\n' > "$value_file"
 kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
   create secret generic noves-canton-data-app-installation-kek \
-  --from-literal=installation-kek="$(openssl rand -base64 32 | tr -d '\n')"
+  --from-file=installation-kek="$value_file"
+openssl rand -base64 32 | tr -d '\n' > "$value_file"
 kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
   create secret generic noves-canton-data-app-installation-canary \
-  --from-literal=installation-canary-capability="$(openssl rand -base64 32 | tr -d '\n')"
+  --from-file=installation-canary-capability="$value_file"
+rm -f "$value_file"
 ```
 
-Restart both deployments after replacing either operator-managed Secret, because each pod copies its values when it starts. Never replace the KEK of an installation whose database you keep.
+Restart both deployments after replacing either operator-managed Secret, because each pod copies its values when it starts. Never replace the KEK of an installation whose database you keep: when `helm upgrade` can read the selected KEK Secret, it stops if the value differs from the one the running backend copied, including when you move between the generated Secret and an operator-managed one or change the key.
 
 ## 5. Write the values file
 
