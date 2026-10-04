@@ -73,6 +73,8 @@ Do not start a copy of a database and its KEK as a second, simultaneously runnin
 
 Every installation that shares a Noves account must run 4.1.4 or later. The account switches to per-installation credentials once none of its installations has used the previous credential for 72 hours, or earlier when an account admin confirms that all installations run 4.1.4; from then on an installation on an earlier release has no account features until it is upgraded and enrolls with its own database and KEK. See the [4.1.4 release notes](release-notes-4.1.4-draft.md#upgrade-every-installation-of-an-account).
 
+Requests for account and subscription features sent to Noves are signed by its gateway and have a **65,536-byte body limit**. A larger body returns `413 body_too_large`, including a request using the older shared credential while the account is still unlocked. The previous unsigned gateway did not impose this contract limit. Review custom integrations that call these Noves services directly before upgrading. Legacy query parameters retain form parsing (the last duplicate value wins and `+` means space); path traversal remains rejected. Send uncompressed JSON: the legacy gateway forwards original body bytes and does not decompress a `Content-Encoding` payload.
+
 Never:
 
 - reuse a validator, wallet, or administrative credential;
