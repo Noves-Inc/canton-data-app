@@ -15,6 +15,9 @@ for name in "${required[@]}"; do
     { printf 'Missing release input: %s\n' "$name" >&2; exit 1; }
 done
 
+# A digest must support the actual Helm init and Compose permission scripts before it becomes a release asset.
+python3 "$(dirname "${BASH_SOURCE[0]}")/check-installation-image-tools.py"
+
 jq -n \
   --arg version "$RELEASE_VERSION" \
   --arg chartRepo "$CHART_SOURCE_REPOSITORY" \

@@ -439,6 +439,20 @@ EOF
   assert_contains "$log" 'docker compose --env-file .env -f compose.yaml up -d'
   installation_secret_contracts "$install_dir" "$log" "$bin"
 
+  # A failure after stopping readers cannot silently restart either with a partly rotated capability.
+  local failure_stage
+  for failure_stage in 'run --rm --network none --user 0:0' 'run --rm --no-deps --entrypoint /bin/sh frontend'; do
+    : >"$log"
+    if FAKE_DOCKER_FAIL="$failure_stage" INSTALLER_LOG="$log" PATH="$bin:$PATH" \
+      "$root/scripts/install-compose.sh" --directory "$install_dir" >"$scratch/stopped-failure.out" 2>&1; then
+      fail "installer accepted failed secret preparation: $failure_stage"
+    fi
+    assert_contains "$scratch/stopped-failure.out" 'backend and frontend may remain stopped or partly recreated'
+    assert_contains "$scratch/stopped-failure.out" 'rerun the same installer command'
+    assert_not_contains "$log" 'up -d'
+    [[ ! -e "$install_dir/docker-compose/.state/.install.lock" ]] || fail 'failed stopped upgrade retained its lock'
+  done
+
   # A relative --directory resolves once, before the lock is taken: the lock is released after the
   # installer changes directory, so consecutive runs both succeed and none leaves the lock behind.
   local run

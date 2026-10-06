@@ -60,7 +60,7 @@ require_command openssl
 cd "$compose_dir"
 # The lock is taken before the retained configuration is rewritten or any container is touched.
 acquire_installation_lock "$PWD/.state" ||
-  die "The installation is locked by another installer run."
+  die "Could not acquire the installation lock; see the reason above."
 upgrade_nodes_config_file .state/nodes-config.json ||
   die "The retained node configuration needs operator review."
 validate_m2m_indexing_configuration .state/nodes-config.json .state/m2m-indexing.env ||
@@ -75,14 +75,10 @@ chmod 644 .state/nodes-config.json
 generate_installation_kek .state ||
   die "The installation KEK could not be prepared."
 export DATABASE_VOLUME="$database_volume"
-docker compose --env-file .env -f compose.yaml -f compose.migrate-v3.yaml stop backend frontend ||
-  die "Could not stop the backend and frontend before replacing the canary capability."
-publish_installation_canary .state ||
-  die "The installation canary capability could not be written."
-secure_installation_secret_files .env compose.yaml "$PWD/.state" ||
-  die "Could not assign the installation secret files to backend user 1654 and frontend user 1000."
-verify_installation_secret_access .env -f compose.yaml -f compose.migrate-v3.yaml ||
-  die "A container user cannot read its installation secret file."
+prepare_installation_secrets_for_compose .env "$PWD/.state" compose.yaml -f compose.yaml -f compose.migrate-v3.yaml ||
+  die "Could not prepare installation secret files; fix the reported error and rerun this installer."
 docker compose --env-file .env \
   -f compose.yaml \
-  -f compose.migrate-v3.yaml up -d --force-recreate backend frontend
+  -f compose.migrate-v3.yaml up -d --force-recreate backend frontend ||
+  die "Could not recreate the backend and frontend; rerun this installer."
+installation_readers_stopped=false

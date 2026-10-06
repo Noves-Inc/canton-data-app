@@ -239,7 +239,19 @@ The chart also generates the two secrets behind the installation credential (see
 | `<release>-installation-kek` | backend only | Immutable, retained during uninstall, reused on every upgrade and reinstall, never regenerated |
 | `<release>-installation-canary` | backend and frontend | Reused on upgrade, deleted on uninstall, new on every reinstall |
 
-An upgrade from 4.1.3 with `helm upgrade --reuse-values` needs no new values: a missing or partial `installation` block behaves exactly like the defaults.
+Upgrade from 4.1.3 using the new chart defaults plus a values file containing only your deployment overrides:
+
+```bash
+helm upgrade <release> ./noves-canton-data-app-<version>.tgz \
+  --namespace <namespace> --values deployment-values.yaml
+```
+
+Keep node access, storage, ingress and operator-managed Secret settings in that file. Remove old
+`backend.image`, `frontend.image` and `database.image` blocks unless you deliberately supply the new
+release's matching digest pins. Do not use `--reuse-values`: it retains the old image digests even
+when the new chart is installed. `helm get values --all` also includes the old image pins and must not
+be reused without removing them. A missing or partial `installation` block uses the new defaults.
+After upgrading, verify all three Deployment/StatefulSet images match the new release manifest.
 
 The names start from the chart's full name (`<release>` unless `fullnameOverride` is set). A name that would exceed 63 characters keeps the start of the full name, adds an 8-character hash of it, and ends with `-installation-kek` or `-installation-canary`; the install and upgrade notes print the KEK Secret name whenever the chart generates a new KEK, and `kubectl get secret -l app.kubernetes.io/instance=<release>` lists both.
 

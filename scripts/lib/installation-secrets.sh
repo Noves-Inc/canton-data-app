@@ -23,6 +23,7 @@ installation_secret_frontend_uid=1000
 
 installation_secret_names=(installation-kek installation-canary-backend installation-canary-frontend)
 installation_lock_path=""
+installation_readers_stopped=false
 
 # One installer run at a time per installation, from before any installation file or secret is written
 # until the containers are recreated: two interleaved runs could otherwise replace the Compose files the
@@ -32,7 +33,10 @@ installation_lock_path=""
 # script ends.
 acquire_installation_lock() {
   local state_dir lock
-  state_dir="$(cd "$1" && pwd)" || return 1
+  if ! state_dir="$(cd "$1" 2>/dev/null && pwd)"; then
+    printf 'Cannot access installation state directory: %s. Check its path and permissions.\n' "$1" >&2
+    return 1
+  fi
   lock="$state_dir/.install.lock"
   if ! mkdir "$lock" 2>/dev/null; then
     printf 'Another installer run holds %s. Wait for it to finish; if no installer is running, remove that directory and retry.\n' \
@@ -40,7 +44,7 @@ acquire_installation_lock() {
     return 1
   fi
   installation_lock_path="$lock"
-  trap 'rmdir "$installation_lock_path" 2>/dev/null || true' EXIT
+  trap 'installation_secret_cleanup "$?"' EXIT
 }
 
 new_installation_secret_value() {
@@ -172,4 +176,25 @@ verify_installation_secret_access() {
     return 1
   docker compose --env-file "$env_file" "$@" run --rm --no-deps --entrypoint /bin/sh frontend -ec \
     'test -r "$INSTALLATION_CANARY_CAPABILITY_FILE" && test -s "$INSTALLATION_CANARY_CAPABILITY_FILE" && test ! -e /installation-secrets/kek'
+}
+
+# A partially rotated capability must never restart only one reader with the other copy's value.
+installation_secret_cleanup() {
+  if [[ "$1" != 0 && "$installation_readers_stopped" == true ]]; then
+    printf '%s\n' 'The backend and frontend may remain stopped or partly recreated after this failed upgrade.' \
+      'Fix the reported error, then rerun the same installer command to publish matching canary copies and recreate both containers together.' \
+      'Do not restart either reader separately while their capability files may differ.' >&2
+  fi
+  [[ -z "$installation_lock_path" ]] || rmdir "$installation_lock_path" 2>/dev/null || true
+}
+
+# Shared stopped-reader preparation for normal installation and v3 migration.
+prepare_installation_secrets_for_compose() {
+  local env_file="$1" state_dir="$2" base_compose="$3"
+  shift 3
+  installation_readers_stopped=true
+  docker compose --env-file "$env_file" "$@" stop backend frontend || return 1
+  publish_installation_canary "$state_dir" || return 1
+  secure_installation_secret_files "$env_file" "$base_compose" "$state_dir" || return 1
+  verify_installation_secret_access "$env_file" "$@"
 }

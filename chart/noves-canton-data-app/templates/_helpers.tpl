@@ -198,8 +198,8 @@ volume and would hand the backend a figure unrelated to the disk it is on. Decla
 smaller than the database latches background indexing with no reachable resume, so those cases
 render "0" (unevaluated) until the operator states the size in the tuning block.
 */}}
-{{- define "noves-canton-data-app.databaseVolumeCapacity" -}}
-{{- $declared := .Values.backend.performance.readModel.databaseVolumeCapacity | toString -}}
+{{- define "cda.databaseVolumeCapacity" -}}
+{{- $declared := .Values.backend.performance.readModel.databaseVolumeCapacity | default "" | toString -}}
 {{- if $declared -}}
 {{- $declared -}}
 {{- else if or .Values.migration.enabled .Values.database.persistence.existingClaim -}}

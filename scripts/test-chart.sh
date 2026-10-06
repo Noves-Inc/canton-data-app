@@ -396,7 +396,8 @@ reuse_values_contracts() {
   rm -rf "$scratch/reuse"
   mkdir -p "$scratch/reuse"
   cp -R "$chart" "$reuse"
-  git -C "$root" show 335152e:chart/noves-canton-data-app/values.yaml >"$reuse/values.yaml" ||
+  git -C "$root" cat-file -e v4.1.3^{commit} 2>/dev/null || git -C "$root" fetch origin tag v4.1.3
+  git -C "$root" show v4.1.3:chart/noves-canton-data-app/values.yaml >"$reuse/values.yaml" ||
     fail "[reuse-values] could not read the 4.1.3 values.yaml"
   ! grep -q '^installation:' "$reuse/values.yaml" || fail "[reuse-values] the 4.1.3 values unexpectedly have an installation block"
   render "$scratch/reuse-default.yaml" "$chart"
@@ -424,7 +425,7 @@ def shape(path):
                         ann.get("noves.fi/installation-kek-secret"),
                         [v for v in spec["volumes"] if v["name"].startswith("installation")],
                         [c["name"] for c in spec["initContainers"]],
-                        [e for c in spec["containers"] for e in c.get("env", []) if e["name"].startswith("INSTALLATION_")]))
+                        [e for c in spec["containers"] for e in c.get("env", [])]))
     return sorted(out, key=repr)
 reference = shape(sys.argv[1])
 if not any(s[0] == "Secret" and s[1] == "cda-installation-kek" for s in reference):
@@ -432,6 +433,36 @@ if not any(s[0] == "Secret" and s[1] == "cda-installation-kek" for s in referenc
 for path in sys.argv[2:]:
     if shape(path) != reference:
         raise SystemExit(f"FAIL [reuse-values]: {path} differs from the default installation wiring")
+PY
+}
+
+# A future bundle must take its new digest pins after removing old image overrides, even when every
+# other deployed value is carried forward from the real released chart.
+future_digest_upgrade_contracts() {
+  local future="$scratch/future/noves-canton-data-app"
+  mkdir -p "$scratch/future"
+  cp -R "$chart" "$future"
+  git -C "$root" show v4.1.3:chart/noves-canton-data-app/values.yaml >"$scratch/released-values.yaml"
+  python3 - "$future/values.yaml" "$scratch/released-values.yaml" "$scratch/upgrade-overrides.yaml" <<'PY'
+import pathlib, sys, yaml
+path = pathlib.Path(sys.argv[1])
+future = yaml.safe_load(path.read_text())
+old = yaml.safe_load(pathlib.Path(sys.argv[2]).read_text())
+for component, byte in [('backend', 'a'), ('frontend', 'b'), ('database', 'c')]:
+    future[component]['image']['tag'] = '4.1.4'
+    future[component]['image']['digest'] = 'sha256:' + byte * 64
+    del old[component]['image']
+path.write_text(yaml.safe_dump(future))
+pathlib.Path(sys.argv[3]).write_text(yaml.safe_dump(old))
+PY
+  render "$scratch/future.yaml" "$future" --values "$scratch/upgrade-overrides.yaml" --values "$values"
+  assert_render "$scratch/future.yaml" future-digest-upgrade <<'PY'
+for component, byte in [('backend', 'a'), ('frontend', 'b'), ('database', 'c')]:
+    spec = (find('StatefulSet', 'cda-database') if component == 'database' else find('Deployment', 'cda-' + component))['spec']['template']['spec']
+    images = [c['image'] for c in spec['containers'] if c['name'] == component]
+    check(len(images) == 1 and images[0].endswith(':4.1.4@sha256:' + byte * 64), component + ' kept its old image')
+    if component != 'database':
+        check(next(c['image'] for c in spec['initContainers'] if c['name'] == 'installation-secrets') == images[0], component + ' init differs from runtime')
 PY
 }
 
@@ -568,7 +599,7 @@ PY
 
   # A KEK Secret recreated with a different value than the live backend copied is refused.
   local kek_digest
-  kek_digest="$(printf '%s' 'S0VLS0VLS0VLS0VLS0VLS0VLS0VLS0VLS0VLS0VLS0U=' | shasum -a 256 | cut -d' ' -f1)"
+  kek_digest="$(printf '%s' 'S0VLS0VLS0VLS0VLS0VLS0VLS0VLS0VLS0VLS0VLS0U=' | python3 -c 'import hashlib,sys; print(hashlib.sha256(sys.stdin.buffer.read()).hexdigest())')"
   write_lookup_state "$harness" "
 Secret/cda-installation-kek: {data: {installation-kek: $canary_b64}}
 Deployment/cda-backend: {spec: {template: {metadata: {annotations: {noves.fi/installation-kek-secret: cda-installation-kek, checksum/installation-kek: $kek_digest}}}}}"
@@ -631,7 +662,7 @@ PY
   # copied B; after the failed backend Deployment is deleted, the upgrade renders with A.
   local b_b64 b_digest a_digest
   b_b64="$canary_b64"
-  b_digest="$(printf '%s' 'Q0FOQVJZQ0FOQVJZQ0FOQVJZQ0FOQVJZQ0FOQVJZQ0E=' | shasum -a 256 | cut -d' ' -f1)"
+  b_digest="$(printf '%s' 'Q0FOQVJZQ0FOQVJZQ0FOQVJZQ0FOQVJZQ0FOQVJZQ0E=' | python3 -c 'import hashlib,sys; print(hashlib.sha256(sys.stdin.buffer.read()).hexdigest())')"
   a_digest="$kek_digest"
   write_lookup_state "$harness" "
 Secret/old-release-installation-kek: {data: {installation-kek: $kek_b64}}
@@ -741,8 +772,8 @@ PY
 }
 
 case "${1:-all}" in
-  all) default_render_contracts; existing_secret_contracts; replica_and_schema_contracts; long_name_contracts; reuse_values_contracts; lookup_contracts; init_permission_contracts ;;
-  render) default_render_contracts; existing_secret_contracts; replica_and_schema_contracts; long_name_contracts; reuse_values_contracts; lookup_contracts ;;
+  all) default_render_contracts; existing_secret_contracts; replica_and_schema_contracts; long_name_contracts; reuse_values_contracts; future_digest_upgrade_contracts; lookup_contracts; init_permission_contracts ;;
+  render) default_render_contracts; existing_secret_contracts; replica_and_schema_contracts; long_name_contracts; reuse_values_contracts; future_digest_upgrade_contracts; lookup_contracts ;;
   reuse-values) reuse_values_contracts ;;
   long-names) long_name_contracts ;;
   default) default_render_contracts ;;

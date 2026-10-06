@@ -55,7 +55,7 @@ require_command jq
 # Compose files the lock holder is parsing and starting.
 mkdir -p "$install_dir/docker-compose/.state"
 acquire_installation_lock "$install_dir/docker-compose/.state" ||
-  die "The installation is locked by another installer run."
+  die "Could not acquire the installation lock; see the reason above."
 mkdir -p "$install_dir/docker-compose/config"
 for file in compose.yaml compose.migrate-v3.yaml .env.example; do
   cp "$repo_root/docker-compose/$file" "$install_dir/docker-compose/$file"
@@ -152,14 +152,8 @@ docker compose --env-file .env -f compose.yaml pull ||
   die "Could not pull the Noves Data App images. Log in to the configured registries and retry."
 prepare_export_volume .env compose.yaml ||
   die "Could not prepare the export volume for backend user 1654."
-docker compose --env-file .env -f compose.yaml stop backend frontend ||
-  die "Could not stop the backend and frontend before replacing the canary capability."
-publish_installation_canary .state ||
-  die "The installation canary capability could not be written."
-secure_installation_secret_files .env compose.yaml "$PWD/.state" ||
-  die "Could not assign the installation secret files to backend user 1654 and frontend user 1000."
-verify_installation_secret_access .env -f compose.yaml ||
-  die "A container user cannot read its installation secret file."
+prepare_installation_secrets_for_compose .env "$PWD/.state" compose.yaml -f compose.yaml ||
+  die "Could not prepare installation secret files; fix the reported error and rerun this installer."
 if ((${#m2m_indexing_secret_container_paths[@]})); then
   secure_m2m_indexing_secret_files \
     .env compose.yaml "$PWD/.state/m2m-indexing-secrets" \
@@ -184,7 +178,9 @@ if ((${#canton_certificate_container_paths[@]})); then
 fi
 # Both readers of the canary capability were stopped before it was replaced and start together here,
 # so they always hold the same value.
-docker compose --env-file .env -f compose.yaml up -d --force-recreate backend frontend
+docker compose --env-file .env -f compose.yaml up -d --force-recreate backend frontend ||
+  die "Could not recreate the backend and frontend; rerun this installer."
+installation_readers_stopped=false
 backend_port="$(env_value BACKEND_PORT)"
 backend_port="${backend_port:-8090}"
 backend_origin="http://127.0.0.1:$backend_port"

@@ -295,6 +295,8 @@ For a manual installation that does not use the installer, create the files as r
 
 ```bash
 cd "$APP_INSTALL_DIR/docker-compose"
+set -e
+docker compose --env-file .env -f compose.yaml stop backend frontend
 umask 077
 [ -e .state/installation-kek ] ||
   openssl rand -base64 32 | tr -d '\n' > .state/installation-kek
@@ -305,6 +307,15 @@ unset canary
 chown 1654:1654 .state/installation-kek .state/installation-canary-backend
 chown 1000:1000 .state/installation-canary-frontend
 chmod 600 .state/installation-kek .state/installation-canary-backend .state/installation-canary-frontend
+for file in .state/installation-kek .state/installation-canary-backend .state/installation-canary-frontend; do
+  test "$(wc -c < "$file" | tr -d ' ')" = 44
+  grep -Eqx '[A-Za-z0-9+/]{43}=' "$file"
+done
+cmp -s .state/installation-canary-backend .state/installation-canary-frontend
+docker compose --env-file .env -f compose.yaml run --rm --no-deps --entrypoint /bin/sh backend -ec \
+  'test -r "$INSTALLATION_KEK_FILE" && test -r "$INSTALLATION_CANARY_CAPABILITY_FILE" && test "$(stat -c "%u %a" "$INSTALLATION_KEK_FILE")" = "$(id -u) 600" && test "$(stat -c "%u %a" "$INSTALLATION_CANARY_CAPABILITY_FILE")" = "$(id -u) 600"'
+docker compose --env-file .env -f compose.yaml run --rm --no-deps --entrypoint /bin/sh frontend -ec \
+  'test -r "$INSTALLATION_CANARY_CAPABILITY_FILE" && test "$(stat -c "%u %a" "$INSTALLATION_CANARY_CAPABILITY_FILE")" = "$(id -u) 600" && test ! -e /installation-secrets/kek'
 ```
 
 Then recreate both containers so they read the same canary value: `docker compose --env-file .env -f compose.yaml up -d --force-recreate backend frontend`.
