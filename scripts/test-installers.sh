@@ -179,7 +179,7 @@ installation_secret_contracts() {
   assert_contains "$log" 'run --rm --no-deps --entrypoint /bin/sh backend'
   assert_contains "$log" 'run --rm --no-deps --entrypoint /bin/sh frontend'
   assert_before "$log" ' compose --env-file .env -f compose.yaml pull' 'compose.yaml stop backend frontend'
-  assert_before "$log" 'compose.yaml stop backend frontend' '/state/installation-kek'
+  assert_before "$log" 'compose.yaml stop backend frontend' 'installation-kek:/state/installation-kek --volume'
   assert_before "$log" '/state/installation-kek' 'entrypoint /bin/sh frontend'
   assert_before "$log" 'entrypoint /bin/sh frontend' 'compose.yaml up -d'
   assert_contains "$log" 'docker compose --env-file .env -f compose.yaml up -d --force-recreate backend frontend'
@@ -211,9 +211,14 @@ installation_secret_contracts() {
   [[ "$(cat "$scratch/existing-kek")" == "$kek_before" ]] || fail "exclusive creation changed an existing KEK"
   [[ -z "$(find "$scratch" -maxdepth 1 -name '.installation-secret.*' -print -quit)" ]] || fail "exclusive creation left a temporary file"
 
-  # A retained KEK is never rewritten, even when malformed; the root step rejects it on a real host.
+  # A malformed retained KEK is refused before stopping the app and is never rewritten.
   printf 'short' >"$kek"
-  run_compose_installer "$install_dir" "$log" "$bin" "$scratch/invalid-kek.out" || true
+  if run_compose_installer "$install_dir" "$log" "$bin" "$scratch/invalid-kek.out"; then fail "malformed KEK accepted"; fi
+  assert_not_contains "$log" 'stop backend frontend'
+  printf '%s\n' "$kek_before" >"$kek"
+  if run_compose_installer "$install_dir" "$log" "$bin" "$scratch/newline-kek.out"; then fail "45-byte KEK accepted"; fi
+  assert_not_contains "$log" 'stop backend frontend'
+  printf 'short' >"$kek"
   [[ "$(cat "$kek")" == short ]] || fail "the installer rewrote a retained KEK"
   printf '%s' "$kek_before" >"$kek"
 
@@ -370,13 +375,23 @@ compose_contracts() {
 cat >"$bin/docker" <<'EOF'
 #!/usr/bin/env bash
 printf 'docker %s\n' "$*" >>"$INSTALLER_LOG"
+if [[ "$*" == *'Validate retained KEK before stopping readers.'* ]]; then
+  kek=".state/installation-kek"
+  [[ "$(wc -c <"$kek" | tr -d ' ')" == 44 ]] && grep -Eqx '[A-Za-z0-9+/]{43}=' "$kek" || exit 1
+fi
 if [[ -n "${FAKE_DOCKER_FAIL:-}" && "docker $*" == *"$FAKE_DOCKER_FAIL"* ]]; then exit 1; fi
 case "$1 $2" in
   'compose version') exit 0 ;;
   'network inspect') exit 0 ;;
 esac
 if [[ "$1 $2" == 'compose --env-file' && " $* " == *' config --format json '* ]]; then
-  printf '%s\n' '{"services":{"backend":{"image":"backend:test","volumes":[{"type":"volume","target":"/exports","source":"exports"}]}},"volumes":{"exports":{"name":"exports"}}}'
+  python3 - <<'PYDOCKER'
+import json,pathlib
+pins=dict(line.split('=',1) for line in pathlib.Path('.env').read_text().splitlines() if '=' in line)
+services={kind.lower():{'image':pins[kind+'_IMAGE']} for kind in ('BACKEND','FRONTEND','DATABASE')}
+services['backend']['volumes']=[{'type':'volume','target':'/exports','source':'exports'}]
+print(json.dumps({'services':services,'volumes':{'exports':{'name':'exports'}}}))
+PYDOCKER
 fi
 exit 0
 EOF
@@ -441,7 +456,7 @@ EOF
 
   # A failure after stopping readers cannot silently restart either with a partly rotated capability.
   local failure_stage
-  for failure_stage in 'run --rm --network none --user 0:0' 'run --rm --no-deps --entrypoint /bin/sh frontend'; do
+  for failure_stage in 'installation-kek:/state/installation-kek --volume' 'run --rm --no-deps --entrypoint /bin/sh frontend'; do
     : >"$log"
     if FAKE_DOCKER_FAIL="$failure_stage" INSTALLER_LOG="$log" PATH="$bin:$PATH" \
       "$root/scripts/install-compose.sh" --directory "$install_dir" >"$scratch/stopped-failure.out" 2>&1; then
@@ -535,7 +550,13 @@ migration_contracts() {
 #!/usr/bin/env bash
 printf 'docker %s\n' "$*" >>"$INSTALLER_LOG"
 if [[ " $* " == *' config --format json '* ]]; then
-  printf '%s\n' '{"services":{"backend":{"image":"backend:test"}}}'
+  python3 - <<'PYDOCKER'
+import json,pathlib
+pins=dict(line.split('=',1) for line in pathlib.Path('.env').read_text().splitlines() if '=' in line)
+services={kind.lower():{'image':pins[kind+'_IMAGE']} for kind in ('BACKEND','FRONTEND','DATABASE')}
+services['backend']['volumes']=[{'type':'volume','target':'/exports','source':'exports'}]
+print(json.dumps({'services':services,'volumes':{'exports':{'name':'exports'}}}))
+PYDOCKER
 fi
 exit 0
 EOF
@@ -567,7 +588,7 @@ EOF
   assert_contains "$log" 'docker run --rm --network none --user 0:0'
   assert_before "$log" '/state/installation-kek' 'compose.migrate-v3.yaml run --rm --no-deps --entrypoint /bin/sh frontend'
   assert_before "$log" 'entrypoint /bin/sh frontend' 'compose.migrate-v3.yaml up -d'
-  assert_before "$log" 'compose.migrate-v3.yaml stop backend frontend' '/state/installation-kek'
+  assert_before "$log" 'compose.migrate-v3.yaml stop backend frontend' 'installation-kek:/state/installation-kek --volume'
   assert_contains "$log" 'compose.migrate-v3.yaml up -d --force-recreate backend frontend'
 
   write_migration_fixture

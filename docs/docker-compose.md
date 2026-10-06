@@ -264,6 +264,8 @@ unset PARTICIPANT_ADMIN_TOKEN PARTICIPANT_ADDRESS VALIDATOR_AUTH_CLIENT_ID \
 
 The final rights response must contain only `can_read_as_any_party`. Do not place the validator administrator client or token in Noves Data App files.
 
+On upgrade, rerun the installer from the chosen release. It updates the three official image pins in the retained `.env` to that release and saves a private `.env.pre-image-upgrade.*` backup. All other configuration and secrets remain intact. A custom image override is refused before any container stops; review it and set the release's digest pin before rerunning.
+
 ## 5. Create local secrets
 
 `install-compose.sh` generates the database password when `.env` still contains the example placeholder. It also creates `.state/accounting.env` with a random 32-byte `ACCOUNTING_TOKEN_ENCRYPTION_KEY`. The file is reused on every installer run. Back it up with the database: replacing it makes stored accounting-provider credentials unreadable.
@@ -294,6 +296,7 @@ The installer holds `.state/.install.lock` for the whole run, so two runs never 
 For a manual installation that does not use the installer, create the files as root before starting the app. Create the KEK only if it does not exist yet:
 
 ```bash
+(
 cd "$APP_INSTALL_DIR/docker-compose"
 set -e
 docker compose --env-file .env -f compose.yaml stop backend frontend
@@ -316,6 +319,7 @@ docker compose --env-file .env -f compose.yaml run --rm --no-deps --entrypoint /
   'test -r "$INSTALLATION_KEK_FILE" && test -r "$INSTALLATION_CANARY_CAPABILITY_FILE" && test "$(stat -c "%u %a" "$INSTALLATION_KEK_FILE")" = "$(id -u) 600" && test "$(stat -c "%u %a" "$INSTALLATION_CANARY_CAPABILITY_FILE")" = "$(id -u) 600"'
 docker compose --env-file .env -f compose.yaml run --rm --no-deps --entrypoint /bin/sh frontend -ec \
   'test -r "$INSTALLATION_CANARY_CAPABILITY_FILE" && test "$(stat -c "%u %a" "$INSTALLATION_CANARY_CAPABILITY_FILE")" = "$(id -u) 600" && test ! -e /installation-secrets/kek'
+)
 ```
 
 Then recreate both containers so they read the same canary value: `docker compose --env-file .env -f compose.yaml up -d --force-recreate backend frontend`.

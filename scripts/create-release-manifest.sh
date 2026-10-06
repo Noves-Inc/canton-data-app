@@ -15,6 +15,8 @@ for name in "${required[@]}"; do
     { printf 'Missing release input: %s\n' "$name" >&2; exit 1; }
 done
 
+python3 "$(dirname "${BASH_SOURCE[0]}")/check-release-bundle.py"
+
 # A digest must support the actual Helm init and Compose permission scripts before it becomes a release asset.
 python3 "$(dirname "${BASH_SOURCE[0]}")/check-installation-image-tools.py"
 

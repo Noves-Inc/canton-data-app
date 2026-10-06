@@ -188,10 +188,26 @@ installation_secret_cleanup() {
   [[ -z "$installation_lock_path" ]] || rmdir "$installation_lock_path" 2>/dev/null || true
 }
 
+# The retained KEK is owned by the backend uid after the first install. Validate it in a
+# read-only root container before stopping readers; the installing user need not read its bytes.
+validate_installation_kek_for_compose() {
+  local image
+  image="$(docker compose --env-file "$1" -f "$2" config --format json | jq -er '.services.backend.image')" || return 1
+  docker run --rm --network none --user 0:0 --volume "$3/installation-kek:/state/installation-kek:ro" \
+    --entrypoint /bin/sh "$image" -ec '
+      # Validate retained KEK before stopping readers.
+      [ -f /state/installation-kek ] && [ "$(wc -c </state/installation-kek | tr -d " ")" = 44 ] &&
+        grep -Eqx "[A-Za-z0-9+/]{43}=" /state/installation-kek || {
+          echo "The retained installation KEK must contain 44 base64 characters and no newline; restore the original key." >&2
+          exit 1
+        }'
+}
+
 # Shared stopped-reader preparation for normal installation and v3 migration.
 prepare_installation_secrets_for_compose() {
   local env_file="$1" state_dir="$2" base_compose="$3"
   shift 3
+  validate_installation_kek_for_compose "$env_file" "$base_compose" "$state_dir" || return 1
   installation_readers_stopped=true
   docker compose --env-file "$env_file" "$@" stop backend frontend || return 1
   publish_installation_canary "$state_dir" || return 1

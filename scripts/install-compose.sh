@@ -128,6 +128,8 @@ wait_for_backend_ready() {
 [[ -f .env ]] || die "Create .env from .env.example before installation."
 [[ -f .state/nodes-config.json ]] ||
   die "Create .state/nodes-config.json with the Ledger API address."
+python3 "$repo_root/scripts/upgrade-compose-images.py" .env "$repo_root/docker-compose/.env.example" ||
+  die "The retained image configuration needs operator review."
 upgrade_nodes_config_file .state/nodes-config.json ||
   die "The retained node configuration needs operator review."
 ensure_env_secret DATABASE_PASSWORD >/dev/null
@@ -148,6 +150,9 @@ docker compose --env-file .env -f compose.yaml config --quiet ||
   die "The Compose application configuration is invalid."
 docker network inspect "$canton_docker_network" >/dev/null 2>&1 ||
   die "Docker network '$canton_docker_network' does not exist."
+docker compose --env-file .env -f compose.yaml config --format json | \
+  python3 "$repo_root/scripts/check-compose-images.py" "$repo_root/docker-compose/.env.example" ||
+  die "The resolved Compose images differ from the chosen release."
 docker compose --env-file .env -f compose.yaml pull ||
   die "Could not pull the Noves Data App images. Log in to the configured registries and retry."
 prepare_export_volume .env compose.yaml ||
