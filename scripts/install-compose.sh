@@ -50,6 +50,7 @@ docker compose version >/dev/null 2>&1 || die "Docker Compose v2 or newer is req
 require_command openssl
 require_command curl
 require_command jq
+require_command python3
 
 # The lock is taken before any installation file is written: a concurrent run must not replace the
 # Compose files the lock holder is parsing and starting.

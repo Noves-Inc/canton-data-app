@@ -1,5 +1,8 @@
 # Migrate from v3.16.1 to v4 of the Noves Data App
 
+The Compose migration script requires Docker Compose v2, `jq`, `openssl`, and Python 3 (`python3`) on the host.
+It checks these tools before upgrading retained image configuration or changing containers.
+
 v4 of the Noves Data App upgrades databases from v3.16.1. If you run an older v3 release, upgrade it to v3.16.1 and confirm that it works before starting this procedure.
 
 If your app is running on the v3.16.1 version, the last database schema (which is needed for the migration) will be either `3.14.1` or `3.15.0` in `public.version`.

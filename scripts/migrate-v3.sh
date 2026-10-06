@@ -57,6 +57,7 @@ done
 require_command docker
 require_command jq
 require_command openssl
+require_command python3
 cd "$compose_dir"
 # The lock is taken before the retained configuration is rewritten or any container is touched.
 acquire_installation_lock "$PWD/.state" ||

@@ -8,6 +8,9 @@ See [Container environment variables](environment-variables.md) for the variable
 
 ## 1. Check the host
 
+The installer requires Docker Compose v2, `curl`, `jq`, `openssl`, and Python 3 (`python3`) on the host.
+Python uses only its standard library to validate and upgrade retained image pins before containers are changed.
+
 The Noves Data App adds a database, backend, and frontend to the validator host. Check CPU, memory, and disk before starting; the initial indexing will incur some load.
 Find a Docker network that the app can use to reach the Ledger API and scan API. The default network name is shown here:
 
