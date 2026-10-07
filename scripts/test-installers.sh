@@ -213,13 +213,15 @@ installation_secret_contracts() {
 
   # A malformed retained KEK is refused before stopping the app and is never rewritten.
   printf 'short' >"$kek"
+  cp "$kek" "$scratch/malformed-kek.before"
   if run_compose_installer "$install_dir" "$log" "$bin" "$scratch/invalid-kek.out"; then fail "malformed KEK accepted"; fi
   assert_not_contains "$log" 'stop backend frontend'
+  cmp -s "$kek" "$scratch/malformed-kek.before" || fail "the installer rewrote a malformed retained KEK"
   printf '%s\n' "$kek_before" >"$kek"
+  cp "$kek" "$scratch/newline-kek.before"
   if run_compose_installer "$install_dir" "$log" "$bin" "$scratch/newline-kek.out"; then fail "45-byte KEK accepted"; fi
   assert_not_contains "$log" 'stop backend frontend'
-  printf 'short' >"$kek"
-  [[ "$(cat "$kek")" == short ]] || fail "the installer rewrote a retained KEK"
+  cmp -s "$kek" "$scratch/newline-kek.before" || fail "the installer rewrote a retained KEK with a newline"
   printf '%s' "$kek_before" >"$kek"
 
   # Lost KEK next to a retained installation: refused, nothing started.

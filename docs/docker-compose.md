@@ -327,6 +327,8 @@ docker compose --env-file .env -f compose.yaml run --rm --no-deps --entrypoint /
 
 Then recreate both containers so they read the same canary value: `docker compose --env-file .env -f compose.yaml up -d --force-recreate backend frontend`.
 
+If a step fails after stopping the readers, the backend and frontend remain stopped. Fix the reported error, rerun the complete block, then recreate both containers together with the command above. Do not restart either reader separately while their canary files may differ.
+
 Protect all local configuration:
 
 ```bash
