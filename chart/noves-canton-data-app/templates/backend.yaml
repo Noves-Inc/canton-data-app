@@ -1,3 +1,4 @@
+{{- $placement := include "cda.componentPlacement" (list . .Values.backend) | fromYaml -}}
 {{- include "cda.installationDefaults" . }}
 {{- $hasGlobalM2mIndexing := false -}}
 {{- range $node := .Values.canton.nodes -}}
@@ -42,7 +43,10 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
-      automountServiceAccountToken: false
+      {{- with .Values.backend.serviceAccountName }}
+      serviceAccountName: {{ . | quote }}
+      {{- end }}
+      automountServiceAccountToken: {{ if hasKey .Values.backend "automountServiceAccountToken" }}{{ .Values.backend.automountServiceAccountToken }}{{ else }}false{{ end }}
       securityContext:
         {{- toYaml .Values.backend.podSecurityContext | nindent 8 }}
       {{- with .Values.imagePullSecrets }}
@@ -362,7 +366,7 @@ spec:
                 path: token
         {{- end }}
         {{- end }}
-      {{- with .Values.nodeSelector }}
+      {{- with $placement.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
@@ -370,7 +374,7 @@ spec:
       affinity:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.tolerations }}
+      {{- with $placement.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}

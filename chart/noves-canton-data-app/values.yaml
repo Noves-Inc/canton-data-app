@@ -4,6 +4,12 @@ fullnameOverride: ""
 imagePullSecrets: []
 
 backend:
+  # Existing namespace-local SA only; this chart creates no SA or RBAC objects.
+  serviceAccountName: ""
+  automountServiceAccountToken: false
+  # null inherits global placement; {} / [] explicitly clear it for this component.
+  nodeSelector: null
+  tolerations: null
   replicaCount: 1
   image:
     repository: ghcr.io/noves-inc/noves-canton-backend-v4
@@ -71,6 +77,12 @@ backend:
       cpu: "1.5"
       memory: 4Gi
 frontend:
+  # Existing namespace-local SA only; this chart creates no SA or RBAC objects.
+  serviceAccountName: ""
+  automountServiceAccountToken: false
+  # null inherits global placement; {} / [] explicitly clear it for this component.
+  nodeSelector: null
+  tolerations: null
   replicaCount: 1
   image:
     repository: ghcr.io/noves-inc/noves-canton-frontend-v4
@@ -101,6 +113,12 @@ embedded:
   allowedOrigins: []
 
 database:
+  # Existing namespace-local SA only; this chart creates no SA or RBAC objects.
+  serviceAccountName: ""
+  automountServiceAccountToken: false
+  # null inherits global placement; {} / [] explicitly clear it for this component.
+  nodeSelector: null
+  tolerations: null
   image:
     repository: ghcr.io/noves-inc/noves-canton-database-v4
     tag: "4.1.3"

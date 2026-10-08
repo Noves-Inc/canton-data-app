@@ -387,3 +387,18 @@ for name in {{ join " " . }}; do
   fi
 done
 {{- end -}}
+
+{{/* Component placement inherits the global values when missing/null. Explicit {} and [] clear them. */}}
+{{- define "cda.componentPlacement" -}}
+{{- $root := index . 0 -}}
+{{- $component := index . 1 -}}
+{{- $nodeSelector := $root.Values.nodeSelector -}}
+{{- $tolerations := $root.Values.tolerations -}}
+{{- if and (hasKey $component "nodeSelector") (ne $component.nodeSelector nil) -}}
+{{- $nodeSelector = $component.nodeSelector -}}
+{{- end -}}
+{{- if and (hasKey $component "tolerations") (ne $component.tolerations nil) -}}
+{{- $tolerations = $component.tolerations -}}
+{{- end -}}
+{{- dict "nodeSelector" $nodeSelector "tolerations" $tolerations | toYaml -}}
+{{- end -}}

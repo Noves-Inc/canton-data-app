@@ -529,6 +529,29 @@ Open `https://api.data.example.com/docs` for Swagger UI. Requests to `/docs` on 
 
 ## Troubleshooting
 
+### Existing runtime ServiceAccounts and component placement
+
+`backend`, `frontend` and `database` each accept `serviceAccountName` and
+`automountServiceAccountToken`. An empty or absent name preserves the namespace's
+default ServiceAccount; token mounting remains `false` by default. A supplied name
+must identify an existing ServiceAccount in the release namespace. The chart creates
+no ServiceAccount, Role or RoleBinding and grants no API authority. Keep token mounting
+disabled for ordinary application runtimes.
+
+Each component also accepts `nodeSelector` and `tolerations`. Missing or `null` values
+inherit the existing global setting. Explicit `{}` and `[]` clear that component's
+setting; nonempty values replace it. Global `affinity` remains unchanged. For example,
+setting only backend/frontend placement leaves the database PodTemplate and volume
+claims unchanged. Moving the database is an explicit component choice and requires
+its own maintenance, writer-stop and storage/zone acceptance. The chart does not create
+a node pool or approve a restart.
+
+These controls do not change the Helm release, database/export PVC, accounting-key
+or installation-KEK ownership. Bind existing Secret names and preserve the original
+installation KEK whenever encrypted installation credentials exist. An existing SA
+name does not establish that its effective permissions or image/credential custody
+have been accepted.
+
 | Symptom | Check |
 |---|---|
 | `ImagePullBackOff` | `kubectl describe pod`; fix ACR or GHCR access and `imagePullSecrets` |
