@@ -269,8 +269,8 @@ Prepare those files manually; do not run `install-compose.sh` during this migrat
 migration wrapper validates and safely upgrades them after `--old-workload-stopped` has been
 acknowledged. It also generates the installation credential files (`.state/installation-kek` and the
 two canary copies) and assigns them to the backend and frontend users, as described in the
-[installation credential secrets](docker-compose.md#installation-credential-secrets) section. Back up
-`.state/installation-kek` with the migrated database. Nodes with an explicit `m2mIndexing` object use
+[installation credential secrets](docker-compose.md#installation-credential-secrets) section. Keep the KEK with your database backup; see the
+[Security model](security.md#installation-credential-secrets). Nodes with an explicit `m2mIndexing` object use
 their own secret files. A
 `.state/m2m-indexing.env` file is required only when at least one node relies on the global M2M indexing
 credentials.

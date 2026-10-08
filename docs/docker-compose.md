@@ -292,9 +292,9 @@ The installer also creates the two files behind the installation credential (see
 | `.state/installation-canary-backend` | backend only, at `/installation-secrets/canary-capability` | `1654:1654`, `0600` | Replaced on every run |
 | `.state/installation-canary-frontend` | frontend only, at `/installation-secrets/canary-capability` | `1000:1000`, `0600` | Replaced on every run with the same value as the backend copy |
 
-The installer holds `.state/.install.lock` for the whole run, so two runs never interleave; if a run is interrupted so hard that the lock remains, remove that directory once no installer is running. After pulling the images, the installer stops the backend and frontend and only then writes the new canary copies, so a run that fails earlier leaves the running containers and their files in agreement. A root one-shot container from the pinned backend image checks each file, assigns it to the user of the only container that mounts it, and verifies the owner and mode. Each runtime container then proves it can read its own files, and the installer starts the backend and frontend together so that both hold the same canary value.
+If an interrupted installer leaves `.state/.install.lock`, remove that directory only after confirming no installer is running. After a failure, fix the reported error and rerun the same installer command; the backend and frontend may be stopped or partly recreated, so do not restart either separately while their canary files may differ.
 
-**Back up `.state/installation-kek` with the database and restore them together.** The database without its KEK cannot use its installation credential, and a new KEK does not repair that. On its first run the installer also writes `.state/installation-kek.created`. If the KEK later disappears while that record remains, the installer stops instead of generating a replacement: restore the KEK from the backup taken with the database. Delete the record only when the database was discarded as well and the installation should enroll again from scratch. If the whole `.state` directory is lost while the database volume remains, the installer cannot tell that a KEK existed and creates a new one; the backend then refuses to start while the database holds a credential it cannot decrypt, until the backed-up KEK is restored.
+Keep `.state/installation-kek` with your database backup; see the [KEK backup and restore rule](security.md#installation-credential-secrets). If the installer reports a missing KEK, restore that file before rerunning. Delete `.state/installation-kek.created` only when you have discarded the database and are starting a new installation. If the whole `.state` directory was lost but the database remains, restore the original KEK before running the installer.
 
 For a manual installation that does not use the installer, create the files as root before starting the app. Create the KEK only if it does not exist yet:
 
@@ -458,7 +458,7 @@ docker compose --env-file .env -f compose.yaml logs -f backend
 docker compose --env-file .env -f compose.yaml down
 ```
 
-`down` preserves the named database and export volumes. Never use `down --volumes` during an upgrade. Preserve `.state/accounting.env`, `.state/installation-kek`, and `.state/installation-kek.created` along with the database.
+`down` preserves the named database and export volumes. Never use `down --volumes` during an upgrade. Preserve `.state/accounting.env` and the installation KEK files; follow the [backup and restore rule](security.md#installation-credential-secrets).
 
 For encrypted local storage, set `DATABASE_DATA_PATH` to an absolute path on an encrypted filesystem. See [Encryption at rest](../encryption_at_rest.md).
 

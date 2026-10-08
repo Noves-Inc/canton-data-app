@@ -65,15 +65,15 @@ Each installation has its own credential for account features: a signing key tha
 | Installation key-encryption key (KEK) | Encrypts the installation's private signing key in the database | backend only | Generated once, kept on uninstall, never regenerated |
 | Canary capability | Lets the frontend run its server-side health check against the backend during enrollment | frontend and backend, never sent to browsers | Reused on upgrade, replaced on every reinstall |
 
-Helm and the Compose installer generate both; no configuration is required. Each value is the base64 encoding of 32 random bytes (44 characters, no newline). Each container receives its own copy as a `0600` file owned by its runtime user: `1654` for the backend and `1000` for the frontend.
+Helm and the Compose installer generate both; no configuration is required. Each value is the base64 encoding of 32 random bytes (44 characters, no newline), delivered to the application as a read-only file.
 
-**Back up the KEK together with the database, and restore them together.** The database without its KEK cannot use its installation credential: the backend refuses to start while the database holds a credential it cannot decrypt. A new KEK does not repair that. Helm refuses to replace the KEK Secret while it can see that the release's live backend depends on it, and the Compose installer refuses to replace `.state/installation-kek` while its provisioning record remains. Where that evidence is gone (for example after renaming a Helm release), a new KEK is generated with a warning, the backend refuses to start, and restoring the backed-up value recovers; see [Helm installation](helm.md#recover-from-a-kek-generated-by-mistake).
+**Back up the KEK together with the database, and restore them together.** Keep the Helm KEK Secret (generated or operator-managed), or Compose's `.state/installation-kek` and `.state/installation-kek.created`, with that backup. The backend refuses to start if it cannot decrypt the installation credential in the database. Generating a new KEK cannot repair this: restore the original value. Follow the [Helm recovery procedure](helm.md#recover-from-a-kek-generated-by-mistake) or the [Compose recovery guidance](docker-compose.md#installation-credential-secrets).
 
 Do not start a copy of a database and its KEK as a second, simultaneously running installation. Both copies would hold the same installation credential. A new installation starts from its own empty database and enrolls on its own.
 
 Every installation that shares a Noves account must run 4.1.4 or later. The account switches to per-installation credentials once none of its installations has used the previous credential for 72 hours, or earlier when an account admin confirms that all installations run 4.1.4; from then on an installation on an earlier release has no account features until it is upgraded and enrolls with its own database and KEK. See the [4.1.4 release notes](release-notes-4.1.4-draft.md#upgrade-every-installation-of-an-account).
 
-Requests for account and subscription features sent to Noves are signed by its gateway and have a **65,536-byte body limit**. A larger body returns `413 body_too_large`, including a request using the older shared credential while the account still accepts the previous shared credential. The previous unsigned gateway did not impose this contract limit. Review custom integrations that call these Noves services directly before upgrading. Legacy query parameters retain form parsing (the last duplicate value wins and `+` means space); path traversal remains rejected. Send uncompressed JSON: the legacy gateway forwards original body bytes and does not decompress a `Content-Encoding` payload.
+Account and subscription requests sent to Noves have a **65,536-byte body limit**. Larger requests return `413 body_too_large`. Send uncompressed JSON. Check request sizes in custom integrations that call these services directly before upgrading.
 
 Never:
 
@@ -86,7 +86,7 @@ Canton-user provisioning requires an administrator credential, used only as admi
 
 ## Data
 
-The database and export volumes contain private transaction data. Encrypt storage, back it up together with the installation KEK, limit administrative access, and preserve it during ordinary upgrades. The shipped database container is the only supported database runtime.
+The database and export volumes contain private transaction data. Encrypt storage, back it up, limit administrative access, and preserve it during ordinary upgrades. Follow the [installation KEK backup rule](#installation-credential-secrets). The shipped database container is the only supported database runtime.
 
 The backend container is non-root (`1654:1654`). Its pod uses `fsGroup: 1654` with `fsGroupChangePolicy: OnRootMismatch` to make the exports PVC group-writable. Keep this setting when copying or wrapping the chart. Do not solve export-volume permissions by running the backend as root or adding a privileged volume-permissions container.
 

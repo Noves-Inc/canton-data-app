@@ -34,14 +34,16 @@ Account features are the Platform API key, the Account page with its users and p
 
 **Ledger connection.** Enrollment reads the challenge through the backend's participant connection, so that connection must be able to read as your validator party. An installation whose Ledger API connection or M2M indexing credential is not configured cannot enroll. The Backend Status page shows it as `Not enrollable`, and it keeps the 4.1.3 behaviour until its account switches to per-installation credentials (see below). Data App v3 installations do not enroll either.
 
-**Requests to Noves account services.** The signed gateway has a 65,536-byte body limit for account and subscription requests. A larger body returns `413 body_too_large`, even while the account still accepts the previous shared credential. The previous unsigned gateway did not impose this contract limit. If a custom integration calls these services directly, check its request sizes before upgrading. Legacy query parameters keep their previous form parsing; send uncompressed JSON. See the [Security model](security.md#installation-credential-secrets) for the request limits.
+**Requests to Noves account services.** Account and subscription requests have a 65,536-byte body limit; larger requests return `413 body_too_large`. Send uncompressed JSON. If a custom integration calls these services directly, check its request sizes before upgrading. See the [Security model](security.md#installation-credential-secrets).
 
 **New secrets, no new configuration.** Helm and the Compose installer generate two new secrets automatically:
 
 - an installation key-encryption key (KEK), mounted only into the backend;
 - a canary capability, shared by the frontend and the backend, never sent to browsers.
 
-**Back up the KEK together with the database, and restore them together.** The database without its KEK cannot use its installation credential. Helm keeps the generated KEK Secret during uninstall and refuses to replace it while the release's live backend depends on it; renaming the release or changing `fullnameOverride` requires `installation.kek.existingSecret` pointing at the retained KEK; the Compose installer keeps `.state/installation-kek` and refuses to replace it once it has created one. Operators who render the chart client-side, for example with Argo CD, set `installation.kek.existingSecret` and `installation.canary.existingSecret`. See [Helm installation](helm.md#4-create-application-secrets), [Docker Compose installation](docker-compose.md#installation-credential-secrets), and [Security model](security.md#installation-credential-secrets).
+If you render the chart client-side with `helm template` or Argo CD, supply both `installation.kek.existingSecret` and `installation.canary.existingSecret` before upgrading and reuse the original KEK for an existing database; see [Manage the installation Secrets yourself](helm.md#manage-the-installation-secrets-yourself).
+
+Keep the KEK with your database backup; follow the [backup and restore rule](security.md#installation-credential-secrets). See [Helm installation](helm.md#4-create-application-secrets) or [Docker Compose installation](docker-compose.md#installation-credential-secrets) for upgrade and recovery instructions.
 
 The Compose installer now recreates the backend and frontend containers on every run, so both read the same canary capability.
 
