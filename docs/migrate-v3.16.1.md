@@ -1,5 +1,8 @@
 # Migrate from v3.16.1 to v4 of the Noves Data App
 
+The Compose migration script requires Docker Compose v2, `jq`, `openssl`, and Python 3 (`python3`) on the host.
+It checks these tools before upgrading retained image configuration or changing containers.
+
 v4 of the Noves Data App upgrades databases from v3.16.1. If you run an older v3 release, upgrade it to v3.16.1 and confirm that it works before starting this procedure.
 
 If your app is running on the v3.16.1 version, the last database schema (which is needed for the migration) will be either `3.14.1` or `3.15.0` in `public.version`.
@@ -264,7 +267,11 @@ Follow steps 2 through 5 in the [Docker Compose installation guide](docker-compo
 
 Prepare those files manually; do not run `install-compose.sh` during this migration procedure. The
 migration wrapper validates and safely upgrades them after `--old-workload-stopped` has been
-acknowledged. Nodes with an explicit `m2mIndexing` object use their own secret files. A
+acknowledged. It also generates the installation credential files (`.state/installation-kek` and the
+two canary copies) and assigns them to the backend and frontend users, as described in the
+[installation credential secrets](docker-compose.md#installation-credential-secrets) section. Keep the KEK with your database backup; see the
+[Security model](security.md#installation-credential-secrets). Nodes with an explicit `m2mIndexing` object use
+their own secret files. A
 `.state/m2m-indexing.env` file is required only when at least one node relies on the global M2M indexing
 credentials.
 

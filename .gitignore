@@ -11,3 +11,5 @@
 /.superpowers/
 /docs/superpowers/
 .state
+__pycache__/
+*.py[cod]

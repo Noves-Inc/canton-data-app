@@ -29,6 +29,12 @@ file under `/m2m-indexing-secrets`; those nodes do not use the global token-sour
 Compose both fix it in the backend container; it does not belong in the operator-maintained M2M indexing
 file. `M2M_SCOPE` is optional, as are the explicit node client-credential `audience` and `scope`.
 
+### Installation credential files
+
+- `INSTALLATION_KEK_FILE` (backend only): `/installation-secrets/kek`, the key-encryption key for the installation's signing key.
+- `INSTALLATION_CANARY_CAPABILITY_FILE` (backend and frontend): `/installation-secrets/canary-capability`, the capability for the frontend's server-side canary call.
+- Both are fixed paths, not operator settings. Helm copies the values from `installation.kek` and `installation.canary` Secrets, which it generates unless `existingSecret` is set. Compose mounts `.state/installation-kek`, `.state/installation-canary-backend`, and `.state/installation-canary-frontend`, which the installer generates. Each file holds the base64 encoding of 32 random bytes with no newline and is readable only by its container's user. See [Security model](security.md#installation-credential-secrets).
+
 ### Browser authentication
 
 The public application URL is required. Set `oidc.appUrl` in Helm or `APP_URL` in Compose. It supplies the redirect and logout URLs.

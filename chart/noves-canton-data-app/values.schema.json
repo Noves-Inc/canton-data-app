@@ -45,6 +45,10 @@
         "resources"
       ],
       "properties": {
+        "serviceAccountName": {"$ref": "#/$defs/runtimeServiceAccountName"},
+        "automountServiceAccountToken": {"type": "boolean"},
+        "nodeSelector": {"$ref": "#/$defs/componentNodeSelector"},
+        "tolerations": {"$ref": "#/$defs/componentTolerations"},
         "image": { "$ref": "#/$defs/image" },
         "podSecurityContext": { "type": "object" },
         "containerSecurityContext": { "type": "object" },
@@ -88,6 +92,14 @@
             "key": { "type": "string", "minLength": 1 }
           }
         }
+      }
+    },
+    "installation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kek": { "$ref": "#/$defs/installationSecret" },
+        "canary": { "$ref": "#/$defs/installationSecret" }
       }
     },
     "canton": {
@@ -241,6 +253,21 @@
     "networkPolicy"
   ],
   "$defs": {
+    "runtimeServiceAccountName": {"type": "string", "maxLength": 253, "pattern": "^([a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?([.][a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?)*)?$"},
+    "componentNodeSelector": {"type": ["object", "null"], "additionalProperties": {"type": "string"}},
+    "componentTolerations": {"type": ["array", "null"], "items": {"type": "object", "additionalProperties": false, "properties": {"key": {"type": "string"}, "operator": {"enum": ["Equal", "Exists"]}, "value": {"type": "string"}, "effect": {"enum": ["NoSchedule", "PreferNoSchedule", "NoExecute"]}, "tolerationSeconds": {"type": "integer", "minimum": 0}}}},
+    "installationSecret": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "existingSecret": {
+          "type": "string",
+          "maxLength": 253,
+          "pattern": "^([a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?([.][a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?)*)?$"
+        },
+        "key": { "type": "string", "minLength": 1, "maxLength": 253, "pattern": "^[-._a-zA-Z0-9]+$" }
+      }
+    },
     "cantonNode": {
       "type": "object",
       "additionalProperties": false,
@@ -296,6 +323,10 @@
       "additionalProperties": false,
       "required": ["replicaCount", "image", "podSecurityContext", "containerSecurityContext", "resources"],
       "properties": {
+        "serviceAccountName": {"$ref": "#/$defs/runtimeServiceAccountName"},
+        "automountServiceAccountToken": {"type": "boolean"},
+        "nodeSelector": {"$ref": "#/$defs/componentNodeSelector"},
+        "tolerations": {"$ref": "#/$defs/componentTolerations"},
         "replicaCount": { "type": "integer", "minimum": 1 },
         "image": { "$ref": "#/$defs/image" },
         "podSecurityContext": { "type": "object" },
@@ -318,6 +349,10 @@
         "resources"
       ],
       "properties": {
+        "serviceAccountName": {"$ref": "#/$defs/runtimeServiceAccountName"},
+        "automountServiceAccountToken": {"type": "boolean"},
+        "nodeSelector": {"$ref": "#/$defs/componentNodeSelector"},
+        "tolerations": {"$ref": "#/$defs/componentTolerations"},
         "replicaCount": { "type": "integer", "const": 1 },
         "image": { "$ref": "#/$defs/image" },
         "podSecurityContext": { "type": "object" },

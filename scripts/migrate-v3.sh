@@ -7,6 +7,8 @@ repo_root="$(cd "$script_dir/.." && pwd)"
 source "$script_dir/lib/common.sh"
 # shellcheck source=lib/canton-certificates.sh
 source "$script_dir/lib/canton-certificates.sh"
+# shellcheck source=lib/installation-secrets.sh
+source "$script_dir/lib/installation-secrets.sh"
 # shellcheck source=lib/m2m-indexing-secrets.sh
 source "$script_dir/lib/m2m-indexing-secrets.sh"
 # shellcheck source=lib/node-config-upgrade.sh
@@ -54,7 +56,14 @@ done
 
 require_command docker
 require_command jq
+require_command openssl
+require_command python3
 cd "$compose_dir"
+# The lock is taken before the retained configuration is rewritten or any container is touched.
+acquire_installation_lock "$PWD/.state" ||
+  die "Could not acquire the installation lock; see the reason above."
+python3 "$repo_root/scripts/upgrade-compose-images.py" .env "$repo_root/docker-compose/.env.example" ||
+  die "The retained image configuration needs operator review."
 upgrade_nodes_config_file .state/nodes-config.json ||
   die "The retained node configuration needs operator review."
 validate_m2m_indexing_configuration .state/nodes-config.json .state/m2m-indexing.env ||
@@ -66,7 +75,16 @@ validate_m2m_indexing_secret_files .state/nodes-config.json .state/m2m-indexing-
 chmod 600 .env
 [[ ! -f .state/m2m-indexing.env ]] || chmod 600 .state/m2m-indexing.env
 chmod 644 .state/nodes-config.json
-DATABASE_VOLUME="$database_volume" \
-exec docker compose --env-file .env \
+generate_installation_kek .state ||
+  die "The installation KEK could not be prepared."
+docker compose --env-file .env -f compose.yaml config --format json | \
+  python3 "$repo_root/scripts/check-compose-images.py" "$repo_root/docker-compose/.env.example" ||
+  die "The resolved Compose images differ from the chosen release."
+export DATABASE_VOLUME="$database_volume"
+prepare_installation_secrets_for_compose .env "$PWD/.state" compose.yaml -f compose.yaml -f compose.migrate-v3.yaml ||
+  die "Could not prepare installation secret files; fix the reported error and rerun this installer."
+docker compose --env-file .env \
   -f compose.yaml \
-  -f compose.migrate-v3.yaml up -d
+  -f compose.migrate-v3.yaml up -d --force-recreate backend frontend ||
+  die "Could not recreate the backend and frontend; rerun this installer."
+installation_readers_stopped=false

@@ -1,3 +1,4 @@
+{{- include "cda.installationDefaults" . }}
 {{- $backendHost := include "cda.backendHost" . }}
 {{- $backendTlsSecret := default .Values.routing.tlsSecret .Values.routing.backend.tlsSecret }}
 {{- $backendScheme := "http" }}
@@ -5,6 +6,10 @@
 {{- $backendScheme = "https" }}
 {{- end }}
 The Noves Data App is installed.
+{{- with include "cda.installationKekNotice" . }}
+
+{{ . }}
+{{- end }}
 {{- if ne .Values.routing.provider "none" }}
 
 Open {{ .Values.oidc.appUrl }}.

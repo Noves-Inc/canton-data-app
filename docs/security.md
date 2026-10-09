@@ -56,18 +56,37 @@ If you're choosing an accounting provider integration (Quickbooks or Xero), Helm
 
 The Compose installer applies the same rule in `.state/accounting.env`: it generates one 32-byte base64 key on first use, sets mode `0600`, and reuses the file on later runs. A manual Compose installation must create that file before starting the backend. Back it up with the database and never regenerate it during an upgrade.
 
+### Installation credential secrets
+
+Each installation has its own credential for account features: a signing key that the app sets up automatically. The backend generates that key, stores it encrypted in the database, and never sends it anywhere. Two local secrets support it:
+
+| Secret | Purpose | Mounted into | Lifetime |
+|---|---|---|---|
+| Installation key-encryption key (KEK) | Encrypts the installation's private signing key in the database | backend only | Generated once, kept on uninstall, never regenerated |
+| Canary capability | Lets the frontend run its server-side health check against the backend during enrollment | frontend and backend, never sent to browsers | Reused on upgrade, replaced on every reinstall |
+
+Helm and the Compose installer generate both; no configuration is required. Each value is the base64 encoding of 32 random bytes (44 characters, no newline), delivered to the application as a read-only file.
+
+**Back up the KEK together with the database, and restore them together.** Keep the Helm KEK Secret (generated or operator-managed), or Compose's `.state/installation-kek` and `.state/installation-kek.created`, with that backup. The backend refuses to start if it cannot decrypt the installation credential in the database. Generating a new KEK cannot repair this: restore the original value. Follow the [Helm recovery procedure](helm.md#recover-from-a-kek-generated-by-mistake) or the [Compose recovery guidance](docker-compose.md#installation-credential-secrets).
+
+Do not start a copy of a database and its KEK as a second, simultaneously running installation. Both copies would hold the same installation credential. A new installation starts from its own empty database and enrolls on its own.
+
+Every installation that shares a Noves account must run 4.1.4 or later. The account switches to per-installation credentials once none of its installations has used the previous credential for 72 hours, or earlier when an account admin confirms that all installations run 4.1.4; from then on an installation on an earlier release has no account features until it is upgraded and enrolls with its own database and KEK. See the [4.1.4 release notes](release-notes-4.1.4-draft.md#upgrade-every-installation-of-an-account).
+
+Account and subscription requests sent to Noves have a **65,536-byte body limit**. Larger requests return `413 body_too_large`. Send uncompressed JSON. Check request sizes in custom integrations that call these services directly before upgrading.
+
 Never:
 
 - reuse a validator, wallet, or administrative credential;
 - put M2M credentials in the browser OIDC client;
 - publish the database or participant Ledger API;
-- commit `.env`, `m2m-indexing.env`, tokens, or client secrets.
+- commit `.env`, `m2m-indexing.env`, `installation-kek`, tokens, or client secrets.
 
 Canton-user provisioning requires an administrator credential, used only as administrator authority and never as the app's M2M indexing credential. Use your normal Canton administrator procedure for Helm and Compose installations.
 
 ## Data
 
-The database and export volumes contain private transaction data. Encrypt storage, back it up, limit administrative access, and preserve it during ordinary upgrades. The shipped database container is the only supported database runtime.
+The database and export volumes contain private transaction data. Encrypt storage, back it up, limit administrative access, and preserve it during ordinary upgrades. Follow the [installation KEK backup rule](#installation-credential-secrets). The shipped database container is the only supported database runtime.
 
 The backend container is non-root (`1654:1654`). Its pod uses `fsGroup: 1654` with `fsGroupChangePolicy: OnRootMismatch` to make the exports PVC group-writable. Keep this setting when copying or wrapping the chart. Do not solve export-volume permissions by running the backend as root or adding a privileged volume-permissions container.
 

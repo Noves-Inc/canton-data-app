@@ -9,6 +9,8 @@ source "$script_dir/lib/common.sh"
 source "$script_dir/lib/canton-certificates.sh"
 # shellcheck source=lib/export-storage.sh
 source "$script_dir/lib/export-storage.sh"
+# shellcheck source=lib/installation-secrets.sh
+source "$script_dir/lib/installation-secrets.sh"
 # shellcheck source=lib/m2m-indexing-secrets.sh
 source "$script_dir/lib/m2m-indexing-secrets.sh"
 # shellcheck source=lib/node-config-upgrade.sh
@@ -34,6 +36,10 @@ while (($#)); do
   esac
 done
 
+# Every later path derives from an absolute installation directory: the installer changes directory
+# before it finishes, and the EXIT trap that releases the lock must resolve the same path from there.
+[[ "$install_dir" == /* ]] || install_dir="$PWD/$install_dir"
+
 m2m_indexing_secret_root="$install_dir/docker-compose/.state/m2m-indexing-secrets"
 if [[ -L "$m2m_indexing_secret_root" ]]; then
   die "M2M indexing secret root must be a real directory, not a symbolic link: $m2m_indexing_secret_root"
@@ -44,14 +50,19 @@ docker compose version >/dev/null 2>&1 || die "Docker Compose v2 or newer is req
 require_command openssl
 require_command curl
 require_command jq
+require_command python3
 
+# The lock is taken before any installation file is written: a concurrent run must not replace the
+# Compose files the lock holder is parsing and starting.
+mkdir -p "$install_dir/docker-compose/.state"
+acquire_installation_lock "$install_dir/docker-compose/.state" ||
+  die "Could not acquire the installation lock; see the reason above."
 mkdir -p "$install_dir/docker-compose/config"
 for file in compose.yaml compose.migrate-v3.yaml .env.example; do
   cp "$repo_root/docker-compose/$file" "$install_dir/docker-compose/$file"
 done
 cp "$repo_root/docker-compose/config/storage.env.example" \
   "$install_dir/docker-compose/config/storage.env.example"
-mkdir -p "$install_dir/docker-compose/.state"
 mkdir -p -m 0750 "$install_dir/docker-compose/.state/certificates"
 chmod 0750 "$install_dir/docker-compose/.state/certificates"
 mkdir -p -m 0700 "$m2m_indexing_secret_root"
@@ -77,6 +88,8 @@ accounting_key="$(sed -n 's/^ACCOUNTING_TOKEN_ENCRYPTION_KEY=//p' "$accounting_e
 [[ "$accounting_key" =~ ^[A-Za-z0-9+/]{43}=$ ]] ||
   die "$accounting_env_file must contain a 32-byte base64 ACCOUNTING_TOKEN_ENCRYPTION_KEY."
 chmod 600 "$accounting_env_file"
+generate_installation_kek .state ||
+  die "The installation KEK could not be prepared."
 
 ensure_env_secret() {
   local key="$1"
@@ -116,6 +129,8 @@ wait_for_backend_ready() {
 [[ -f .env ]] || die "Create .env from .env.example before installation."
 [[ -f .state/nodes-config.json ]] ||
   die "Create .state/nodes-config.json with the Ledger API address."
+python3 "$repo_root/scripts/upgrade-compose-images.py" .env "$repo_root/docker-compose/.env.example" ||
+  die "The retained image configuration needs operator review."
 upgrade_nodes_config_file .state/nodes-config.json ||
   die "The retained node configuration needs operator review."
 ensure_env_secret DATABASE_PASSWORD >/dev/null
@@ -136,10 +151,15 @@ docker compose --env-file .env -f compose.yaml config --quiet ||
   die "The Compose application configuration is invalid."
 docker network inspect "$canton_docker_network" >/dev/null 2>&1 ||
   die "Docker network '$canton_docker_network' does not exist."
+docker compose --env-file .env -f compose.yaml config --format json | \
+  python3 "$repo_root/scripts/check-compose-images.py" "$repo_root/docker-compose/.env.example" ||
+  die "The resolved Compose images differ from the chosen release."
 docker compose --env-file .env -f compose.yaml pull ||
   die "Could not pull the Noves Data App images. Log in to the configured registries and retry."
 prepare_export_volume .env compose.yaml ||
   die "Could not prepare the export volume for backend user 1654."
+prepare_installation_secrets_for_compose .env "$PWD/.state" compose.yaml -f compose.yaml ||
+  die "Could not prepare installation secret files; fix the reported error and rerun this installer."
 if ((${#m2m_indexing_secret_container_paths[@]})); then
   secure_m2m_indexing_secret_files \
     .env compose.yaml "$PWD/.state/m2m-indexing-secrets" \
@@ -162,7 +182,11 @@ if ((${#canton_certificate_container_paths[@]})); then
       die "The backend container user cannot read certificate file: $certificate_path"
   done
 fi
-docker compose --env-file .env -f compose.yaml up -d
+# Both readers of the canary capability were stopped before it was replaced and start together here,
+# so they always hold the same value.
+docker compose --env-file .env -f compose.yaml up -d --force-recreate backend frontend ||
+  die "Could not recreate the backend and frontend; rerun this installer."
+installation_readers_stopped=false
 backend_port="$(env_value BACKEND_PORT)"
 backend_port="${backend_port:-8090}"
 backend_origin="http://127.0.0.1:$backend_port"

@@ -1,3 +1,5 @@
+{{- $placement := include "cda.componentPlacement" (list . .Values.backend) | fromYaml -}}
+{{- include "cda.installationDefaults" . }}
 {{- $hasGlobalM2mIndexing := false -}}
 {{- range $node := .Values.canton.nodes -}}
 {{- if eq $node.m2mIndexing.mode "global" -}}{{- $hasGlobalM2mIndexing = true -}}{{- end -}}
@@ -21,6 +23,16 @@ spec:
     metadata:
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/config.yaml") . | sha256sum }}
+        # The KEK Secret this backend depends on. installation-kek-secret.yaml reads it from the live
+        # Deployment to tell a lost Secret from an installation that never had one.
+        noves.fi/installation-kek-secret: {{ include "cda.installationKekSecretName" . | quote }}
+        {{- $installationSecrets := include "cda.installationSecretValues" . | fromYaml }}
+        {{- with $installationSecrets.kek }}
+        checksum/installation-kek: {{ b64dec . | sha256sum }}
+        {{- end }}
+        {{- with $installationSecrets.canary }}
+        checksum/installation-canary: {{ b64dec . | sha256sum }}
+        {{- end }}
         {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -31,7 +43,10 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
-      automountServiceAccountToken: false
+      {{- with .Values.backend.serviceAccountName }}
+      serviceAccountName: {{ . | quote }}
+      {{- end }}
+      automountServiceAccountToken: {{ if hasKey .Values.backend "automountServiceAccountToken" }}{{ .Values.backend.automountServiceAccountToken }}{{ else }}false{{ end }}
       securityContext:
         {{- toYaml .Values.backend.podSecurityContext | nindent 8 }}
       {{- with .Values.imagePullSecrets }}
@@ -39,6 +54,22 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       initContainers:
+        - name: installation-secrets
+          image: {{ include "cda.image" .Values.backend.image | quote }}
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.backend.containerSecurityContext | nindent 12 }}
+          command:
+            - sh
+            - -ec
+            - |
+              {{- include "cda.installationSecretCopyScript" (list "kek" "canary-capability") | nindent 14 }}
+          volumeMounts:
+            - name: installation-secret-sources
+              mountPath: /installation-secret-sources
+              readOnly: true
+            - name: installation-secrets
+              mountPath: /installation-secrets
         - name: wait-for-database
           image: {{ include "cda.image" .Values.database.image | quote }}
           imagePullPolicy: {{ .Values.database.image.pullPolicy }}
@@ -98,7 +129,7 @@ spec:
             - name: READ_MODEL_RESERVED_LIVE_CAPACITY
               value: {{ .Values.backend.performance.readModel.reservedLiveCapacity | int64 | quote }}
             - name: DATABASE_VOLUME_CAPACITY
-              value: {{ include "noves-canton-data-app.databaseVolumeCapacity" . | quote }}
+              value: {{ include "cda.databaseVolumeCapacity" . | quote }}
             - name: BACKGROUND_INDEXING_DUTY_PERCENT
               value: {{ .Values.backend.performance.readModel.backgroundIndexingDutyPercent | int64 | quote }}
             - name: STREAM_POLL_INTERVAL_MS
@@ -186,6 +217,10 @@ spec:
                   optional: true
             {{- end }}
             {{- end }}
+            - name: INSTALLATION_KEK_FILE
+              value: /installation-secrets/kek
+            - name: INSTALLATION_CANARY_CAPABILITY_FILE
+              value: /installation-secrets/canary-capability
             - name: M2M_INDEXER_ENABLED
               value: "true"
             {{- if $hasGlobalM2mIndexing }}
@@ -227,6 +262,9 @@ spec:
             - name: nodes
               mountPath: /config
               readOnly: true
+            - name: installation-secrets
+              mountPath: /installation-secrets
+              readOnly: true
             {{- if eq .Values.exports.storage "pvc" }}
             - name: exports
               mountPath: /exports
@@ -267,6 +305,26 @@ spec:
         - name: nodes
           configMap:
             name: {{ include "cda.fullname" . }}-nodes
+        # Read only by the installation-secrets init container. Mode 0444 keeps the copy independent of
+        # the pod's fsGroup; the files the backend reads are the init container's 0600 copies.
+        - name: installation-secret-sources
+          projected:
+            defaultMode: 0444
+            sources:
+              - secret:
+                  name: {{ include "cda.installationKekSecretName" . | quote }}
+                  items:
+                    - key: {{ .Values.installation.kek.key | quote }}
+                      path: kek
+              - secret:
+                  name: {{ include "cda.installationCanarySecretName" . | quote }}
+                  items:
+                    - key: {{ .Values.installation.canary.key | quote }}
+                      path: canary-capability
+        - name: installation-secrets
+          emptyDir:
+            medium: Memory
+            sizeLimit: 1Mi
         {{- if eq .Values.exports.storage "pvc" }}
         - name: exports
           persistentVolumeClaim:
@@ -308,7 +366,7 @@ spec:
                 path: token
         {{- end }}
         {{- end }}
-      {{- with .Values.nodeSelector }}
+      {{- with $placement.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
@@ -316,7 +374,7 @@ spec:
       affinity:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.tolerations }}
+      {{- with $placement.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}

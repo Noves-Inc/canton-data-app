@@ -8,6 +8,9 @@ See [Container environment variables](environment-variables.md) for the variable
 
 ## 1. Check the host
 
+The installer requires Docker Compose v2, `curl`, `jq`, `openssl`, and Python 3 (`python3`) on the host.
+Python uses only its standard library to validate and upgrade retained image pins before containers are changed.
+
 The Noves Data App adds a database, backend, and frontend to the validator host. Check CPU, memory, and disk before starting; the initial indexing will incur some load.
 Find a Docker network that the app can use to reach the Ledger API and scan API. The default network name is shown here:
 
@@ -264,6 +267,8 @@ unset PARTICIPANT_ADMIN_TOKEN PARTICIPANT_ADDRESS VALIDATOR_AUTH_CLIENT_ID \
 
 The final rights response must contain only `can_read_as_any_party`. Do not place the validator administrator client or token in Noves Data App files.
 
+On upgrade, rerun the installer from the chosen release. It updates the three official image pins in the retained `.env` to that release and saves a private `.env.pre-image-upgrade.*` backup. All other configuration and secrets remain intact. A custom image override is refused before any container stops; review it and set the release's digest pin before rerunning.
+
 ## 5. Create local secrets
 
 `install-compose.sh` generates the database password when `.env` still contains the example placeholder. It also creates `.state/accounting.env` with a random 32-byte `ACCOUNTING_TOKEN_ENCRYPTION_KEY`. The file is reused on every installer run. Back it up with the database: replacing it makes stored accounting-provider credentials unreadable.
@@ -276,6 +281,53 @@ printf 'ACCOUNTING_TOKEN_ENCRYPTION_KEY=%s\n' \
   "$(openssl rand -base64 32 | tr -d '\n')" \
   > "$APP_INSTALL_DIR/docker-compose/.state/accounting.env"
 ```
+
+### Installation credential secrets
+
+The installer also creates the two files behind the installation credential (see [Security model](security.md#installation-credential-secrets)):
+
+| File | Mounted into | Owner and mode | Installer behaviour |
+|---|---|---|---|
+| `.state/installation-kek` | backend only, at `/installation-secrets/kek` | `1654:1654`, `0600` | Generated on the first run, never regenerated |
+| `.state/installation-canary-backend` | backend only, at `/installation-secrets/canary-capability` | `1654:1654`, `0600` | Replaced on every run |
+| `.state/installation-canary-frontend` | frontend only, at `/installation-secrets/canary-capability` | `1000:1000`, `0600` | Replaced on every run with the same value as the backend copy |
+
+If an interrupted installer leaves `.state/.install.lock`, remove that directory only after confirming no installer is running. After a failure, fix the reported error and rerun the same installer command; the backend and frontend may be stopped or partly recreated, so do not restart either separately while their canary files may differ.
+
+Keep `.state/installation-kek` with your database backup; see the [KEK backup and restore rule](security.md#installation-credential-secrets). If the installer reports a missing KEK, restore that file before rerunning. Delete `.state/installation-kek.created` only when you have discarded the database and are starting a new installation. If the whole `.state` directory was lost but the database remains, restore the original KEK before running the installer.
+
+For a manual installation that does not use the installer, create the files as root before starting the app. Create the KEK only if it does not exist yet:
+
+```bash
+(
+cd "$APP_INSTALL_DIR/docker-compose"
+set -e
+docker compose --env-file .env -f compose.yaml stop backend frontend
+umask 077
+[ -e .state/installation-kek ] ||
+  openssl rand -base64 32 | tr -d '\n' > .state/installation-kek
+canary="$(openssl rand -base64 32 | tr -d '\n')"
+printf '%s' "$canary" > .state/installation-canary-backend
+printf '%s' "$canary" > .state/installation-canary-frontend
+unset canary
+chown 1654:1654 .state/installation-kek .state/installation-canary-backend
+chown 1000:1000 .state/installation-canary-frontend
+chmod 600 .state/installation-kek .state/installation-canary-backend .state/installation-canary-frontend
+for file in .state/installation-kek .state/installation-canary-backend .state/installation-canary-frontend; do
+  test "$(wc -c < "$file" | tr -d ' ')" = 44
+  grep -Eqx '[A-Za-z0-9+/]{43}=' "$file"
+done
+cmp -s .state/installation-canary-backend .state/installation-canary-frontend
+docker compose --env-file .env -f compose.yaml run --rm --no-deps --entrypoint /bin/sh backend -ec \
+  'test -r "$INSTALLATION_KEK_FILE" && test -r "$INSTALLATION_CANARY_CAPABILITY_FILE" && test "$(stat -c "%u %a" "$INSTALLATION_KEK_FILE")" = "$(id -u) 600" && test "$(stat -c "%u %a" "$INSTALLATION_CANARY_CAPABILITY_FILE")" = "$(id -u) 600"'
+docker compose --env-file .env -f compose.yaml run --rm --no-deps --entrypoint /bin/sh frontend -ec \
+  'test -r "$INSTALLATION_CANARY_CAPABILITY_FILE" && test "$(stat -c "%u %a" "$INSTALLATION_CANARY_CAPABILITY_FILE")" = "$(id -u) 600" && test ! -e /installation-secrets/kek'
+)
+```
+
+Then recreate both containers so they read the same canary value: `docker compose --env-file .env -f compose.yaml up -d --force-recreate backend frontend`.
+
+If a step fails after stopping the readers, the backend and frontend remain stopped. Fix the reported error, rerun the complete block, then recreate both containers together with the command above. Do not restart either reader separately while their canary files may differ.
 
 Protect all local configuration:
 
@@ -312,7 +364,7 @@ Run:
 ./scripts/install-compose.sh --directory "$APP_INSTALL_DIR"
 ```
 
-The installer validates required files and placeholders, confirms the external network, pulls the three images, starts the project, and waits for `http://127.0.0.1:8090/ready`.
+The installer validates required files and placeholders, confirms the external network, pulls the three images, prepares the installation secrets, starts the project, and waits for `http://127.0.0.1:8090/ready`. Each run recreates the backend and frontend containers.
 
 Useful local endpoints:
 
@@ -406,7 +458,7 @@ docker compose --env-file .env -f compose.yaml logs -f backend
 docker compose --env-file .env -f compose.yaml down
 ```
 
-`down` preserves the named database and export volumes. Never use `down --volumes` during an upgrade. Preserve `.state/accounting.env` along with the database.
+`down` preserves the named database and export volumes. Never use `down --volumes` during an upgrade. Preserve `.state/accounting.env` and the installation KEK files; follow the [backup and restore rule](security.md#installation-credential-secrets).
 
 For encrypted local storage, set `DATABASE_DATA_PATH` to an absolute path on an encrypted filesystem. See [Encryption at rest](../encryption_at_rest.md).
 
