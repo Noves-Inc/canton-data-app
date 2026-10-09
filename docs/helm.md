@@ -292,7 +292,7 @@ Use this when the notes warned about a new KEK on a release whose database was r
 
 ### Manage the installation Secrets yourself
 
-For `helm template` or Argo CD installations, create both Secrets yourself and set the values below. Use the original KEK when keeping an existing database. For a new installation, generate each value with `openssl rand -base64 32 | tr -d '\n'`.
+For `helm template` or Argo CD installations, create both Secrets yourself and set the values below. For a new installation or the first upgrade from 4.1.3 or earlier, generate each value with `openssl rand -base64 32 | tr -d '\n'`. If the database already uses an installation KEK, reuse that original key instead. The canary has no stored state and may be generated anew.
 
 ```yaml
 installation:
@@ -304,7 +304,7 @@ installation:
     key: installation-canary-capability
 ```
 
-For a new installation, write each value to a private temporary file so it never appears in a command line:
+Whenever you generate a value, write it to a private temporary file so it never appears in a command line. This example creates both Secrets for a new installation or the first upgrade from 4.1.3 or earlier. If the database already uses a KEK, keep its Secret: run the `umask` and temporary-file setup, then only the canary commands:
 
 ```bash
 umask 077
@@ -320,7 +320,24 @@ kubectl --context "$KUBE_CONTEXT" --namespace "$NAMESPACE" \
 rm -f "$value_file"
 ```
 
-After changing the canary Secret, run `helm upgrade` to roll both deployments. If you update it without a Helm upgrade, restart both deployments so they read the new value. Keep the original KEK when retaining the database; see the [Security model](security.md#installation-credential-secrets).
+When restoring an installation into a new namespace, create its KEK Secret from a private file containing the original 44-character KEK value, without a newline. Use the backup value instead of generating a new key:
+
+```bash
+kubectl --context "${KUBE_CONTEXT:?set the exact context}" \
+  --namespace "${NAMESPACE:?set the exact namespace}" \
+  create secret generic noves-canton-data-app-installation-kek \
+  --from-file=installation-kek="${KEK_BACKUP_FILE:?set the private original KEK value file}"
+```
+
+To rotate an existing canary, delete only its Secret, then run the canary-generation and creation commands above using a new private temporary file:
+
+```bash
+kubectl --context "${KUBE_CONTEXT:?set the exact context}" \
+  --namespace "${NAMESPACE:?set the exact namespace}" \
+  delete secret noves-canton-data-app-installation-canary
+```
+
+After changing the canary Secret, run `helm upgrade` to roll both deployments. If you update it without a Helm upgrade, restart both deployments so they read the new value. If the database already uses an installation KEK, keep that original key; see the [Security model](security.md#installation-credential-secrets).
 
 ## 5. Write the values file
 

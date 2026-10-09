@@ -41,7 +41,7 @@ Account features are the Platform API key, the Account page with its users and p
 - an installation key-encryption key (KEK), mounted only into the backend;
 - a canary capability, shared by the frontend and the backend, never sent to browsers.
 
-If you render the chart client-side with `helm template` or Argo CD, supply both `installation.kek.existingSecret` and `installation.canary.existingSecret` before upgrading and reuse the original KEK for an existing database; see [Manage the installation Secrets yourself](helm.md#manage-the-installation-secrets-yourself).
+If you render the chart client-side with `helm template` or Argo CD, supply both `installation.kek.existingSecret` and `installation.canary.existingSecret` before upgrading. Generate both values for the first upgrade from 4.1.3 or earlier; if the database already uses an installation KEK, reuse that original key instead. See [Manage the installation Secrets yourself](helm.md#manage-the-installation-secrets-yourself).
 
 Keep the KEK with your database backup; follow the [backup and restore rule](security.md#installation-credential-secrets). See [Helm installation](helm.md#4-create-application-secrets) or [Docker Compose installation](docker-compose.md#installation-credential-secrets) for upgrade and recovery instructions.
 
