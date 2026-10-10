@@ -2,8 +2,8 @@ apiVersion: v2
 name: noves-canton-app
 description: Noves Data App for Canton validators
 type: application
-version: 4.1.5
-appVersion: "4.1.5"
+version: 4.1.6
+appVersion: "4.1.6"
 kubeVersion: ">=1.27.0-0"
 annotations:
   artifacthub.io/category: integration-delivery
