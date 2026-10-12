@@ -100,7 +100,7 @@ services:
     restart: unless-stopped
 
   frontend:
-    image: ${FRONTEND_IMAGE:-ghcr.io/noves-inc/noves-canton-frontend-v4:4.1.6@sha256:b0b1a100d05568725f8865a5888aca60817593df4720fb06393aeac6bbeee751}
+    image: ${FRONTEND_IMAGE:-ghcr.io/noves-inc/noves-canton-frontend-v4:4.1.6@sha256:db43d14746196d619837b6d6becc5ff8e328b261202f2028f9ba64744f98dbe8}
     container_name: noves-canton-frontend-v4
     environment:
       PORT: "3000"
