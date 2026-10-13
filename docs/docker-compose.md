@@ -460,6 +460,8 @@ docker compose --env-file .env -f compose.yaml down
 
 `down` preserves the named database and export volumes. Never use `down --volumes` during an upgrade. Preserve `.state/accounting.env` and the installation KEK files; follow the [backup and restore rule](security.md#installation-credential-secrets).
 
+If account setup fails with `503 node_identity_unavailable`, the backend has not resolved that node's validator party from observed traffic. Set `validator_party` for the node in `.state/nodes-config.json` to its validator party id (see the multiple-node example above) and restart the backend.
+
 For encrypted local storage, set `DATABASE_DATA_PATH` to an absolute path on an encrypted filesystem. See [Encryption at rest](../encryption_at_rest.md).
 
 The shipped `.env.example` contains only the normal installation choices. The optional overrides below remain supported by `compose.yaml`; add a setting to `.env` only when you need to change its default.

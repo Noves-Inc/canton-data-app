@@ -156,6 +156,7 @@ Do not delete Compose volumes or Kubernetes PVCs during a routine application up
 - [Docker Compose installation](docs/docker-compose.md)
 - [Container environment variables](docs/environment-variables.md)
 - [Upgrade from v3.16.1](docs/migrate-v3.16.1.md)
+- [Upgrade to 4.2.0](docs/upgrade-4.2.0.md)
 - [Security model](docs/security.md)
 - [Encryption at rest](encryption_at_rest.md)
 - [Embedded mode](embedded_mode.md)
