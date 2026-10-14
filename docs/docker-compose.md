@@ -43,7 +43,7 @@ Edit `.env`:
 - ensure the configured `synchronizer_alias` identifies the participant's Global Synchronizer; and
 - configure exactly one browser OIDC provider.
 
-The backend detects mainnet, testnet, or devnet automatically from the exact synchronizer identity. Unknown or conflicting identities keep readiness false instead of guessing.
+The backend detects mainnet, testnet, or devnet automatically from the exact synchronizer identity. For a local Canton network, set `CANTON_LOCALNET_IDENTITIES` in `.env` using your actual synchronizer and DSO identities; see [Local Canton networks](environment-variables.md#local-canton-networks) for the format, billing prerequisite, and reset procedure. Unknown or conflicting identities keep readiness false instead of guessing.
 
 For embedded mode, add the exact, comma-separated origins allowed to host the iframe to `.env` (wildcards are not supported):
 

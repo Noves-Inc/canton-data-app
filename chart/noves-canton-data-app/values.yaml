@@ -29,6 +29,8 @@ backend:
       drop:
         - ALL
   extraEnv: []
+  # Explicit local synchronizer identities; public network identities cannot be relabeled.
+  localnetIdentities: []
   # These defaults suit a standard deployment using the resource requests and limits below.
   # Increase one setting at a time while watching database CPU, write latency, connections,
   # backend memory, indexing lag, and readiness.
