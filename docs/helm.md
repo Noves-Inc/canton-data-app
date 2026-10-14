@@ -4,7 +4,7 @@ Use this guide to install the Noves Data App on Kubernetes. The examples place t
 
 ## 1. Check the cluster
 
-For a local Canton network, populate `backend.localnetIdentities` with your actual synchronizer and DSO identities. It defaults to `[]`. See [Local Canton networks](environment-variables.md#local-canton-networks) for the object fields, billing prerequisite, and reset procedure. The chart serializes this array into `CANTON_LOCALNET_IDENTITIES` for the backend.
+For a local Canton network, populate `backend.localnetIdentities` with your actual synchronizer and DSO identities. It defaults to `[]`. See [Local Canton networks](environment-variables.md#local-canton-networks) for the object fields and reset procedure. The chart serializes this array into `CANTON_LOCALNET_IDENTITIES` for the backend.
 
 Set the context and namespace where you want to run the app:
 

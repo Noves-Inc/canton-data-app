@@ -76,7 +76,7 @@ Obtain these identities from your local Canton deployment. No local identities a
 
 Keep the epoch stable across restarts. After resetting the local chain, use a new epoch and a fresh database or node identity so that earlier history cannot be mixed with the reset chain.
 
-The billing service behind the customer-auth gateway must also support `localnet` before this configuration can authorize Data App access. Localnet uses the existing participant subscription billing path because it has no installation enrollment profile. Its Data App plan follows the devnet/testnet feature policy (including unlimited history); separately provisioned cloud add-ons still require their own access. Local configuration does not bypass billing authentication. Public scan and traffic services have no automatic localnet substitute; configure an available local scan proxy where required.
+Localnet uses the same Data App plan as devnet/testnet, including unlimited history. Sign-in is still required, and cloud add-ons require their own access. Public scan and traffic services are not automatically available on a local network; configure a local scan proxy where required.
 
 ### S3 features
 
