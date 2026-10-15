@@ -343,7 +343,6 @@
         "podSecurityContext",
         "containerSecurityContext",
         "extraEnv",
-        "localnetIdentities",
         "performance",
         "streaming",
         "allowPrivateWebhookTargets",
@@ -359,22 +358,6 @@
         "podSecurityContext": { "type": "object" },
         "containerSecurityContext": { "type": "object" },
         "extraEnv": { "type": "array", "items": { "type": "object" } },
-        "localnetIdentities": {
-          "type": "array",
-          "default": [],
-          "items": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["network", "epoch", "migrationId", "synchronizerId", "dsoParty"],
-            "properties": {
-              "network": { "const": "localnet" },
-              "epoch": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,127}$" },
-              "migrationId": { "type": "integer", "minimum": 0 },
-              "synchronizerId": { "type": "string", "pattern": "^global-domain::1220[0-9a-f]{64}$" },
-              "dsoParty": { "type": "string", "pattern": "^DSO::1220[0-9a-f]{64}$" }
-            }
-          }
-        },
         "performance": { "$ref": "#/$defs/backendPerformance" },
         "streaming": { "$ref": "#/$defs/streaming" },
         "allowPrivateWebhookTargets": { "type": "boolean" },
