@@ -4,6 +4,8 @@ Use this guide to install the Noves Data App on Kubernetes. The examples place t
 
 ## 1. Check the cluster
 
+For a local Canton network, populate `backend.localnetIdentities` with your actual synchronizer and DSO identities. It defaults to `[]`. See [Local Canton networks](environment-variables.md#local-canton-networks) for the object fields and reset procedure.
+
 Set the context and namespace where you want to run the app:
 
 ```bash
@@ -492,7 +494,7 @@ version; the checkout supplies its default but the helper never installs the loc
 scripts/install-helm.sh \
   --kube-context "$KUBE_CONTEXT" \
   --namespace "$NAMESPACE" \
-  --version 4.1.6 \
+  --version 4.2.1 \
   --values /secure/path/values.yaml
 ```
 
@@ -501,7 +503,7 @@ The equivalent direct command is context- and version-explicit:
 ```bash
 helm upgrade --install noves-canton-data-app \
   oci://ghcr.io/noves-inc/charts/noves-canton-app \
-  --version 4.1.6 \
+  --version 4.2.1 \
   --kube-context "$KUBE_CONTEXT" \
   --namespace "$NAMESPACE" \
   --values enterprise-values.yaml \
@@ -583,6 +585,7 @@ KEK; see the [Security model](security.md#installation-credential-secrets).
 | M2M indexing disabled or stale | Read `/api/v2/capture/status`; verify the M2M indexing Secret, token subject, Canton user, and its exact rights |
 | Browser login loops | Compare the Auth0 callback, logout, origin, audience, and `oidc.appUrl` values |
 | Browser sign-in succeeds but Ledger API calls return `401` | Inspect a newly issued browser token; confirm its issuer, Ledger API audience, provider-required scope, and exact `sub`, then confirm the matching Canton user exists on the selected participant |
+| Account setup fails with `503 node_identity_unavailable` | The backend has not resolved the node's validator party from observed traffic. Set `canton.nodes[].validatorParty` for that node to its validator party id and run `helm upgrade` |
 | Startup fails while reading connected synchronizers | Inspect the M2M token and confirm its issuer, Ledger API audience, exact `sub`, matching Canton user, and `CanReadAsAnyParty` right for the affected node |
 
 ## Uninstall

@@ -55,10 +55,28 @@ Helm uses the matching `oidc.auth0` or `oidc.keycloak` values. Compose reads the
 
 ### Canton connection
 
-- The backend detects the Canton network from the configured synchronizer alias and its authenticated identity catalog; there is no operator network selector.
+- The Data App detects mainnet, testnet, or devnet automatically. For a local Canton network, supply the identities described below.
 - `SCAN_PROXY_URL` comes from `canton.scanApiUrl` in Helm or `CANTON_SCAN_API_URL` in Compose. The defaults are `http://validator-app:5003/api/validator` for Helm and `http://validator:5003/api/validator` for Compose. It must be the validator application's scan-proxy base path (including `/api/validator`), not the bare service origin. Override the value when that address is not reachable.
 
 Ledger API TLS and mTLS do not add container environment variables. Helm configures each connection under `canton.nodes[].tls`; its Secret is mounted only in the backend under `/certificates/nodes/<node-id>`. Compose uses `cert_file`, `client_cert_file`, `client_key_file`, and `tls_server_name` in `.state/nodes-config.json`, with certificate files mounted read-only under `/certificates`. See the [Helm](helm.md#4-create-application-secrets) or [Docker Compose](docker-compose.md#optional-ledger-api-tls-and-mtls) instructions.
+
+### Local Canton networks
+
+`CANTON_LOCALNET_IDENTITIES` defaults to `[]`. In Compose, set it in `.env` to a JSON array. In Helm, set `backend.localnetIdentities` to a YAML array. Each object must contain exactly these fields:
+
+| Field | Value |
+| --- | --- |
+| `network` | `localnet` |
+| `epoch` | A stable name for this local chain incarnation, such as `localnet-one`; lowercase letters, digits, and hyphens, starting with a letter or digit, up to 128 characters |
+| `migrationId` | The actual nonnegative integer migration ID |
+| `synchronizerId` | The actual connected synchronizer ID: `global-domain::1220` followed by 64 lowercase hexadecimal characters |
+| `dsoParty` | The actual DSO party: `DSO::1220` followed by 64 lowercase hexadecimal characters |
+
+Use the synchronizer ID, DSO party, and migration ID from your local Canton deployment. The synchronizer ID must match the connection selected by `synchronizer_alias`. Incorrect identities prevent the Data App from becoming ready. Leave this setting empty for mainnet, testnet, and devnet.
+
+Keep the epoch stable across restarts. After resetting the local chain, use a new epoch and a fresh database or node identity so that earlier history cannot be mixed with the reset chain.
+
+Localnet uses the same Data App plan as devnet/testnet, including unlimited history. Sign-in is still required, and cloud add-ons require their own access. Public scan and traffic services are not automatically available on a local network; configure a local scan proxy where required.
 
 ### S3 features
 
@@ -105,13 +123,15 @@ Database and read-model tuning:
   history is defined rebuilds every materialization, writing the new copy beside the one still being
   served, so the database is briefly larger than its settled size. Background indexing pauses at 85%
   of this figure and resumes once the retired copies are removed, instead of filling the volume.
-  Reads and live indexing are never held back by it. Unset, or `0`, leaves the limit unevaluated and
-  is the behaviour of earlier releases.
+  Reads and live indexing are never held back by it. Unset, or `0`, means the volume brake is not
+  evaluated and index reclaim is inert: no index is ever rebuilt, so the space a retired generation or
+  an enrichment republication leaves behind is never returned to the database.
 
   The Helm chart fills it in from `database.persistence.size`, which is the right answer only when
   the chart creates the claim from that value. On an existing claim, and while `migration.enabled`
   runs the database on `migration.existingClaim`, the chart renders `0` and the size has to be given
-  in `backend.performance.readModel.databaseVolumeCapacity`. Compose installations set it themselves.
+  in `backend.performance.readModel.databaseVolumeCapacity`. Compose installations set it themselves with `DATABASE_VOLUME_CAPACITY`, which `compose.yaml`
+  defaults to `0`.
 
   Nothing in the app measures the disk, so expanding the volume does not lift a pause on its own:
   raise this figure with it. A figure smaller than the database pauses background indexing with no
@@ -122,11 +142,14 @@ Database and read-model tuning:
   On a volume shared with anything other than this database, declare the share this database may
   use rather than the size of the disk.
 
-  Space a retired generation leaves behind is returned by rebuilding the affected indexes, which
-  the app does by itself, one at a time, after a generation is retired. This requires the database
-  role the app connects as to own its tables, which is the case for every installation the chart or
-  the Compose bundle creates. An installation that migrates as one role and runs as another keeps
-  working but reclaims nothing, and says so in the log.
+  Index reclaim returns the space a retired generation or an enrichment republication leaves behind.
+  It runs only when a capacity is declared. It rebuilds one index at a time per database, and only
+  when the database size plus three times the size of that index fits under 95% of the declared
+  capacity, so the rebuild itself cannot fill the volume. It also rebuilds enrichment indexes that
+  have grown far beyond their table. This requires the database role the app connects as to own its
+  tables, which is the case for every installation the chart or the Compose bundle creates. An
+  installation that migrates as one role and runs as another keeps working but reclaims nothing, and
+  says so in the log.
 - `BACKGROUND_INDEXING_DUTY_PERCENT` defaults to `100`. Values from `1` through `99` pace background indexing.
 
 Stream delivery tuning:
