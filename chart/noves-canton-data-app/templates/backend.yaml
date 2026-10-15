@@ -150,6 +150,8 @@ spec:
               value: {{ .Values.backend.allowPrivateWebhookTargets | quote }}
             - name: NODES_CONFIG_FILE_PATH
               value: /config/nodes-config.json
+            - name: CANTON_LOCALNET_IDENTITIES
+              value: {{ .Values.backend.localnetIdentities | toJson | quote }}
             - name: SCAN_PROXY_URL
               value: {{ .Values.canton.scanApiUrl | quote }}
             - name: ACCOUNTING_TOKEN_ENCRYPTION_KEY

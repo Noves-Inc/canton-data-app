@@ -29,6 +29,8 @@ backend:
       drop:
         - ALL
   extraEnv: []
+  # Identities for your local Canton network; leave empty for mainnet, testnet, or devnet.
+  localnetIdentities: []
   # These defaults suit a standard deployment using the resource requests and limits below.
   # Increase one setting at a time while watching database CPU, write latency, connections,
   # backend memory, indexing lag, and readiness.

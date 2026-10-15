@@ -55,10 +55,28 @@ Helm uses the matching `oidc.auth0` or `oidc.keycloak` values. Compose reads the
 
 ### Canton connection
 
-- The backend detects the Canton network from the configured synchronizer alias and its authenticated identity catalog; there is no operator network selector.
+- The Data App detects mainnet, testnet, or devnet automatically. For a local Canton network, supply the identities described below.
 - `SCAN_PROXY_URL` comes from `canton.scanApiUrl` in Helm or `CANTON_SCAN_API_URL` in Compose. The defaults are `http://validator-app:5003/api/validator` for Helm and `http://validator:5003/api/validator` for Compose. It must be the validator application's scan-proxy base path (including `/api/validator`), not the bare service origin. Override the value when that address is not reachable.
 
 Ledger API TLS and mTLS do not add container environment variables. Helm configures each connection under `canton.nodes[].tls`; its Secret is mounted only in the backend under `/certificates/nodes/<node-id>`. Compose uses `cert_file`, `client_cert_file`, `client_key_file`, and `tls_server_name` in `.state/nodes-config.json`, with certificate files mounted read-only under `/certificates`. See the [Helm](helm.md#4-create-application-secrets) or [Docker Compose](docker-compose.md#optional-ledger-api-tls-and-mtls) instructions.
+
+### Local Canton networks
+
+`CANTON_LOCALNET_IDENTITIES` defaults to `[]`. In Compose, set it in `.env` to a JSON array. In Helm, set `backend.localnetIdentities` to a YAML array. Each object must contain exactly these fields:
+
+| Field | Value |
+| --- | --- |
+| `network` | `localnet` |
+| `epoch` | A stable name for this local chain incarnation, such as `localnet-one`; lowercase letters, digits, and hyphens, starting with a letter or digit, up to 128 characters |
+| `migrationId` | The actual nonnegative integer migration ID |
+| `synchronizerId` | The actual connected synchronizer ID: `global-domain::1220` followed by 64 lowercase hexadecimal characters |
+| `dsoParty` | The actual DSO party: `DSO::1220` followed by 64 lowercase hexadecimal characters |
+
+Use the synchronizer ID, DSO party, and migration ID from your local Canton deployment. The synchronizer ID must match the connection selected by `synchronizer_alias`. Incorrect identities prevent the Data App from becoming ready. Leave this setting empty for mainnet, testnet, and devnet.
+
+Keep the epoch stable across restarts. After resetting the local chain, use a new epoch and a fresh database or node identity so that earlier history cannot be mixed with the reset chain.
+
+Localnet uses the same Data App plan as devnet/testnet, including unlimited history. Sign-in is still required, and cloud add-ons require their own access. Public scan and traffic services are not automatically available on a local network; configure a local scan proxy where required.
 
 ### S3 features
 
