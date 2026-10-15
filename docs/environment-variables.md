@@ -105,13 +105,15 @@ Database and read-model tuning:
   history is defined rebuilds every materialization, writing the new copy beside the one still being
   served, so the database is briefly larger than its settled size. Background indexing pauses at 85%
   of this figure and resumes once the retired copies are removed, instead of filling the volume.
-  Reads and live indexing are never held back by it. Unset, or `0`, leaves the limit unevaluated and
-  is the behaviour of earlier releases.
+  Reads and live indexing are never held back by it. Unset, or `0`, means the volume brake is not
+  evaluated and index reclaim is inert: no index is ever rebuilt, so the space a retired generation or
+  an enrichment republication leaves behind is never returned to the database.
 
   The Helm chart fills it in from `database.persistence.size`, which is the right answer only when
   the chart creates the claim from that value. On an existing claim, and while `migration.enabled`
   runs the database on `migration.existingClaim`, the chart renders `0` and the size has to be given
-  in `backend.performance.readModel.databaseVolumeCapacity`. Compose installations set it themselves.
+  in `backend.performance.readModel.databaseVolumeCapacity`. Compose installations set it themselves with `DATABASE_VOLUME_CAPACITY`, which `compose.yaml`
+  defaults to `0`.
 
   Nothing in the app measures the disk, so expanding the volume does not lift a pause on its own:
   raise this figure with it. A figure smaller than the database pauses background indexing with no
@@ -122,11 +124,14 @@ Database and read-model tuning:
   On a volume shared with anything other than this database, declare the share this database may
   use rather than the size of the disk.
 
-  Space a retired generation leaves behind is returned by rebuilding the affected indexes, which
-  the app does by itself, one at a time, after a generation is retired. This requires the database
-  role the app connects as to own its tables, which is the case for every installation the chart or
-  the Compose bundle creates. An installation that migrates as one role and runs as another keeps
-  working but reclaims nothing, and says so in the log.
+  Index reclaim returns the space a retired generation or an enrichment republication leaves behind.
+  It runs only when a capacity is declared. It rebuilds one index at a time per database, and only
+  when the database size plus three times the size of that index fits under 95% of the declared
+  capacity, so the rebuild itself cannot fill the volume. It also rebuilds enrichment indexes that
+  have grown far beyond their table. This requires the database role the app connects as to own its
+  tables, which is the case for every installation the chart or the Compose bundle creates. An
+  installation that migrates as one role and runs as another keeps working but reclaims nothing, and
+  says so in the log.
 - `BACKGROUND_INDEXING_DUTY_PERCENT` defaults to `100`. Values from `1` through `99` pace background indexing.
 
 Stream delivery tuning:

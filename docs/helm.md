@@ -583,6 +583,7 @@ KEK; see the [Security model](security.md#installation-credential-secrets).
 | M2M indexing disabled or stale | Read `/api/v2/capture/status`; verify the M2M indexing Secret, token subject, Canton user, and its exact rights |
 | Browser login loops | Compare the Auth0 callback, logout, origin, audience, and `oidc.appUrl` values |
 | Browser sign-in succeeds but Ledger API calls return `401` | Inspect a newly issued browser token; confirm its issuer, Ledger API audience, provider-required scope, and exact `sub`, then confirm the matching Canton user exists on the selected participant |
+| Account setup fails with `503 node_identity_unavailable` | The backend has not resolved the node's validator party from observed traffic. Set `canton.nodes[].validatorParty` for that node to its validator party id and run `helm upgrade` |
 | Startup fails while reading connected synchronizers | Inspect the M2M token and confirm its issuer, Ledger API audience, exact `sub`, matching Canton user, and `CanReadAsAnyParty` right for the affected node |
 
 ## Uninstall

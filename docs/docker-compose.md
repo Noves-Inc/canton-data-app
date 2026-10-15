@@ -458,7 +458,22 @@ docker compose --env-file .env -f compose.yaml logs -f backend
 docker compose --env-file .env -f compose.yaml down
 ```
 
+### Upgrade procedure
+
+1. Take a database backup and back up `.state/` (including `.state/accounting.env` and every installation KEK file).
+2. Unpack the new release bundle and run its installer against the existing installation directory:
+
+   ```bash
+   ./scripts/install-compose.sh --directory "$APP_INSTALL_DIR"
+   ```
+
+   The installer updates the image pins, enables per-installation credentials, and restarts the stack. Changing the image pins alone leaves per-installation credentials disabled.
+3. An installation older than 4.1.4 gets a new `.state/installation-kek` file on this run. Back it up together with the database. Once the backend has enrolled, losing that file prevents it from using its credential.
+4. Verify as described in [Verify](#8-verify).
+
 `down` preserves the named database and export volumes. Never use `down --volumes` during an upgrade. Preserve `.state/accounting.env` and the installation KEK files; follow the [backup and restore rule](security.md#installation-credential-secrets).
+
+If account setup fails with `503 node_identity_unavailable`, the backend has not resolved that node's validator party from observed traffic. Set `validator_party` for the node in `.state/nodes-config.json` to its validator party id (see the multiple-node example above) and restart the backend.
 
 For encrypted local storage, set `DATABASE_DATA_PATH` to an absolute path on an encrypted filesystem. See [Encryption at rest](../encryption_at_rest.md).
 
