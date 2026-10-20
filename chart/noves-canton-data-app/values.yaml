@@ -14,7 +14,7 @@ backend:
   image:
     repository: ghcr.io/noves-inc/noves-canton-backend-v4
     tag: "4.2.2"
-    digest: "<BACKEND_DIGEST>"
+    digest: "sha256:63e8f2e4317f182668a8068cd0859ff95ffaf222b94028acb8f13418b0558974"
     pullPolicy: IfNotPresent
   podSecurityContext:
     fsGroup: 1654
@@ -87,7 +87,7 @@ frontend:
   image:
     repository: ghcr.io/noves-inc/noves-canton-frontend-v4
     tag: "4.2.2"
-    digest: "<FRONTEND_DIGEST>"
+    digest: "sha256:fcfc2f2899d204363b53d691ea1bc5422e842032cb70b9bab25f9f8e7dd6338d"
     pullPolicy: IfNotPresent
   podSecurityContext:
     seccompProfile:
@@ -122,7 +122,7 @@ database:
   image:
     repository: ghcr.io/noves-inc/noves-canton-database-v4
     tag: "4.2.2"
-    digest: "<DATABASE_DIGEST>"
+    digest: "sha256:ff292338a0c8307a1f23faee703c9271a4da9b570c637b8a05c48b90e199a20f"
     pullPolicy: IfNotPresent
   podSecurityContext:
     runAsNonRoot: true
