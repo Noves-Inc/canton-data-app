@@ -164,6 +164,9 @@ would delete the Secret both pods mount. */ -}}
 {{- /* The installation file variables are fixed: pointing the backend at another file would encrypt the
 signing key with a value that is not the retained KEK. */ -}}
 {{- range $entry := .Values.backend.extraEnv -}}
+{{- if eq $entry.name "PQS_SOURCE_ENABLED" -}}
+{{- fail "backend.extraEnv must not set PQS_SOURCE_ENABLED: use backend.pqsSourceEnabled" -}}
+{{- end -}}
 {{- if has $entry.name (list "INSTALLATION_KEK_FILE" "INSTALLATION_CANARY_CAPABILITY_FILE") -}}
 {{- fail (printf "backend.extraEnv must not set %s: the chart fixes it to the copied installation secret" $entry.name) -}}
 {{- end -}}

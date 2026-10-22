@@ -48,6 +48,7 @@ services:
       NODES_CONFIG_FILE_PATH: /config/nodes-config.json
       SCAN_PROXY_URL: ${CANTON_SCAN_API_URL:-http://validator:5003/api/validator}
       M2M_INDEXER_ENABLED: "true"
+      PQS_SOURCE_ENABLED: ${PQS_SOURCE_ENABLED:-false}
       INSTALLATION_KEK_FILE: /installation-secrets/kek
       INSTALLATION_CANARY_CAPABILITY_FILE: /installation-secrets/canary-capability
     env_file:

@@ -89,6 +89,13 @@ Helm reads S3 settings from `exports.s3` and `backup.s3`. Compose reads them fro
 
 ### Backend
 
+- `PQS_SOURCE_ENABLED` defaults to `false` (`backend.pqsSourceEnabled: false` in Helm).
+  Leave it off for standard Ledger API deployments, including public-private enrichment.
+  It permits experimental PQS integration only when a PQS deployment is also explicitly configured;
+  setting it to `true` does not select a data source. An explicitly selected PQS profile refuses to
+  start while this flag is off. Restart the backend after changing it. Turning it off does not
+  remove existing database tables; unused PQS tables may remain after an upgrade.
+  The standard Compose bundle and chart do not configure a PQS deployment on their own.
 - `ALLOW_PRIVATE_WEBHOOK_TARGETS` defaults to `false`.
 - `NODES_CONFIG_FILE_PATH` is fixed to `/config/nodes-config.json`.
 - `M2M_SCOPE` is optional.
