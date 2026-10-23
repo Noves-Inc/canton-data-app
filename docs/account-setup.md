@@ -8,7 +8,9 @@ The Data App needs the full validator party ID for the connected node and networ
 
 Automatic discovery can learn the validator party from indexed validator activity. To avoid waiting for that discovery on a fresh installation, configure the known validator party explicitly.
 
-The supplied Docker Compose and Helm deployments use a node configuration file. Set `validator_party` on the corresponding node while retaining its other fields:
+The supplied Docker Compose and Helm deployments use a node configuration file. In that file, add `validator_party` inside the matching node entry: `nodes.<node-id>.validator_party`. Keep its existing `addr`, authentication, TLS and other settings. The example below uses the node ID `main-node`; use the node ID already present in your file.
+
+The supplied bundle names this file `nodes-config.json`. If your deployment loads a custom file such as `nodes_config.json` through `NODES_CONFIG_FILE_PATH`, edit that configured file instead. The JSON field is the same in either case:
 
 ```json
 {
