@@ -105,6 +105,8 @@ spec:
             - name: http
               containerPort: 8090
           env:
+            - name: PQS_SOURCE_ENABLED
+              value: {{ .Values.backend.pqsSourceEnabled | default false | quote }}
             - name: INDEX_DB_HOST
               value: {{ printf "%s-database" (include "cda.fullname" .) | quote }}
             - name: INDEX_DB_PORT

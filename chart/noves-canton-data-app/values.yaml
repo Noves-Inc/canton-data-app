@@ -29,6 +29,8 @@ backend:
       drop:
         - ALL
   extraEnv: []
+  # Permit explicitly configured experimental PQS integration. Does not select a source.
+  pqsSourceEnabled: false
   # These defaults suit a standard deployment using the resource requests and limits below.
   # Increase one setting at a time while watching database CPU, write latency, connections,
   # backend memory, indexing lag, and readiness.

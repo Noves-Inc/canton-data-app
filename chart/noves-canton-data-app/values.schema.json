@@ -358,6 +358,7 @@
         "podSecurityContext": { "type": "object" },
         "containerSecurityContext": { "type": "object" },
         "extraEnv": { "type": "array", "items": { "type": "object" } },
+        "pqsSourceEnabled": { "type": "boolean" },
         "performance": { "$ref": "#/$defs/backendPerformance" },
         "streaming": { "$ref": "#/$defs/streaming" },
         "allowPrivateWebhookTargets": { "type": "boolean" },
