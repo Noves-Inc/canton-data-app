@@ -86,6 +86,8 @@ docker compose --env-file .env -f compose.yaml restart backend
 
 For an unrelated server-CA rollover, create `ca-bundle.pem` with the old root followed by the new root. Point `cert_file` at that bundle, restart the backend, and verify it still reaches the participant using the old certificate. Then switch the participant to its new certificate and verify connectivity. Finally replace the bundle with the new root only and restart the backend again. If a trust-overlap bundle or cross-signed participant certificate is not available, schedule a maintenance window instead. For a client-identity rollover, keep both client identities trusted until the restarted backend is healthy.
 
+For a fresh installation with an existing account, see [Account and installation setup](account-setup.md) for validator identity configuration and setup troubleshooting.
+
 ## 3. Configure browser login and M2M indexing
 
 Create separate browser and M2M indexing clients. Do not reuse the validator's client.

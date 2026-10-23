@@ -544,6 +544,8 @@ Open `https://api.data.example.com/docs` for Swagger UI. Requests to `/docs` on 
 
 `/ready` proves that startup and database preparation finished. It does not prove that participant M2M indexing is running. The M2M indexing response should report `captureEnabled: true`; after initial loading, the node should report `initialCaptureComplete: true` and `caughtUp: true`.
 
+For a fresh installation with an existing account, see [Account and installation setup](account-setup.md) for validator identity configuration and setup troubleshooting.
+
 ## Troubleshooting
 
 ### Existing runtime ServiceAccounts and component placement
