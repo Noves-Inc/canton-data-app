@@ -56,8 +56,8 @@ Use the correct identity separately for testnet and mainnet. An explicit party s
 
 Use the Backend Status page and the backend's `/startupStatus` endpoint to distinguish startup failures from account-service errors. When contacting support, include the app version and the displayed error/reference, without tokens, cookies, private keys or private transaction contents.
 
-## Planned 4.2.3 onboarding behavior
+## Account setup behavior
 
-These UI changes are part of the pending 4.2.3 release. Earlier versions can display a generic account-setup form for failures that require an operator action.
+These UI changes are available in 4.2.3 and later. Earlier versions can display a generic account-setup form for failures that require an operator action.
 
-In 4.2.3, installation problems show setup guidance separately from account profile completion. Existing authorized members return to their account after successful setup. The organization/contact form appears only after account services confirm that profile information is missing, including an incomplete existing profile. A failed lookup or a membership refusal does not open registration. Temporary enrollment states retry for a bounded period and then offer a manual retry.
+Installation problems show setup guidance separately from account profile completion. Existing authorized members return to their account after successful setup. The organization/contact form appears only after account services confirm that profile information is missing, including an incomplete existing profile. A failed lookup or a membership refusal does not open registration. Temporary enrollment states retry for a bounded period and then offer a manual retry.
