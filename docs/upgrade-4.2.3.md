@@ -6,7 +6,7 @@ Use the complete 4.2.3 release bundle: the Helm chart or Docker Compose files an
 
 Take a database backup and retain the installation KEK with it. This release upgrades the database compatibility level. Returning to an older, incompatible backend requires restoring the pre-upgrade database backup; changing the image tag alone is not a rollback.
 
-If upgrading from a version before 4.2.2, also follow the [4.2.2 upgrade requirements](upgrade-4.2.2.md), including installation credentials, enrollment, and storage capacity configuration.
+If upgrading from a version before 4.2.3, also follow the [4.2.3 upgrade requirements](upgrade-4.2.2.md), including installation credentials, enrollment, and storage capacity configuration.
 
 ## Docker Compose
 
