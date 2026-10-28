@@ -13,4 +13,4 @@ Existing members can initialize their account when their identity provider omits
 
 ## Upgrade
 
-Use the complete 4.2.4 Compose bundle or Helm chart and its pinned images. Follow the [4.2.4 upgrade guide](upgrade-4.2.4.md). This patch adds no database migration beyond 4.2.3.
+Use the complete 4.2.4 Compose bundle or Helm chart and its pinned images. Follow the [upgrade guide](upgrade-4.2.2.md). This patch adds no database migration beyond 4.2.3.

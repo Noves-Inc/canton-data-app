@@ -15,6 +15,6 @@
 
 ## Upgrade
 
-Use the complete 4.2.5 Compose bundle or Helm chart and its pinned images. Follow the [4.2.5 upgrade guide](upgrade-4.2.5.md). This patch adds no database migration beyond 4.2.4.
+Use the complete 4.2.5 Compose bundle or Helm chart and its pinned images. Follow the [upgrade guide](upgrade-4.2.2.md). This patch adds no database migration beyond 4.2.4.
 
 These fixes do not repair reverse-proxy TLS configuration or guarantee that an existing indexing backlog has finished. Check readiness and account access after upgrading.
