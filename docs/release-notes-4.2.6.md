@@ -2,7 +2,7 @@
 
 ## Exports
 
-- An export interrupted while the database is busy now retries instead of failing as "exceeds processing limits". The "narrow the date range" message is shown only when an export actually reaches its maximum runtime or size.
+- An export interrupted before it finishes, for example while the database is busy, now retries and shows "interrupted before it finished" instead of failing as "exceeds processing limits". The "narrow the date range" message is shown only when an export actually reaches its maximum runtime or size.
 - A short database outage no longer cancels an export that is still running.
 - Failed exports offer **Send diagnostic report**. The report includes the export's job ID, its backend log entries, and the database's load and settings.
 
