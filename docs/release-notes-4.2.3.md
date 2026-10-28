@@ -20,6 +20,6 @@
 
 ## Upgrade
 
-Use all three image pins and the chart or Compose files from this release. Read the [4.2.3 upgrade guide](upgrade-4.2.3.md) before upgrading, including database backup and rollback requirements.
+Use all three image pins and the chart or Compose files from this release. Read the [upgrade guide](upgrade-4.2.2.md) before upgrading, including database backup and rollback requirements.
 
 For Helm, use the attached `noves-canton-app-4.2.3.tgz` chart and your own values file; do not use `--reuse-values`. The release manifest records the image digests, and `SHA256SUMS` covers the attached release files.
