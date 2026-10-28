@@ -10,6 +10,10 @@
 
 - Pending cleanup from retired or superseded history no longer incorrectly pauses history initialization. Initialization still slows or pauses when current indexing work or database resources are overloaded.
 
+## Asset issuer reports
+
+- Reports now compare emitted and eligible marker weight, show the difference, and indicate when evidence is incomplete. This analysis is also included in PDF downloads.
+
 ## Support diagnostics
 
 - Automatic backend diagnostic reports include database load and configuration: connection counts and states, what active queries are waiting on, cache and temporary-file counters, and memory and connection settings. No query text or credentials are collected.
