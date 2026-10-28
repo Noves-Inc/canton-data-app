@@ -2,9 +2,13 @@
 
 ## Exports
 
-- An export interrupted before it finishes, for example while the database is busy, now retries and shows "interrupted before it finished" instead of failing as "exceeds processing limits". The "narrow the date range" message is shown only when an export actually reaches its maximum runtime or size.
-- A short database outage no longer cancels an export that is still running.
-- Failed exports offer **Send diagnostic report**. The report includes the export's job ID, its backend log entries, and the database's load and settings.
+- An export interrupted before it finishes, for example while the database is busy, uses bounded retries instead of incorrectly reporting that it exceeded its runtime. If retries are exhausted, the UI tells you to resubmit rather than promising another automatic retry.
+- A short database outage no longer cancels an export that is still running. If the database is unavailable when an export failure is recorded, the worker waits and resumes once the database recovers without requiring an application restart.
+- Failed self-hosted exports offer a **Report** button. The report includes the export's job ID, its recent backend log entries, and the database's load and settings.
+
+## History initialization
+
+- Pending cleanup from retired or superseded history no longer incorrectly pauses history initialization. Initialization still slows or pauses when current indexing work or database resources are overloaded.
 
 ## Support diagnostics
 
