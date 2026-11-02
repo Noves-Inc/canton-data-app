@@ -596,3 +596,22 @@ helm uninstall noves-canton-data-app \
 ```
 
 Helm retains the database PVC, exports PVC, generated accounting-key Secret, and generated installation KEK Secret. Remove them only after satisfying backup and retention requirements; see the [Security model](security.md#installation-credential-secrets). Helm deletes the canary capability Secret, and the next installation gets a new one.
+
+## Database connection limits and timeouts
+
+Set these independently in your values file; no connection-string Secret is needed:
+
+```yaml
+backend:
+  performance:
+    database:
+      maxPoolSize: 40
+      connectionTimeoutSeconds: 15
+      commandTimeoutSeconds: 120
+```
+
+These are the Helm defaults: up to 40 connections per backend pool and a 120-second default SQL command deadline. `connectionTimeoutSeconds` separately controls waiting for a connection, including when the pool is full, and defaults to 15 seconds. These settings do not change browser or operation-specific deadlines. Values explicitly set in your overrides file take precedence over the chart defaults.
+
+Apply through your normal Helm upgrade with the chart and backend from the release that introduces these settings. The backend rolls when these values change. If you previously set `INDEX_DB_CONNECTION_STRING` through `backend.extraEnv`, remove that entry to use these standalone settings; the complete connection string otherwise takes precedence. Preserve any custom connection or TLS options before removing an override.
+
+Increase limits one at a time while monitoring database load and request latency. Raising the pool limit increases potential database concurrency; raising command timeouts can keep connections occupied longer. Neither change is a substitute for diagnosing slow or blocked queries. See [environment variables](environment-variables.md#backend) for supported ranges and Compose equivalents.

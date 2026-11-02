@@ -375,6 +375,9 @@
           "required": ["writeBatchSize", "maxParallelWorkersPerGather", "synchronousCommit"],
           "properties": {
             "writeBatchSize": { "type": "integer", "minimum": 1, "maximum": 250 },
+            "maxPoolSize": { "type": "integer", "minimum": 1, "maximum": 1000 },
+            "connectionTimeoutSeconds": { "type": "integer", "minimum": 1, "maximum": 300 },
+            "commandTimeoutSeconds": { "type": "integer", "minimum": 1, "maximum": 3600 },
             "maxParallelWorkersPerGather": { "type": "integer", "minimum": 0 },
             "synchronousCommit": {
               "enum": ["off", "on", "local", "remote_write", "remote_apply"]
