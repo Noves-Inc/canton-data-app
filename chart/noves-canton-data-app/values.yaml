@@ -37,11 +37,11 @@ backend:
       # The main indexer will commit at most this many updates on each batch. Lower it for lower CPU usage.
       writeBatchSize: 250
       # Per-backend connection limit. Raising it also increases possible database load.
-      maxPoolSize: 20
+      maxPoolSize: 40
       # Deadline for opening or waiting for a database connection.
       connectionTimeoutSeconds: 15
       # Default SQL command deadline; individual operations can have tighter limits.
-      commandTimeoutSeconds: 30
+      commandTimeoutSeconds: 120
       # Keep 0 unless parallel PostgreSQL queries are known to fit the pod's shared memory.
       maxParallelWorkersPerGather: 0
       # "off" improves ingestion throughput but trades away synchronous WAL durability.

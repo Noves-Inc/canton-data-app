@@ -86,13 +86,13 @@ database_tuning_contracts() {
   render "$manifest" "$chart"
   assert_render "$manifest" database-defaults <<'PYTEST'
 env = {e['name']: e.get('value') for e in pod('backend')['spec']['containers'][0]['env']}
-for name, value in [('DATABASE_MAX_POOL_SIZE', '20'), ('DATABASE_CONNECTION_TIMEOUT_SECONDS', '15'), ('DATABASE_COMMAND_TIMEOUT_SECONDS', '30')]:
+for name, value in [('DATABASE_MAX_POOL_SIZE', '40'), ('DATABASE_CONNECTION_TIMEOUT_SECONDS', '15'), ('DATABASE_COMMAND_TIMEOUT_SECONDS', '120')]:
     check(env.get(name) == value, f"{name} default")
 PYTEST
-  render "$manifest" "$chart" --set backend.performance.database.maxPoolSize=40 --set backend.performance.database.connectionTimeoutSeconds=45 --set backend.performance.database.commandTimeoutSeconds=120
+  render "$manifest" "$chart" --set backend.performance.database.maxPoolSize=20 --set backend.performance.database.connectionTimeoutSeconds=45 --set backend.performance.database.commandTimeoutSeconds=30
   assert_render "$manifest" database-overrides <<'PYTEST'
 env = {e['name']: e.get('value') for e in pod('backend')['spec']['containers'][0]['env']}
-for name, value in [('DATABASE_MAX_POOL_SIZE', '40'), ('DATABASE_CONNECTION_TIMEOUT_SECONDS', '45'), ('DATABASE_COMMAND_TIMEOUT_SECONDS', '120')]:
+for name, value in [('DATABASE_MAX_POOL_SIZE', '20'), ('DATABASE_CONNECTION_TIMEOUT_SECONDS', '45'), ('DATABASE_COMMAND_TIMEOUT_SECONDS', '30')]:
     check(env.get(name) == value, f"{name} override")
 PYTEST
   for setting in maxPoolSize=0 maxPoolSize=1001 maxPoolSize=bad connectionTimeoutSeconds=0 connectionTimeoutSeconds=301 commandTimeoutSeconds=0 commandTimeoutSeconds=3601; do

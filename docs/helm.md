@@ -605,12 +605,12 @@ Set these independently in your values file; no connection-string Secret is need
 backend:
   performance:
     database:
-      maxPoolSize: 20
+      maxPoolSize: 40
       connectionTimeoutSeconds: 15
-      commandTimeoutSeconds: 30
+      commandTimeoutSeconds: 120
 ```
 
-These are the defaults. For example, set `commandTimeoutSeconds: 120` to allow a longer default SQL execution deadline. `connectionTimeoutSeconds` separately controls waiting for a connection, including when the pool is full. Neither setting changes browser or operation-specific deadlines.
+These are the Helm defaults: up to 40 connections per backend pool and a 120-second default SQL command deadline. `connectionTimeoutSeconds` separately controls waiting for a connection, including when the pool is full, and defaults to 15 seconds. These settings do not change browser or operation-specific deadlines. Values explicitly set in your overrides file take precedence over the chart defaults.
 
 Apply through your normal Helm upgrade with the chart and backend from the release that introduces these settings. The backend rolls when these values change. If you previously set `INDEX_DB_CONNECTION_STRING` through `backend.extraEnv`, remove that entry to use these standalone settings; the complete connection string otherwise takes precedence. Preserve any custom connection or TLS options before removing an override.
 

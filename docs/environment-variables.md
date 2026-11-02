@@ -96,9 +96,9 @@ Helm reads S3 settings from `exports.s3` and `backup.s3`. Compose reads them fro
 Database and read-model tuning:
 
 - `INDEX_DB_WRITE_BATCH_SIZE` defaults to `250`. Lower it for constrained storage.
-- `DATABASE_MAX_POOL_SIZE` defaults to `20` (range `1–1000`). Limits connections per backend pool; it does not change PostgreSQL's server connection limit. A larger pool can increase database CPU, memory and I/O pressure.
+- `DATABASE_MAX_POOL_SIZE` defaults to `40` in Helm and `20` in Compose or the backend when unset (range `1–1000`). Limits connections per backend pool; it does not change PostgreSQL's server connection limit. A larger pool can increase database CPU, memory and I/O pressure.
 - `DATABASE_CONNECTION_TIMEOUT_SECONDS` defaults to `15` (range `1–300`). Limits waiting to open or acquire a database connection.
-- `DATABASE_COMMAND_TIMEOUT_SECONDS` defaults to `30` (range `1–3600`). Sets the default SQL command timeout. Individual operations, request cancellation, and server-side statement timeouts can impose different deadlines. It does not extend the connection-acquisition timeout.
+- `DATABASE_COMMAND_TIMEOUT_SECONDS` defaults to `120` in Helm and `30` in Compose or the backend when unset (range `1–3600`). Sets the default SQL command timeout. Individual operations, request cancellation, and server-side statement timeouts can impose different deadlines. It does not extend the connection-acquisition timeout.
 
   These three settings apply when the backend builds its connection string from the individual `INDEX_DB_*` settings. An explicit `INDEX_DB_CONNECTION_STRING` retains precedence; adjust or remove that override to use the standalone settings. Configuration changes require a backend restart. Increasing timeouts does not remove database contention and can keep connections occupied longer.
 - `DATABASE_MAX_PARALLEL_WORKERS_PER_GATHER` defaults to `0`. Increase it only when parallel PostgreSQL queries fit the pod's shared memory.

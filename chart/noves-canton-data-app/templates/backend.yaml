@@ -119,11 +119,11 @@ spec:
                   name: {{ .Values.database.existingSecret }}
                   key: {{ .Values.database.passwordKey }}
             - name: DATABASE_MAX_POOL_SIZE
-              value: {{ .Values.backend.performance.database.maxPoolSize | default 20 | int64 | quote }}
+              value: {{ .Values.backend.performance.database.maxPoolSize | default 40 | int64 | quote }}
             - name: DATABASE_CONNECTION_TIMEOUT_SECONDS
               value: {{ .Values.backend.performance.database.connectionTimeoutSeconds | default 15 | int64 | quote }}
             - name: DATABASE_COMMAND_TIMEOUT_SECONDS
-              value: {{ .Values.backend.performance.database.commandTimeoutSeconds | default 30 | int64 | quote }}
+              value: {{ .Values.backend.performance.database.commandTimeoutSeconds | default 120 | int64 | quote }}
             - name: INDEX_DB_WRITE_BATCH_SIZE
               value: {{ .Values.backend.performance.database.writeBatchSize | int64 | quote }}
             - name: DATABASE_MAX_PARALLEL_WORKERS_PER_GATHER
