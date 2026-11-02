@@ -81,6 +81,25 @@ expect_render_failure() {
   }
 }
 
+database_tuning_contracts() {
+  local manifest="$scratch/database-tuning.yaml"
+  render "$manifest" "$chart"
+  assert_render "$manifest" database-defaults <<'PYTEST'
+env = {e['name']: e.get('value') for e in pod('backend')['spec']['containers'][0]['env']}
+for name, value in [('DATABASE_MAX_POOL_SIZE', '20'), ('DATABASE_CONNECTION_TIMEOUT_SECONDS', '15'), ('DATABASE_COMMAND_TIMEOUT_SECONDS', '30')]:
+    check(env.get(name) == value, f"{name} default")
+PYTEST
+  render "$manifest" "$chart" --set backend.performance.database.maxPoolSize=40 --set backend.performance.database.connectionTimeoutSeconds=45 --set backend.performance.database.commandTimeoutSeconds=120
+  assert_render "$manifest" database-overrides <<'PYTEST'
+env = {e['name']: e.get('value') for e in pod('backend')['spec']['containers'][0]['env']}
+for name, value in [('DATABASE_MAX_POOL_SIZE', '40'), ('DATABASE_CONNECTION_TIMEOUT_SECONDS', '45'), ('DATABASE_COMMAND_TIMEOUT_SECONDS', '120')]:
+    check(env.get(name) == value, f"{name} override")
+PYTEST
+  for setting in maxPoolSize=0 maxPoolSize=1001 maxPoolSize=bad connectionTimeoutSeconds=0 connectionTimeoutSeconds=301 commandTimeoutSeconds=0 commandTimeoutSeconds=3601; do
+    expect_render_failure database-invalid "${setting%%=*}" "$chart" --set "backend.performance.database.$setting"
+  done
+}
+
 default_render_contracts() {
   local manifest="$scratch/default.yaml"
   render "$manifest" "$chart"
@@ -772,16 +791,17 @@ PY
 }
 
 case "${1:-all}" in
-  all) default_render_contracts; existing_secret_contracts; replica_and_schema_contracts; long_name_contracts; reuse_values_contracts; future_digest_upgrade_contracts; lookup_contracts; init_permission_contracts ;;
-  render) default_render_contracts; existing_secret_contracts; replica_and_schema_contracts; long_name_contracts; reuse_values_contracts; future_digest_upgrade_contracts; lookup_contracts ;;
+  all) database_tuning_contracts; default_render_contracts; existing_secret_contracts; replica_and_schema_contracts; long_name_contracts; reuse_values_contracts; future_digest_upgrade_contracts; lookup_contracts; init_permission_contracts ;;
+  render) database_tuning_contracts; default_render_contracts; existing_secret_contracts; replica_and_schema_contracts; long_name_contracts; reuse_values_contracts; future_digest_upgrade_contracts; lookup_contracts ;;
   reuse-values) reuse_values_contracts ;;
   long-names) long_name_contracts ;;
+  database) database_tuning_contracts ;;
   default) default_render_contracts ;;
   existing) existing_secret_contracts ;;
   replicas) replica_and_schema_contracts ;;
   lookup) lookup_contracts ;;
   init-permissions) init_permission_contracts ;;
-  *) fail "Usage: $0 [all|render|default|existing|replicas|long-names|reuse-values|lookup|init-permissions]" ;;
+  *) fail "Usage: $0 [all|render|database|default|existing|replicas|long-names|reuse-values|lookup|init-permissions]" ;;
 esac
 
 echo "chart contracts passed"
