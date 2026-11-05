@@ -53,6 +53,41 @@ EMBED_ALLOWED_ORIGINS=https://host.example.com
 
 Omit the setting for a standalone deployment. See the [embedded mode guide](../embedded_mode.md).
 
+### LocalNet
+
+For LocalNet, set `CANTON_LOCALNET_IDENTITIES` in `.env` to match your network. Leave it empty for mainnet, testnet, and devnet.
+
+Use a single-quoted JSON array on one line:
+
+```dotenv
+CANTON_LOCALNET_IDENTITIES='[{"network":"localnet","epoch":"localnet-one","migrationId":0,"synchronizerId":"global-domain::1220<64 lowercase hex characters>","dsoParty":"DSO::1220<64 lowercase hex characters>"}]'
+```
+
+Replace the placeholders with your synchronizer ID and DSO party, and use your network's migration ID. Find the synchronizer ID in the participant's connected synchronizers; obtain the DSO party and migration ID from your LocalNet operator or deployment configuration.
+
+Each array entry must contain exactly these fields:
+
+| Field | Value |
+|---|---|
+| `network` | `localnet` |
+| `epoch` | A name for this LocalNet instance: 1–128 lowercase letters, digits, or hyphens, starting with a letter or digit. |
+| `migrationId` | The network's migration ID, a nonnegative integer. |
+| `synchronizerId` | The full synchronizer ID: `global-domain::1220` followed by 64 lowercase hexadecimal characters. |
+| `dsoParty` | The DSO party (not the validator party): `DSO::1220` followed by 64 lowercase hexadecimal characters. |
+
+Set the node's `synchronizer_alias` in `.state/nodes-config.json` to that synchronizer's alias. Include additional identities in the array for other LocalNets or earlier migrations whose history you need to index.
+
+Keep `epoch` unchanged across restarts and migrations of the same LocalNet. For a new LocalNet instance, use a new epoch and a fresh Data App database. The backend rejects a different epoch for a node already recorded in the database.
+
+For an existing installation, update `compose.yaml` to include this setting, then recreate the backend after editing `.env`:
+
+```bash
+cd "$APP_INSTALL_DIR/docker-compose"
+docker compose --env-file .env -f compose.yaml up -d --no-deps --force-recreate backend
+```
+
+A container restart alone does not apply environment changes. If readiness stays false at `network-identity`, check the backend logs and compare the configured alias and ID with the participant's connected synchronizers.
+
 ### Optional Ledger API TLS and mTLS
 
 `cert_file` verifies the participant's server certificate with a private CA. It accepts either one DER certificate or a PEM bundle containing multiple trust anchors; it is not a client certificate. When the Ledger API requires mTLS, copy the unencrypted PEM client identity into the mounted certificate directory:

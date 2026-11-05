@@ -56,7 +56,19 @@ Helm uses the matching `oidc.auth0` or `oidc.keycloak` values. Compose reads the
 ### Canton connection
 
 - The backend detects the Canton network from the configured synchronizer alias and its authenticated identity catalog; there is no operator network selector.
+- `CANTON_LOCALNET_IDENTITIES` defaults to empty. For LocalNet, set a JSON identity array in Compose's `.env` or Helm's `backend.extraEnv`. See the [LocalNet format and setup instructions](docker-compose.md#localnet).
 - `SCAN_PROXY_URL` comes from `canton.scanApiUrl` in Helm or `CANTON_SCAN_API_URL` in Compose. The defaults are `http://validator-app:5003/api/validator` for Helm and `http://validator:5003/api/validator` for Compose. It must be the validator application's scan-proxy base path (including `/api/validator`), not the bare service origin. Override the value when that address is not reachable.
+
+For Helm, add the identity array to your values file, replacing the placeholders and preserving existing `backend.extraEnv` entries:
+
+```yaml
+backend:
+  extraEnv:
+    - name: CANTON_LOCALNET_IDENTITIES
+      value: '[{"network":"localnet","epoch":"localnet-one","migrationId":0,"synchronizerId":"global-domain::1220<64 lowercase hex characters>","dsoParty":"DSO::1220<64 lowercase hex characters>"}]'
+```
+
+Apply the values with `helm upgrade` to roll the backend pod.
 
 Ledger API TLS and mTLS do not add container environment variables. Helm configures each connection under `canton.nodes[].tls`; its Secret is mounted only in the backend under `/certificates/nodes/<node-id>`. Compose uses `cert_file`, `client_cert_file`, `client_key_file`, and `tls_server_name` in `.state/nodes-config.json`, with certificate files mounted read-only under `/certificates`. See the [Helm](helm.md#4-create-application-secrets) or [Docker Compose](docker-compose.md#optional-ledger-api-tls-and-mtls) instructions.
 
