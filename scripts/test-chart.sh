@@ -75,7 +75,13 @@ expect_render_failure() {
   if helm template cda "$chart_dir" --namespace cda-test --values "$values" "$@" >"$scratch/failure.out" 2>&1; then
     fail "[$label] render succeeded"
   fi
-  grep -Fq -- "$expected" "$scratch/failure.out" || { echo "args: $*" >&2;
+  # Helm versions render schema paths either as JSON pointers or dotted keys.
+  # Require the same field in either form; rendering must still have failed.
+  local dotted="${expected#/}"
+  dotted="${dotted//\//.}"
+  grep -Fq -- "$expected" "$scratch/failure.out" || {
+    [[ "$expected" == /* ]] && grep -Fq -- "$dotted" "$scratch/failure.out"
+  } || { echo "args: $*" >&2;
     cat "$scratch/failure.out" >&2
     fail "[$label] failure does not mention: $expected"
   }
@@ -88,6 +94,7 @@ database_tuning_contracts() {
 env = {e['name']: e.get('value') for e in pod('backend')['spec']['containers'][0]['env']}
 for name, value in [('DATABASE_MAX_POOL_SIZE', '40'), ('DATABASE_CONNECTION_TIMEOUT_SECONDS', '15'), ('DATABASE_COMMAND_TIMEOUT_SECONDS', '120')]:
     check(env.get(name) == value, f"{name} default")
+check(env.get('DATABASE_VOLUME_USAGE_LIMIT') == '0.85', 'database volume usage default')
 PYTEST
   render "$manifest" "$chart" --set backend.performance.database.maxPoolSize=20 --set backend.performance.database.connectionTimeoutSeconds=45 --set backend.performance.database.commandTimeoutSeconds=30
   assert_render "$manifest" database-overrides <<'PYTEST'
@@ -98,6 +105,21 @@ PYTEST
   for setting in maxPoolSize=0 maxPoolSize=1001 maxPoolSize=bad connectionTimeoutSeconds=0 connectionTimeoutSeconds=301 commandTimeoutSeconds=0 commandTimeoutSeconds=3601; do
     expect_render_failure database-invalid "${setting%%=*}" "$chart" --set "backend.performance.database.$setting"
   done
+  for limit in 0.9 1; do
+    # A values file keeps the ratio numeric; Helm --set treats decimal values as strings.
+    printf 'backend:\n  performance:\n    readModel:\n      databaseVolumeUsageLimit: %s\n' "$limit" >"$scratch/volume-limit.yaml"
+    render "$manifest" "$chart" --values "$scratch/volume-limit.yaml"
+    assert_render "$manifest" "volume-limit-override-$limit" <<'PYTEST'
+env = {e['name']: e.get('value') for e in pod('backend')['spec']['containers'][0]['env']}
+check(float(env['DATABASE_VOLUME_USAGE_LIMIT']) == float(label.rsplit('-', 1)[1]), 'database volume usage override')
+PYTEST
+  done
+  for limit in 0 -0.1 1.01 '"bad"' '"NaN"'; do
+    printf 'backend:\n  performance:\n    readModel:\n      databaseVolumeUsageLimit: %s\n' "$limit" >"$scratch/volume-limit.yaml"
+    expect_render_failure volume-limit-invalid databaseVolumeUsageLimit "$chart" --values "$scratch/volume-limit.yaml"
+  done
+  printf 'backend:\n  performance:\n    readModel:\n      databaseVolumeUsageLimit: .inf\n' >"$scratch/volume-limit.yaml"
+  expect_render_failure volume-limit-nonfinite 'unsupported value' "$chart" --values "$scratch/volume-limit.yaml"
 }
 
 default_render_contracts() {

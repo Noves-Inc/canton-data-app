@@ -121,7 +121,7 @@ Database and read-model tuning:
   storage is requested (`256Gi`, `500G`) or as plain bytes. A release that changes how transaction
   history is defined rebuilds every materialization, writing the new copy beside the one still being
   served, so the database is briefly larger than its settled size. Background indexing pauses at 85%
-  of this figure and resumes once the retired copies are removed, instead of filling the volume.
+  of this figure by default and resumes below 82.45%, instead of filling the volume.
   Reads and live indexing are never held back by it. Unset, or `0`, leaves the limit unevaluated and
   is the behaviour of earlier releases.
 
@@ -135,7 +135,7 @@ Database and read-model tuning:
   way back, which the app reports as an error at startup.
 
   The figure the app compares against it is the size of the database. A volume also carries the
-  write-ahead log and temporary files, which is why the limit sits at 85% rather than at the brim.
+  write-ahead log and temporary files, which is why the default limit sits at 85% rather than at the brim.
   On a volume shared with anything other than this database, declare the share this database may
   use rather than the size of the disk.
 
@@ -144,6 +144,18 @@ Database and read-model tuning:
   role the app connects as to own its tables, which is the case for every installation the chart or
   the Compose bundle creates. An installation that migrates as one role and runs as another keeps
   working but reclaims nothing, and says so in the log.
+- `DATABASE_VOLUME_USAGE_LIMIT` sets the fraction of the declared database capacity at which
+  background indexing pauses. It defaults to `0.85`; use a finite number greater than `0` and at
+  most `1`. Helm uses `backend.performance.readModel.databaseVolumeUsageLimit` as a numeric value
+  (for example, `databaseVolumeUsageLimit: 0.9` in your values file). After a pause, usage must fall
+  below 97% of the chosen limit before indexing resumes: the default resumes below 82.45%, and a
+  limit of `0.9` resumes below 87.3%. Changing the setting requires a backend restart. It has no
+  effect when `DATABASE_VOLUME_CAPACITY` is unset or `0`.
+
+  Check actual free disk space before raising the limit. This comparison uses database size and
+  the declared capacity, not measured filesystem usage; it does not include WAL, temporary files,
+  or other data on the volume. Raising it adds no storage and does not override other resource
+  safeguards. Keep sufficient space for those files, background work, and ongoing ledger growth.
 - `BACKGROUND_INDEXING_DUTY_PERCENT` defaults to `100`. Values from `1` through `99` pace background indexing.
 
 Stream delivery tuning:
