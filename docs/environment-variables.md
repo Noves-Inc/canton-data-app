@@ -147,10 +147,15 @@ Database and read-model tuning:
 - `DATABASE_VOLUME_USAGE_LIMIT` sets the fraction of the declared database capacity at which
   background indexing pauses. It defaults to `0.85`; use a finite number greater than `0` and at
   most `1`. Helm uses `backend.performance.readModel.databaseVolumeUsageLimit` as a numeric value
-  (for example, `databaseVolumeUsageLimit: 0.9` in your values file). After a pause, usage must fall
+  (for example, `databaseVolumeUsageLimit: 0.9` in your values file). On the command line use
+  `--set-json backend.performance.readModel.databaseVolumeUsageLimit=0.9`: `--set` passes the
+  value as a string, which the chart rejects. After a pause, usage must fall
   below 97% of the chosen limit before indexing resumes: the default resumes below 82.45%, and a
   limit of `0.9` resumes below 87.3%. Changing the setting requires a backend restart. It has no
   effect when `DATABASE_VOLUME_CAPACITY` is unset or `0`.
+
+  This setting requires a Data App release later than 4.2.7. Backends 4.2.7 and earlier
+  ignore it and always pause at 85%.
 
   Check actual free disk space before raising the limit. This comparison uses database size and
   the declared capacity, not measured filesystem usage; it does not include WAL, temporary files,

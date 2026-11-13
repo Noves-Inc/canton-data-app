@@ -63,6 +63,8 @@ backend:
       databaseVolumeCapacity: ""
       # Fraction of declared database capacity at which background indexing pauses (0 < value <= 1).
       # Resumes below 97% of this limit. Leave room for WAL, temporary files and ongoing growth.
+      # Requires a Data App release later than 4.2.7; earlier backends ignore it and use 0.85.
+      # Pass it with --set-json or a values file: --set makes it a string, which the schema rejects.
       databaseVolumeUsageLimit: 0.85
       # 100 runs normally. Values 1-99 pace background indexing to leave foreground headroom.
       backgroundIndexingDutyPercent: 100
