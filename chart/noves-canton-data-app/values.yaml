@@ -52,8 +52,8 @@ backend:
       reservedLiveCapacity: 1
       # Size of the volume the database is stored on, written the way the storage is requested
       # ("256Gi"). A release that changes how history is defined rebuilds every materialization,
-      # writing the new copy beside the one still serving, and background indexing pauses at 85%
-      # of this figure instead of filling the disk. Raising the real volume later does not lift
+      # writing the new copy beside the one still serving. By default, background indexing pauses
+      # at 85% of this figure instead of filling the disk. Raising the real volume later does not lift
       # the pause on its own: this is the figure the app reads, so it has to move too.
       #
       # Empty takes database.persistence.size, which is the right answer only when the chart
@@ -61,6 +61,11 @@ backend:
       # chart did not create (database.persistence.existingClaim, or migration.existingClaim
       # while migration.enabled), where the default is "0" and leaves the limit unevaluated.
       databaseVolumeCapacity: ""
+      # Fraction of declared database capacity at which background indexing pauses (0 < value <= 1).
+      # Resumes below 97% of this limit. Leave room for WAL, temporary files and ongoing growth.
+      # Requires a Data App release later than 4.2.7; earlier backends ignore it and use 0.85.
+      # Pass it with --set-json or a values file: --set makes it a string, which the schema rejects.
+      databaseVolumeUsageLimit: 0.85
       # 100 runs normally. Values 1-99 pace background indexing to leave foreground headroom.
       backgroundIndexingDutyPercent: 100
   # Streaming runs inside the backend. Tune only after measuring delivery latency, query load,
