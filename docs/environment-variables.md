@@ -97,6 +97,9 @@ Helm reads S3 settings from `exports.s3` and `backup.s3`. Compose reads them fro
 - `INDEX_DB_PORT` defaults to `5432`.
 - `PGDATA` is set by Compose to `/home/postgres/pgdata/data`.
 
+For PostgreSQL query identifiers, I/O timing, and externally managed database setup,
+see [Database observability](database-observability.md).
+
 
 
 ### Backend
