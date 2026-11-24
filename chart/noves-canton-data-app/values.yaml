@@ -13,8 +13,8 @@ backend:
   replicaCount: 1
   image:
     repository: ghcr.io/noves-inc/noves-canton-backend-v4
-    tag: "4.2.8"
-    digest: "sha256:bc1b5674d0a1ebfcdd1b1e60cda5d00a6cfe7bcccc73ab5033ac774ee325124d"
+    tag: "4.2.9"
+    digest: "sha256:48925933804c1b2438418d836fa0ab362d1f052af9810d7584ecc7937fb5f585"
     pullPolicy: IfNotPresent
   podSecurityContext:
     fsGroup: 1654
@@ -42,6 +42,9 @@ backend:
       connectionTimeoutSeconds: 15
       # Default SQL command deadline; individual operations can have tighter limits.
       commandTimeoutSeconds: 120
+      # Optional temporary-file budget per PostgreSQL process, in MiB (e.g. 8192).
+      # Unset preserves the existing setting and the default 2 GiB ceiling. Requires 4.2.9+.
+      tempFileLimitMb: null
       # Keep 0 unless parallel PostgreSQL queries are known to fit the pod's shared memory.
       maxParallelWorkersPerGather: 0
       # "off" improves ingestion throughput but trades away synchronous WAL durability.
@@ -97,8 +100,8 @@ frontend:
   replicaCount: 1
   image:
     repository: ghcr.io/noves-inc/noves-canton-frontend-v4
-    tag: "4.2.8"
-    digest: "sha256:db6d46f5a08213a4951568b0d848923960388e578b3a02b9fdcf917d5e5911eb"
+    tag: "4.2.9"
+    digest: "sha256:1c4ecba78eacc8f8fc086889e5b62d60680e665bbdb266c6bdfd737cf95371f3"
     pullPolicy: IfNotPresent
   podSecurityContext:
     seccompProfile:
@@ -132,8 +135,8 @@ database:
   tolerations: null
   image:
     repository: ghcr.io/noves-inc/noves-canton-database-v4
-    tag: "4.2.8"
-    digest: "sha256:72161be98d72d01b3b58262b8b1a78122969410caea8c1d7cfd8c3222e7e1d7e"
+    tag: "4.2.9"
+    digest: "sha256:a8408a475530f89f482454527ed9c216e30cd1aba7b6bf94e8ae1c6626e6cee3"
     pullPolicy: IfNotPresent
   podSecurityContext:
     runAsNonRoot: true

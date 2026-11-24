@@ -117,6 +117,17 @@ Database and read-model tuning:
 
   These three settings apply when the backend builds its connection string from the individual `INDEX_DB_*` settings. An explicit `INDEX_DB_CONNECTION_STRING` retains precedence; adjust or remove that override to use the standalone settings. Configuration changes require a backend restart. Increasing timeouts does not remove database contention and can keep connections occupied longer.
 - `DATABASE_MAX_PARALLEL_WORKERS_PER_GATHER` defaults to `0`. Increase it only when parallel PostgreSQL queries fit the pod's shared memory.
+- `DATABASE_TEMP_FILE_LIMIT_MB` is supported in **4.2.9+**, is unset by default in Helm and Compose,
+  and accepts an integer from `1` to `2097151` MiB. It sets a finite temporary-file budget per
+  PostgreSQL process, including individual parallel workers; it does not increase physical storage.
+  `8192` allows 8 GiB. Automatic startup applies it to the runtime role and validates a fresh
+  connection. Restricted migration owners need an administrator to preconfigure the same global
+  runtime-role default; `validate` mode never changes it. Unlike the connection tuning above, this
+  setting also applies with `INDEX_DB_CONNECTION_STRING`. Restart the backend after a change.
+  Omitting it preserves the earlier 2 GiB validation ceiling. Before downgrading to an older backend,
+  restore 2048 MiB or less using 4.2.9 and restart. If already rolled back, an administrator can run
+  `ALTER ROLE "<runtime-role>" SET temp_file_limit = '2GB';` and recycle runtime connections; restore any conflicting database/session override too.
+  The setting is global to the runtime role, so use a dedicated role on shared servers. A larger budget is not a fix for lock timeouts.
 - `DATABASE_SYNCHRONOUS_COMMIT` defaults to `off`. Changing it trades ingestion throughput for stronger synchronous WAL durability.
 - `READ_MODEL_TOTAL_CAPACITY` defaults to `4`.
 - `READ_MODEL_RESERVED_LIVE_CAPACITY` defaults to `1` and must remain lower than total capacity.
