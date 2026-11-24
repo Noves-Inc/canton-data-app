@@ -492,7 +492,7 @@ version; the checkout supplies its default but the helper never installs the loc
 scripts/install-helm.sh \
   --kube-context "$KUBE_CONTEXT" \
   --namespace "$NAMESPACE" \
-  --version 4.2.8 \
+  --version 4.2.9 \
   --values /secure/path/values.yaml
 ```
 
@@ -501,7 +501,7 @@ The equivalent direct command is context- and version-explicit:
 ```bash
 helm upgrade --install noves-canton-data-app \
   oci://ghcr.io/noves-inc/charts/noves-canton-app \
-  --version 4.2.8 \
+  --version 4.2.9 \
   --kube-context "$KUBE_CONTEXT" \
   --namespace "$NAMESPACE" \
   --values enterprise-values.yaml \
@@ -608,6 +608,8 @@ backend:
       maxPoolSize: 40
       connectionTimeoutSeconds: 15
       commandTimeoutSeconds: 120
+      # Optional; leave unset to preserve the existing budget.
+      # tempFileLimitMb: 8192
 ```
 
 These are the Helm defaults: up to 40 connections per backend pool and a 120-second default SQL command deadline. `connectionTimeoutSeconds` separately controls waiting for a connection, including when the pool is full, and defaults to 15 seconds. These settings do not change browser or operation-specific deadlines. Values explicitly set in your overrides file take precedence over the chart defaults.
@@ -615,3 +617,32 @@ These are the Helm defaults: up to 40 connections per backend pool and a 120-sec
 Apply through your normal Helm upgrade with the chart and backend from the release that introduces these settings. The backend rolls when these values change. If you previously set `INDEX_DB_CONNECTION_STRING` through `backend.extraEnv`, remove that entry to use these standalone settings; the complete connection string otherwise takes precedence. Preserve any custom connection or TLS options before removing an override.
 
 Increase limits one at a time while monitoring database load and request latency. Raising the pool limit increases potential database concurrency; raising command timeouts can keep connections occupied longer. Neither change is a substitute for diagnosing slow or blocked queries. See [environment variables](environment-variables.md#backend) for supported ranges and Compose equivalents.
+
+Starting with **4.2.9**, `tempFileLimitMb` controls PostgreSQL temporary-file space per process,
+independently of the volume capacity and command timeout. For example, `tempFileLimitMb: 8192`
+allows 8 GiB per process. When unset, existing settings are preserved and the earlier 2 GiB ceiling remains in force. Use a finite budget that fits the actual
+free database storage and concurrent queries; parallel workers can each consume their own budget.
+Increasing this value does not resolve lock contention or guarantee that an export will complete.
+Keep an explicitly raised value in your values file on later upgrades. Removing the override
+restores the earlier validation ceiling and refuses startup if the effective role budget is still above 2 GiB.
+
+The backend applies this setting to its runtime database role during automatic startup and checks
+it on a fresh connection. With restricted migration credentials, a database administrator must
+preconfigure that role's global `temp_file_limit` to the same value, for example:
+
+```sql
+ALTER ROLE "<runtime-role>" SET temp_file_limit = '8192MB';
+```
+
+This is a server-wide default for that role: use a dedicated runtime role on a shared server.
+Database/session overrides must match the configured budget; conflicting overrides fail validation.
+External connection poolers must recycle existing server connections to pick up a new role default. In migration `validate` mode,
+the backend checks the effective value without changing it. The setting also applies when an
+explicit connection string is used. Restart the backend after changing it.
+
+Before downgrading to 4.2.8 or earlier, set the budget back to 2048 MiB or less while running 4.2.9
+and restart it to apply the change: older backends reject values above 2 GiB at startup.
+Do this before `helm rollback`, which changes the backend image and values together. If already
+rolled back, a database administrator can restore the global runtime-role setting with
+`ALTER ROLE "<runtime-role>" SET temp_file_limit = '2GB';` and recycle runtime connections.
+Restore any database/session override above 2 GiB too.

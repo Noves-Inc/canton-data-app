@@ -124,6 +124,10 @@ spec:
               value: {{ .Values.backend.performance.database.connectionTimeoutSeconds | default 15 | int64 | quote }}
             - name: DATABASE_COMMAND_TIMEOUT_SECONDS
               value: {{ .Values.backend.performance.database.commandTimeoutSeconds | default 120 | int64 | quote }}
+            {{- with .Values.backend.performance.database.tempFileLimitMb }}
+            - name: DATABASE_TEMP_FILE_LIMIT_MB
+              value: {{ . | int64 | quote }}
+            {{- end }}
             - name: INDEX_DB_WRITE_BATCH_SIZE
               value: {{ .Values.backend.performance.database.writeBatchSize | int64 | quote }}
             - name: DATABASE_MAX_PARALLEL_WORKERS_PER_GATHER

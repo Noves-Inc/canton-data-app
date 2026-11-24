@@ -378,6 +378,7 @@
             "maxPoolSize": { "type": "integer", "minimum": 1, "maximum": 1000 },
             "connectionTimeoutSeconds": { "type": "integer", "minimum": 1, "maximum": 300 },
             "commandTimeoutSeconds": { "type": "integer", "minimum": 1, "maximum": 3600 },
+            "tempFileLimitMb": { "type": ["integer", "null"], "minimum": 1, "maximum": 2097151 },
             "maxParallelWorkersPerGather": { "type": "integer", "minimum": 0 },
             "synchronousCommit": {
               "enum": ["off", "on", "local", "remote_write", "remote_apply"]

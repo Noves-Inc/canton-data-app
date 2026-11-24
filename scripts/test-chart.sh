@@ -94,15 +94,16 @@ database_tuning_contracts() {
 env = {e['name']: e.get('value') for e in pod('backend')['spec']['containers'][0]['env']}
 for name, value in [('DATABASE_MAX_POOL_SIZE', '40'), ('DATABASE_CONNECTION_TIMEOUT_SECONDS', '15'), ('DATABASE_COMMAND_TIMEOUT_SECONDS', '120')]:
     check(env.get(name) == value, f"{name} default")
+check('DATABASE_TEMP_FILE_LIMIT_MB' not in env, 'unset temp budget preserves existing defaults')
 check(env.get('DATABASE_VOLUME_USAGE_LIMIT') == '0.85', 'database volume usage default')
 PYTEST
-  render "$manifest" "$chart" --set backend.performance.database.maxPoolSize=20 --set backend.performance.database.connectionTimeoutSeconds=45 --set backend.performance.database.commandTimeoutSeconds=30
+  render "$manifest" "$chart" --set backend.performance.database.maxPoolSize=20 --set backend.performance.database.connectionTimeoutSeconds=45 --set backend.performance.database.commandTimeoutSeconds=30 --set backend.performance.database.tempFileLimitMb=8192
   assert_render "$manifest" database-overrides <<'PYTEST'
 env = {e['name']: e.get('value') for e in pod('backend')['spec']['containers'][0]['env']}
-for name, value in [('DATABASE_MAX_POOL_SIZE', '20'), ('DATABASE_CONNECTION_TIMEOUT_SECONDS', '45'), ('DATABASE_COMMAND_TIMEOUT_SECONDS', '30')]:
+for name, value in [('DATABASE_MAX_POOL_SIZE', '20'), ('DATABASE_CONNECTION_TIMEOUT_SECONDS', '45'), ('DATABASE_COMMAND_TIMEOUT_SECONDS', '30'), ('DATABASE_TEMP_FILE_LIMIT_MB', '8192')]:
     check(env.get(name) == value, f"{name} override")
 PYTEST
-  for setting in maxPoolSize=0 maxPoolSize=1001 maxPoolSize=bad connectionTimeoutSeconds=0 connectionTimeoutSeconds=301 commandTimeoutSeconds=0 commandTimeoutSeconds=3601; do
+  for setting in maxPoolSize=0 maxPoolSize=1001 maxPoolSize=bad connectionTimeoutSeconds=0 connectionTimeoutSeconds=301 commandTimeoutSeconds=0 commandTimeoutSeconds=3601 tempFileLimitMb=0 tempFileLimitMb=-1 tempFileLimitMb=2097152 tempFileLimitMb=bad; do
     expect_render_failure database-invalid "${setting%%=*}" "$chart" --set "backend.performance.database.$setting"
   done
   for limit in 0.9 1; do
