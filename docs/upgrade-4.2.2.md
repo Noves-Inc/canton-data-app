@@ -1,6 +1,6 @@
-# Upgrade to 4.2.9
+# Upgrade to 4.2.11
 
-4.2.9 includes the installation security requirements described below. Upgrade with the full 4.2.9 bundle, either the Docker Compose bundle or the Helm chart. Changing only the image tag is not supported: the bundle carries the configuration the new backend requires.
+4.2.11 includes the installation security requirements described below. Upgrade with the full 4.2.11 bundle, either the Docker Compose bundle or the Helm chart. Changing only the image tag is not supported: the bundle carries the configuration the new backend requires.
 
 Upgrade directly from any published release 4.0.0 or later. Keep your installation configuration, credentials, and database volume. Take a database backup first and retain the installation KEK with it until the upgrade is verified.
 
@@ -8,19 +8,19 @@ Upgrade directly from any published release 4.0.0 or later. Keep your installati
 
 ## Requirements
 
-- Installation KEK file: the backend requires the installation KEK. Compose installations get `.state/installation-kek` when you rerun `scripts/install-compose.sh --directory <same directory>` from the 4.2.9 bundle; back it up together with the database. Helm installations that manage Secrets themselves must create the KEK and canary Secrets first, as described in [Manage the installation Secrets yourself](helm.md#manage-the-installation-secrets-yourself).
+- Installation KEK file: the backend requires the installation KEK. Compose installations get `.state/installation-kek` when you rerun `scripts/install-compose.sh --directory <same directory>` from the 4.2.11 bundle; back it up together with the database. Helm installations that manage Secrets themselves must create the KEK and canary Secrets first, as described in [Manage the installation Secrets yourself](helm.md#manage-the-installation-secrets-yourself).
 - Enrollment: the installation must be enrolled so that per-installation credentials are active. Rerunning the installer enrolls it; changing image pins alone leaves credentials disabled.
 - Declare `DATABASE_VOLUME_CAPACITY` (Compose) or `backend.performance.readModel.databaseVolumeCapacity` (Helm). See [Environment variables](environment-variables.md).
 
 ## Docker Compose
 
-Rerun `scripts/install-compose.sh --directory <same directory>` from the 4.2.9 bundle. Preserve `.env` and `.state`, including the installation KEK and certificates. See the [Compose upgrade procedure](docker-compose.md#operations-and-upgrades).
+Rerun `scripts/install-compose.sh --directory <same directory>` from the 4.2.11 bundle. Preserve `.env` and `.state`, including the installation KEK and certificates. See the [Compose upgrade procedure](docker-compose.md#operations-and-upgrades).
 
 The upgrade recreates the three containers, so their addresses on the Docker network change. If a reverse proxy in front of the Data App reaches the containers by name (for example nginx `proxy_pass http://noves-canton-frontend-v4:3000`), reload it after the upgrade (`nginx -s reload`); otherwise it keeps the previous addresses and answers 502.
 
 ## Helm
 
-Upgrade with a values file containing only your overrides, as described in [Helm installation](helm.md#4-create-application-secrets). Use the 4.2.9 chart and preserve the installation Secrets and database volume. Never use `--reuse-values`.
+Upgrade with a values file containing only your overrides, as described in [Helm installation](helm.md#4-create-application-secrets). Use the 4.2.11 chart and preserve the installation Secrets and database volume. Never use `--reuse-values`.
 
 ## Pruned participants
 
@@ -28,7 +28,7 @@ If your participant has pruned its ledger history, preserve your existing databa
 
 ## Verify the upgrade
 
-Wait for backend readiness, then confirm sign-in, account access, the selected validator, and version 4.2.9 in the frontend. Check Canton Coin balances, transaction history, and exports. Background initialization may continue after startup; check unresolved errors through a fresh diagnostic report. Account access errors should be investigated separately from the plan displayed while account verification is unavailable.
+Wait for backend readiness, then confirm sign-in, account access, the selected validator, and version 4.2.11 in the frontend. Check Canton Coin balances, transaction history, and exports. Background initialization may continue after startup; check unresolved errors through a fresh diagnostic report. Account access errors should be investigated separately from the plan displayed while account verification is unavailable.
 
 Public party search, exports, and validator views require the applicable account access. Public financial, activity, and raw-data exports work without indexing the party locally. Accounting rollups and cost-basis exports still require indexed party history.
 
